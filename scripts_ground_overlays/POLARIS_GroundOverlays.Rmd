@@ -1,0 +1,466 @@
+---
+title: "POLARIS ground overlays"
+author: "D G Rossiter"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    fig_align: center
+    fig_height: 6
+    fig_width: 6
+    number_section: yes
+    theme: spacelab
+    df_print: paged
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center', fig.path = './figs/groundoverlay_polaris/')
+knitr::opts_chunk$set(cache.extra = R.version.string)
+```
+
+# Objective
+
+The aim of this script is to facilitate evaluation of POLARIS soil properties 30 m gridded maps. Here we create ground overlay KML files for display in Google Earth. 
+This should facilitiate a qualitative evaluation of the pattern of POLARIS predictions, because they can be visualized on the land cover and terrain.
+
+_POLARIS_ is the result of harmonizing diverse SSURGO and STATSGO polygon data with the DSMART algorithm to produce a raster soil series map (30 m resolution) and then extracting property information from Official Series Descriptions.
+It is explained in: Chaney, N. W., Minasny, B., Herman, J. D., Nauman, T. W., Brungard, C. W., Morgan, C. L. S., McBratney, A. B., Wood, E. F., & Yimam, Y. (2019). POLARIS soil properties: 30-m probabilistic maps of soil properties over the contiguous United States. Water Resources Research, 55(4), 2916–2938. Scopus. https://doi.org/10.1029/2018WR022797 
+
+The overlay can be displayed along with [SoilWeb Apps](https://casoilresource.lawr.ucdavis.edu/soilweb-apps/), including SoilWeb Earth which displays SSURGO (detailed) or NATSGO (generalized) soil map units in Google Earth. The USA has a long-established soil survey, and most of the lower 48 States have been mapped in detail with extensive field investigation and compiled into polygon maps.
+
+# Usage
+
+This documents has two parts. The first is a step-by-step explanation with a single Area of Interest (AOI) which can be adjusted manually [in this section](#aoi), property, depth and quantile, which can be adjusted manually [in this section](#voi). The second is a self-contained [function](#function) to carry out the analysis for a user-selected set of properties, depths and quantiles for a single AOI and save all the results in the file system; this is [here](#compute).  When compiling this document with `knitr`, sample calls to the function are suppressed with the `eval=FALSE` markdown tag.
+
+_Usage (1)_: To create one overlay step-by-step, specify an area of interest (AOI) [in this section](#aoi), and a property, depth and quantile [in this section](#voi). Then either run directly within R Studio or knit to HTML. The ground overlay (as PNG graphics file) and KML specification will be placed in the directory structure based on the AOI, property, depth and quantile. Open the KML in Google Earth and adjust transparency as desired.
+
+_Usage (2)_: To create one more more overlays with the function, first run [this code](#function) to define the function `make.ground.overlay` in your workspace, and then call it, as shown with examples in [this section](#compute).
+
+# Setup
+Here is the base URL for local storage of the downloaded POLARIS coverage and the PNG/KML built from this. Adjust to your system.
+
+
+## Storage
+
+```{r}
+base.dir <- "/Users/rossiter/ds/"
+base.dir.polaris <- paste0(base.dir, "POLARIS")
+base.dir.import <- "/Volumes/Pythagoras/ds/"
+base.dir.polaris.import <- paste0(base.dir.import, "POLARIS")
+```
+
+## Packages
+
+```{r message=FALSE}
+options("rgdal_show_exportToProj4_warnings"="none") 
+library(terra)          # raster data, replaces `raster`
+library(raster)         # some functions still not in `terra`
+library(rgdal)          # GDAL access from R
+library(gdalUtils)      # wrappers for GDAL utility programs that could be
+                        #  called from the command line
+library(sf)             # spatial data types 
+library(sp)             # older representation of spatial data types
+library(maptools)       # create KML overlays, among others
+```
+
+## Set variable of interest {#voi}
+
+Define the variables for the POLARIS soil property and layer of interest. See [here](https://www.isric.org/explore/soilgrids/faq-soilgrids#What_do_the_filename_codes_mean) for the naming conventions and units of measure.
+
+Here are lists of the legal properties, quantiles, and depth slices:
+
+```{r}
+voi.list <- c("alpha", "bd", "clay", "hb", "ksat", "lambda", "n", "om", "ph", "sand", "silt", "theta_r", "theta_s")
+quantile.list <- c("p5", "p50", "p95", "mean")
+depth.list <- c("0_5", "5_15", "15_30", "30_60", "60_100", "100_200")
+```
+
+Set the property, depth and quantile:
+
+```{r}
+voi <- "clay"   # variable of interest
+depth <- "30_60" # depth slice
+quantile <- "mean"  # quantile or mean
+## a title for graphs
+voi_layer <- paste(voi, paste0(depth,"cm"), quantile, sep="_")
+```
+
+## Define Area of Interest (AOI) {#aoi}
+
+
+POLARIS is organized as $1 \times 1^\circ$ tiles, download [here](http://hydrology.cee.duke.edu/POLARIS/PROPERTIES/v1.0).
+These are organized as hierarchical directory: property, depth, quantile.
+The file name contains the tile bounding box, e.g. `lat4142_lon-78-77.tif`.
+
+Specify the lower-right corner using WGS84 geographic coordinates, in degrees.
+
+```{r}
+# tile.lrc <- c(-122, 46) # lower-right corner: Centralia WA
+# tile.lrc <- c(-76, 42) # lower-right corner: central NY
+# tile.lrc <- c(-76, 35)   # lower-right corner: coastal plain NC
+# tile.lrc <- c(119, 32)   # lower-right corner: Nanjing area
+# tile.lrc <- c(-76, 42)   # lower-right corner: northern tier PA, southern tier NY
+tile.lrc <- c(-91, 36)   # lower-right corner: MO/AR central border
+```
+
+## Subtile
+
+Since we are interested in the detailed spatial pattern compared to gSSURGO and the background land use, we will view the overlay over a small area, about 3' N/S and proportionally more E/W depending on the latitude. For larger areas SoilWeb shows the generalized gNATSGO lines, which are not useful for our purpose.
+
+So the $1 \times 1^\circ$ tile contains about $60/3 = 20$ subtiles. Specify the lower-right corner of the subtile as an offset in minutes:
+
+```{r}
+subtile.offset.long <- 0  # minutes offst from lrc, longitude
+subtile.offset.lat <- 15   # minutes offst from lrc, latitude
+subtile.size <- 30  # minutes in long and lat
+```
+
+Compute the bounding box:
+
+```{r}
+.tile.ulc <- c(tile.lrc[1]-1, tile.lrc[2]+1) # upper-left corner
+.m <- matrix(c(.tile.ulc[1],tile.lrc[1],  #ulc
+              .tile.ulc[2], tile.lrc[2]  #lrc
+              ), nrow=2)
+bb.ll <- st_sfc(st_multipoint(.m))
+st_crs(bb.ll) <- 4326
+```
+
+A prefix for directories, to keep AOI results separate.
+
+```{r}
+AOI.dir.prefix <- paste0("lat", tile.lrc[2], .tile.ulc[2],
+                         "_lon", .tile.ulc[1], tile.lrc[1])
+```
+
+The destination directory for the tile, and another for the ground overlay:
+
+```{r}
+import.dir <-  paste0(base.dir.polaris.import, "/",
+                            AOI.dir.prefix, "/",
+                            voi, "/", 
+                            quantile, "/", 
+                            depth)
+if (!dir.exists(import.dir)) {
+   dir.create(import.dir, recursive = TRUE)
+}
+dest.dir <-  paste0(base.dir.polaris, "/",
+                            AOI.dir.prefix, "/",
+                            voi, "/", 
+                            quantile, "/", 
+                            depth)
+if (!dir.exists(dest.dir)) {
+   dir.create(dest.dir, recursive = TRUE)
+}
+```
+
+# Get the POLARIS tile
+
+Download the tile.
+
+```{r}
+tile <- paste0("lat", tile.lrc[2], .tile.ulc[2],
+                        "_lon", .tile.ulc[1], tile.lrc[1],
+                        ".tif")
+dest.file <- paste0(import.dir, "/", tile)
+if (!file.exists(dest.file)) {
+   download.file(
+      url = 
+         paste0("http://hydrology.cee.duke.edu/POLARIS/PROPERTIES/v1.0/",
+                voi, "/", quantile, "/", depth, "/",
+                tile), 
+      destfile = dest.file,
+      method = "auto")
+} else {
+   print("Local copy of file already exists")
+}
+```
+
+These are quite large, $\approx 32$~Mb, far too large for a ground overlay of the full tile.
+
+The downloaded file can then be read into R. 
+
+## Read into R
+
+We use the `terra` package to read the GeoTIFF.
+
+```{r plot.properties.tile}
+r.p <- terra::rast(dest.file)
+print(r.p)
+plot(r.p)
+```
+
+Note the CRS is already correct for Google Earth.
+
+## Limit to a sub-tile
+
+
+```{r}
+subtile.size.dd <- subtile.size/60
+.subtile.offset.long.dd <- subtile.offset.long/60
+.subtile.offset.lat.dd <- subtile.offset.lat/60
+(.subtile.lrc <- c(tile.lrc[1] - .subtile.offset.long.dd, 
+                   tile.lrc[2] + .subtile.offset.lat.dd)) # lower-right corner
+(.subtile.ulc <- c(.subtile.lrc[1]-subtile.size.dd, .subtile.lrc[2]+subtile.size.dd)) # upper-left corner
+.m <- c(.subtile.ulc[1], .subtile.lrc[1], 
+              .subtile.lrc[2], .subtile.ulc[2])
+bb.sub <- ext(.m)
+```
+
+Crop to the subtile:
+
+```{r plot.properties.crop}
+r.p.sub <- crop(r.p, bb.sub)
+print(r.p.sub)
+plot(r.p.sub, col=topo.colors(64))
+```
+
+# Creating a ground overlay and KML specification
+
+Google Earth uses [KML](https://developers.google.com/kml/documentation/kml_tut) (``Keyhole Markup Language'') to specify how to display geographic data. This is a tag-based structure with nested elements and attributes and is based on the XML standard, but with tags specific to geographic data.
+
+So to display coverages created in R, there are five steps:
+
+1. Create a map to export;
+2. Assign projection information to the map;
+3. Transform to geographic co\"{o}rdinates (Long/Lat) on the WGS84 datum, as required by Google Earth;
+4. Export as a KML file;
+5. Open the KML file in Google Earth.
+
+Here we already have the map to export, with known projection, see previous section.
+
+KML files can be point-based (placemarks), but here we need to produce so-called *ground overlays* in the Portable Network Graphics (PNG) graphics format, with accompanying information to tell Google Earth where in the world to place this.
+
+This task is made possible by methods from the ``maptools` package, in particular the `GESpatialGrid` method to define the size and position of a PNG image overlay in Google Earth, and the `kmlOverlay` method write the KML file including this PNG image overlay.
+
+
+## Create a regular grid
+
+The `maptools` package requires an object to be of type `GE_SpatialGrid`.
+
+A `GE_SpatialGrid` has a triple purpose:
+
+1. to contain the graphics file (PNG) to be displayed in Google Earth;
+2. to give information for setting up the PNG graphics device in R, i.e. the number of pixels;
+3. to provide display information for Google Earth, i.e. the geographic location (bounding box) and the aspect ratio.
+
+The function requires a `Spatial*` object from package `sp`. We must first convert the `terra::SpatRaster` to a `raster::RasterLayer` from the older `raster` package (which `terra` is replacing), and then cast to an `sp` object.
+
+```{r plot.properties.spdf}
+tmp <- raster::raster(r.p.sub)
+r.sp.sub <- as(tmp, "SpatialPixelsDataFrame")
+fullgrid(r.sp.sub) <- TRUE
+spplot(r.sp.sub, col.regions=topo.colors(64))
+bbox(r.sp.sub)
+```
+
+Now make the `GE_SpatialGrid`, changing the default pixel size to show prediction pixels somewhat more clearly. Note that due to the $\approx 30$ m pixel size these will be somewhat blurred.
+
+```{r warning=FALSE}
+# default maxPixels=600, we want more detail
+GRD <- maptools::GE_SpatialGrid(r.sp.sub, maxPixels=4800)
+str(GRD)
+```
+
+## Export to PNG
+
+This is the ground overlay.
+
+```{r}
+filename.png <- paste0(dest.dir,"/", voi_layer, '.png')
+png(file=filename.png, width=GRD$width, height=GRD$height,
+    bg="transparent")
+par(mar=c(0,0,0,0), xaxs="i", yaxs="i")
+image(r.sp.sub, xlim=GRD$xlim, ylim=GRD$ylim, 
+     col=topo.colors(128),
+     setParUsrBB=TRUE)
+dev.off()
+```
+
+## Create KML
+
+This specifies the ground overlay to display (a separate file from the KML) and its position. The filename is identical to that for the PNG, but with a different extension.
+
+```{r}
+filename.kml <- paste0(dest.dir,"/", voi_layer, '.kml')
+maptools::kmlOverlay(GRD, 
+                     kmlfile = filename.kml,
+                     imagefile = filename.png,
+                     name=paste0("POLARIS", voi_layer)
+                     )
+```
+
+
+Now this file can be opened in Google Earth.
+
+# A function to automate this process {#function}
+
+Here we take the essentials of the step-by-step approach above, and make a function which will carry out the analysis with four argments:
+
+* Property of interest
+* Depth interval
+* Quantile or mean
+* lower-right corner (default: central PA) of $1 \times 1^\circ$ POLARIS tile, in degrees
+* offsets of lower-right corner of subtile, in minutes of degrees, from lower-right corner of tile (default 0,0)
+* size of subtile, in minutes of degrees (defail 3')
+
+This function has the side effect of saving the ground overlay (PNG and KML specification) under the appropriate subdirectories.
+
+```{r define.function, warning=FALSE}
+make.ground.overlay <- function(voi, depth, quantile, tile.lrc=c(-77, 41), 
+                                subtile.offset=c(0, 0), subtile.size=3) {
+  
+  # import and local storage
+  base.dir <- "/Users/rossiter/ds/"
+  base.dir.polaris <- paste0(base.dir, "POLARIS")
+  base.dir.import <- "/Volumes/Pythagoras/ds/"
+  base.dir.polaris.import <- paste0(base.dir.import, "POLARIS")
+  
+  # packages   
+  library(terra)          # raster data, replaces `raster`
+  library(raster)         # some functions still not in `terra`
+  library(rgdal)          # GDAL access from R
+  library(gdalUtils)      # wrappers for GDAL utility programs that could be
+  #  called from the command line
+  library(sf)             # spatial data types 
+  library(sp)             # older representation of spatial data types
+  library(maptools)       # create KML overlays, among others
+  
+  # check arguments
+  if (length(tile.lrc) != 2)  {
+    print("Lower-right corner of tile must be two integers"); stop("Bad specification")
+  }
+  if (length(subtile.offset) != 2)  {
+    print("Lower-right corner of subtile offset must be two integers"); stop("Bad specification")
+  }
+  if ((subtile.size <= 0) || (subtile.size > 60)) { 
+    print("Sub-tile size must be on the interval (0, 60]"); stop("Bad specification")
+  }
+  # check subtile is within tile
+  # ** TBC
+  
+  voi.list <- c("alpha", "bd", "clay", "hb", "ksat", "lambda", "n", "om", "ph", "sand", "silt", "theta_r", "theta_s")
+  quantile.list <- c("p5", "p50", "p95", "mean")
+  depth.list <- c("0_5", "5_15", "15_30", "30_60", "60_100", "100_200")
+  if (!(voi %in% voi.list)) { 
+    print(paste("No property", voi)); stop("Bad specification")
+  }
+  if (!(depth %in% depth.list)) { 
+    print(paste("No depth slice", depth)); stop("Bad specification")
+  }
+  if (!(quantile %in% c("p5", "p50", "p95", "mean"))) { 
+    print(paste("No quantile", quantile)); stop("Bad specification")
+  }
+  
+  # setup
+  voi_layer <- paste(voi, paste0(depth,"cm"), quantile, sep="_")
+  # AOI
+  .tile.ulc <- c(tile.lrc[1]-1, tile.lrc[2]+1) # upper-left corner
+  .m <- matrix(c(.tile.ulc[1],tile.lrc[1],  #ulc
+                 .tile.ulc[2], tile.lrc[2]  #lrc
+  ), nrow=2)
+  bb.ll <- st_sfc(st_multipoint(.m))
+  st_crs(bb.ll) <- 4326
+  AOI.dir.prefix <- paste0("lat", tile.lrc[2], .tile.ulc[2],
+                         "_lon", .tile.ulc[1], tile.lrc[1])
+  
+  # import POLARIS tile
+  dest.dir.import <-  paste0(base.dir.polaris.import, "/",
+                      AOI.dir.prefix, "/",
+                      voi, "/", 
+                      quantile, "/", 
+                      depth)
+  if (!dir.exists(dest.dir.import)) {
+    dir.create(dest.dir.import, recursive = TRUE)
+  }
+  tile <- paste0("lat", tile.lrc[2], .tile.ulc[2],
+                 "_lon", .tile.ulc[1], tile.lrc[1],
+                 ".tif")
+  dest.file <- paste0(dest.dir.import, "/", tile)
+  if (!file.exists(dest.file)) {
+    download.file(
+      url = 
+        paste0("http://hydrology.cee.duke.edu/POLARIS/PROPERTIES/v1.0/",
+               voi, "/", quantile, "/", depth, "/",
+               tile), 
+      destfile = dest.file,
+      method = "auto")
+  } else {
+    print("Local copy of file already exists")
+  }
+  
+  ## read tile into R
+  r.p <- terra::rast(dest.file)
+  
+  
+  ## limit to sub-tile
+  subtile.size.dd <- subtile.size/60
+  .subtile.offset.long.dd <- subtile.offset[1]/60
+  .subtile.offset.lat.dd <- subtile.offset[2]/60
+  (.subtile.lrc <- c(tile.lrc[1] - .subtile.offset.long.dd, 
+                     tile.lrc[2] + .subtile.offset.lat.dd)) # lower-right corner
+  (.subtile.ulc <- c(.subtile.lrc[1]-subtile.size.dd, .subtile.lrc[2]+subtile.size.dd)) # upper-left corner
+  .m <- c(.subtile.ulc[1], .subtile.lrc[1], 
+          .subtile.lrc[2], .subtile.ulc[2])
+  bb.sub <- ext(.m)
+  r.p.sub <- crop(r.p, bb.sub)
+  
+  # destination directory
+  dest.dir <-  paste0(base.dir.polaris, "/",
+                      AOI.dir.prefix, "/",
+                      voi, "/", 
+                      quantile, "/", 
+                      depth)
+  if (!dir.exists(dest.dir)) {
+    dir.create(dest.dir, recursive = TRUE)
+  }
+
+  # build PNG
+  tmp <- raster::raster(r.p.sub)
+  r.sp <- as(tmp, "SpatialPixelsDataFrame")
+  fullgrid(r.sp) <- TRUE
+  # grid on which to make the PNG
+  GRD <- maptools::GE_SpatialGrid(r.sp, maxPixels=4800) # high resolution
+  # write the PNG
+  filename.png <- paste0(dest.dir,"/", voi_layer, '.png')
+  png(file=filename.png, width=GRD$width, height=GRD$height,
+      bg="transparent")
+  par(mar=c(0,0,0,0), xaxs="i", yaxs="i")
+  image(r.sp, xlim=GRD$xlim, ylim=GRD$ylim, 
+        col=topo.colors(128),
+        setParUsrBB=TRUE)
+  dev.off()
+
+  # write the KML, referring to the PNG
+  filename.kml <- paste0(dest.dir,"/", voi_layer, '.kml')
+  maptools::kmlOverlay(GRD, 
+                       kmlfile = filename.kml,
+                       imagefile = filename.png,
+                       name=paste0("POLARIS", voi_layer)
+  )
+}
+```
+
+# Calling the function {#compute}
+
+Here are some examples. 
+
+A single property, depth, quantile, default subtile:
+
+```{r eval=FALSE}
+make.ground.overlay("bd", "60_100", "mean", c(-76, 42), c(12, 25), 4)
+```
+
+The 5% and 95% quantiles of two properties at two depth slices, $1 \times 1^\circ$ AOI:
+
+```{r eval=FALSE}
+for (voi in c("clay", "ph")) {
+   for (depth in c("0_5", "30_60")) {
+      for (quantile in c("p5", "p95")) {
+         print(paste("Making overlay for property", voi, "; depth", depth, "; quantile", quantile))
+         make.ground.overlay(voi, depth, quantile, c(-76, 42), c(12, 25), 4)
+      }
+   }
+}
+```

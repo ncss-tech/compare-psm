@@ -1,0 +1,298 @@
+---
+title: "SoilGrids250 --- Import for PSM comparisons"
+author: "D G Rossiter"
+date: "`r Sys.Date()`"
+output:
+   html_document:
+     toc: TRUE
+     toc_float: TRUE  
+     theme: "spacelab"
+     number_section: TRUE
+     fig_height: 4
+     fig_width: 4
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center')
+knitr::opts_chunk$set(cache.extra = R.version.string)
+```
+
+# Introduction
+
+[SoilGrids](https://soilgrids.org/) is a system for global digital soil mapping that makes use of global soil profile information and covariate data to model the spatial distribution of soil properties across the globe. SoilGrids250 is a collections of soil property maps at six standard depths at 250 m grid resolution.
+
+SoilGrids250 filenames, procedures etc. are explained in a [FAQ](https://www.isric.org/explore/soilgrids/faq-soilgrids).
+The choice of the [Goode Homolosine projection](https://en.wikipedia.org/wiki/Goode_homolosine_projection) is explained in Moreira de Sousa, L., L. Poggio, and B. Kempen. 2019. Comparison of FOSS4G Supported Equal-Area Projections Using Discrete Distortion Indicatrices. ISPRS International Journal of Geo-Information 8(8): 351. https://doi.org/10.3390/ijgi8080351.
+
+This script creates a tile for a property and depth slice, over a Area of Interest delimited by geographic coordinates, that can then be compared with other PSM products. Tiles are created in the native Coordinate Reference System (interrupted Goode Homolosine) and in EPSG 4326 (WGS84 long/lat), both with nominal 250 m grid resolution.
+
+The procedure shown for creating the 4326 version can be applied to any CRS and resolution.
+
+To use this script:
+
+1. Ajust the [directory structure](#dirs) to your system
+
+2. [Select a property](#prop) and [select a depth slice](#depth).
+
+3. [Select an Area of Interest](#aoi).
+
+4. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
+
+5. The processed tile will be in the directory structure, in a [subdirectory named for the AOI](#save).
+
+# Directories {#dirs}
+
+Set base directories, specific to the local file system. 
+
+1. `base.dir.import`: This is where downloaded large GeoTIFF are located. Because of their size they may be on a separate file system, e.g., removable or networked drive.
+
+2. `base.dir`: This is where the processed SoilGrids250 maps are stored.
+
+
+```{r}
+base.dir <- "/Users/rossiter/ds/"
+base.dir.sg <- paste0(base.dir, "SoilGrids250/")
+base.dir.import <- "/Volumes/Pythagoras/ds/"
+base.dir.sg.import <- paste0(base.dir.import, "SoilGrids250/")
+```
+
+These are the base of destination directories built [below](#dest)
+
+# Packages
+
+```{r}
+options("rgdal_show_exportToProj4_warnings"="none") 
+library(XML)            # various XML utilities
+library(rgdal)          # GDAL access from R
+library(gdalUtils)      # wrappers for GDAL utility programs that could be
+                        #  called from the command line
+library(sf)             # spatial data types 
+library(terra)          # raster data, replaces `raster`
+```
+
+GDAL is used for spatial data import/export, coordinate systems etc. Check for a valid GDAL installation.
+
+```{r check.GDAL}
+gdal_setInstallation()
+valid_install <- !is.null(getOption("gdalUtils_gdalPath"))
+if (valid_install)
+   print("Valid GDAL found") else
+   { print("No valid GDAL"); quit() }
+```
+
+Terra is used for raster analysis. See the tutorial [here](https://rspatial.org/rs-terra/index.html) and [here](https://rspatial.org/terra/spatial/index.html) and
+[here](https://rspatial.org/spatial-terra/index.html#).
+
+# CRS
+
+We want to use geographic coordinates for the tile. But the ISRIC WCS does not seem to serve this -- or at least, I can not figure out hoiw. So, we must download SoilGrids250 in the native Homolosine CRS. For this we need to know the bounding box in that CRS.
+
+This CRS with pseudo-EPSG code 152160 should be added to to the `epsg` file of the PROJ database ^[for example 
+`/Library/Frameworks/PROJ.framework/Versions/6/Resources/proj/epsg`] as a final line, as explained [here](https://www.isric.org/explore/soilgrids/faq-soilgrids#How_can_I_use_the_Homolosine_projection). But for now do not do this, just specify the projection directly.
+
+```{r}
+crs.igh <- '+proj=igh +lat_0=0 +lon_0=0 +datum=WGS84 +units=m +no_defs'
+```
+
+# Set variable of interest {#voi}
+
+Define the variables for the soil property and layer of interest. See [here](https://www.isric.org/explore/soilgrids/faq-soilgrids#What_do_the_filename_codes_mean) for the naming conventions
+
+`Q0.05` - 5% quantile from the Quantile Random Forest (QRF);
+`Q0.5` - median of the distribution from the QRF -- note *not* `Q0.50`;
+`mean` - mean of the distribution;
+`Q0.95` - 95% quantile from the QRF.
+
+These have different names in POLARIS:
+
+```{r}
+quantile.list <- c("Q0.05", "Q0.5", "Q0.95", "mean")
+```
+
+Here are the properties that are in both databases:
+
+```{r}
+voi.list <- c("bdod", "clay", "phh2o", "sand", "silt", "soc")
+```
+
+Depth slices:
+
+```{r}
+depth.list <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
+```
+
+Set the property, depth and quantile:
+
+```{r}
+voi <- "soc"   # variable of interest, SoilGrids name
+depth <- "0-5cm" # "0-5", "5-15", "15-30", "30-60", "60-100", "100-200"
+quantile.sg <- "mean"  # "Q0.05", "Q0.5" [not 0.50 !], "Q0.95", "mean"
+(voi_layer <- paste(voi, depth, quantile.sg, sep="_")) # layer of interest 
+```
+
+# Define Area of Interest (AOI) {#aoi}
+
+We use a $1 \times 1^\circ$ tile, because that is how POLARIS data is served.
+Specify the lower-right corner, then compute the upper-right corner $1^\circ$ west and north.
+
+Specify the four corners using WGS84 geographic coordinates; this will then transform to a bounding box in any CRS.
+
+```{r}
+# tile.lrc <- c(-76, 42) # lower-right corner: central NY
+tile.lrc <- c(-77, 35)   # lower-right corner: coastal plain NC
+size <- 1                # tile dimensions
+tile.ulc <- c(tile.lrc[1]-size, tile.lrc[2]+size)   # lower-right corner: coastal plain NC
+m <- matrix(c(tile.lrc[1]-size, tile.lrc[2]+size,  #ulc
+              tile.lrc[1], tile.lrc[2]+size,  #urc
+              tile.lrc[1], tile.lrc[2],       #lrc
+              tile.lrc[1]-size, tile.lrc[2]  #lcc
+              ),
+            nrow=4, byrow = TRUE)
+m <- rbind(m, m[1,]) # close the polygon
+bb.ll <- st_sfc(st_polygon(list(m)))
+st_crs(bb.ll) <- 4326
+print(bb.ll)
+st_boundary(bb.ll)
+```
+
+A prefix for directories, to keep AOI results separate.
+
+```{r}
+AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
+                         "_lon", tile.ulc[1], tile.lrc[1])
+```
+
+# Destination directories {#dest}
+
+Set destination directories, adding to the base directories the variable of interest, quantile, depth. Make sure the directory exists.
+
+```{r dest.dirs}
+dest.dir.sg.import <-  paste0(base.dir.sg.import, 
+                       AOI.dir.prefix, "/",
+                       voi, "/", 
+                       quantile.sg, "/", 
+                       depth)
+if (!dir.exists(dest.dir.sg.import)) {
+   dir.create(dest.dir.sg.import, recursive = TRUE)
+}
+dest.dir.sg <-  paste0(base.dir.sg, 
+                       AOI.dir.prefix, "/",
+                       voi, "/", 
+                       quantile.sg, "/", 
+                       depth)
+if (!dir.exists(dest.dir.sg)) {
+  dir.create(dest.dir.sg, recursive = TRUE)
+}
+```
+
+
+Convert the long/lat bounding box to the SoilGrids250 projection. We want the extreme values in both X and Y, to ensure we cover the whole tile. If we just use the corners we will cut off some parts at the upper-right an lower-left.
+
+```{r bbox}
+(bb.igh <- st_transform(bb.ll, crs.igh))         # reproject the polygon
+(bb.igh.coords <-  st_coordinates(bb.igh)[,1:2]) # convert to coordinates, we only need 2D
+#  convert to a bounding box, must order these as c(ulx, uly, lrx, lry)
+(bb.sg <- as.vector(c(min(bb.igh.coords[,"X"]), 
+                     max(bb.igh.coords[,"Y"]), 
+                     max(bb.igh.coords[,"X"]), 
+                     min(bb.igh.coords[,"Y"]))))
+```
+
+# Accessing SoilGrids250 via WebDAV
+
+Access procedures via WebDAV are explained [here](https://git.wur.nl/isric/soilgrids/soilgrids.notebooks/-/blob/master/markdown/webdav_from_R.md)
+
+We do this via a Virtual Raster Table (VRT). See https://gdal.org/drivers/raster/vrt.html: "The VRT driver is a format driver for GDAL that allows a virtual GDAL dataset to be composed from other GDAL datasets with repositioning, and algorithms potentially applied as well as various kinds of metadata altered or added. VRT descriptions of datasets can be saved in an XML format normally given the extension .vrt."  VRT are quite small, they describe how to build the actual raster.
+
+First get the VRT that describes the AOI:
+
+Here is is the part of a URL that describes the location and downloading parameters:
+
+```{r read.vrt.1}
+sg_url <- "/vsicurl?max_retry=3&retry_delay=1&list_dir=no&url=https://files.isric.org/soilgrids/latest/data/"
+```
+
+## Native format tile
+
+Here is the destination file:
+
+```{r read.vrt.2}
+(file.out.vrt <- paste0(dest.dir.sg.import, "/", voi_layer, '.vrt'))
+```
+
+And now the download of the VRT for this property, depth and quantile. Note the specification of the output format `of`; the default is "GTiff" but we want just the virtual raster.
+
+```{r read.vrt.3}
+gdal_translate(src_dataset=paste0(sg_url, voi, '/', voi_layer, '.vrt'),
+    dst_dataset=file.out.vrt,
+    tr=c(250,250),
+    projwin=bb.sg,
+    projwin_srs = crs.igh, 
+    of="VRT",
+    overwrite=TRUE,
+    verbose=TRUE)
+```
+
+Build the actual TIFF in the native coordinates. This goes into the local storage
+
+```{r vrt.to.tiff.igh}
+(file.out <- paste0(dest.dir.sg, "/", voi_layer, '.tif'))
+gdal_translate(src_dataset = file.out.vrt,
+               dst_dataset = file.out,
+               co=c("TILED=YES","COMPRESS=DEFLATE","PREDICTOR=2","BIGTIFF=YES"),
+               overwrite=TRUE,
+               of="GTiff")
+```
+
+### Check
+
+Check the result by reading into R, summarizing, and plotting.
+
+```{r get.sg.igh, fig.width=8, fig.height=8}
+r.sg <- terra::rast(file.out)
+print(r.sg)
+summary(r.sg)
+terra::plot(r.sg)
+```
+
+The NA values are masked urban and water.
+
+
+## Reprojected tile
+
+Now re-project to another virtual raster:
+
+```{r project.vrt}
+file.out.vrt.4326 <- paste0(dest.dir.sg.import, "/", voi_layer, '_4326.vrt')
+gdalwarp(srcfile=file.out.vrt,
+    dstfile=file.out.vrt.4326,
+    s_src=igh, 
+    t_srs="EPSG:4326", 
+    of="VRT",
+    overwrite=TRUE)
+```
+
+Finally, build the actual TIFF in the projected coordinates. This goes into the local storage
+
+```{r vrt.to.tiff.4326}
+(file.out.4326 <- paste0(dest.dir.sg, "/", voi_layer, '_4326.tif'))
+gdal_translate(src_dataset = file.out.vrt.4326,
+               dst_dataset = file.out.4326,
+               co=c("TILED=YES","COMPRESS=DEFLATE","PREDICTOR=2","BIGTIFF=YES"),
+               overwrite=TRUE,
+               of="GTiff")
+```
+
+
+### Check
+
+Check the result by reading into R, summarizing, and plotting.
+
+```{r get.sg.4326, fig.width=8, fig.height=8}
+r.sg.4326 <- terra::rast(file.out.4326)
+print(r.sg.4326)
+summary(r.sg.4326)
+terra::plot(r.sg.4326)
+```
+
+The NA values are masked urban and water.
