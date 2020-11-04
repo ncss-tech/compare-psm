@@ -132,15 +132,18 @@ quantile.sg <- "mean"  # "Q0.05", "Q0.5" [not 0.50 !], "Q0.95", "mean"
 
 # Define Area of Interest (AOI) {#aoi}
 
-We use a $1 \times 1^\circ$ tile, because that is how POLARIS data is served.
-Specify the lower-right corner, then compute the upper-right corner $1^\circ$ west and north.
+The AOI is a tile using WGS84 geographic coordinates. A $1 \times 1^\circ$ allows comparison with POLARIS, but here other sizes can be specified.
 
-Specify the four corners using WGS84 geographic coordinates; this will then transform to a bounding box in any CRS.
+Specify the _lower-right corner_ and _tile size_, then compute the upper-right corner west and north.
 
-```{r}
-# tile.lrc <- c(-76, 42) # lower-right corner: central NY
-tile.lrc <- c(-77, 35)   # lower-right corner: coastal plain NC
+```{r lrc}
+tile.lrc <- c(-76, 42) # lower-right corner: central NY
 size <- 1                # tile dimensions
+```
+
+Compute the upper-left corner and the bounding box:
+
+```{r ulc}
 tile.ulc <- c(tile.lrc[1]-size, tile.lrc[2]+size)   # lower-right corner: coastal plain NC
 m <- matrix(c(tile.lrc[1]-size, tile.lrc[2]+size,  #ulc
               tile.lrc[1], tile.lrc[2]+size,  #urc
@@ -157,7 +160,7 @@ st_boundary(bb.ll)
 
 A prefix for directories, to keep AOI results separate.
 
-```{r}
+```{r dir.prefix}
 AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
                          "_lon", tile.ulc[1], tile.lrc[1])
 ```

@@ -1,0 +1,229 @@
+---
+title: "ISSR8 --- Import for PSM comparisons"
+author: "D G Rossiter"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    theme: spacelab
+    number_section: yes
+    fig_height: 7
+    fig_width: 7
+  pdf_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center')
+knitr::opts_chunk$set(cache.extra = R.version.string)
+```
+
+# Introduction
+
+The [Intermediate-scale gridded soil property and interpretation maps from averaged and aggregated SSURGO and STATSGO data](https://casoilresource.lawr.ucdavis.edu/soil-properties/) from the [California Soil Resource Lab](https://casoilresource.lawr.ucdavis.edu) at UC Davis contains "a variety of soil properties throughout the continental United States ... obtained by aggregating USDA-NCSS soil survey data (SSURGO back-filled with STATSGO where SSURGO is not available) within 800m² grid cells." 
+
+This product is also known as [ISSR-800](https://github.com/ncss-tech/ISSR-800).
+
+The grids were aggregated to 800 x 800 m grid cells:
+
+* Area weighted average of components by map unit
+* Area weighted average of all map units within each grid cell
+
+To use this script:
+
+1. Ajust the [directory structure](#dirs) to your system
+
+2. [Select a property](#prop) and [select a depth slice](#depth).
+
+3. [Select an Area of Interest](#aoi).
+
+4. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
+
+5. The processed tile will be in the directory structure, in a [subdirectory named for the AOI](#import).
+
+This GeoTIFF can then be read into R and compared with other PSM products.
+
+
+# Packages
+
+```{r}
+library(sf)     # Simple Features representation of spatial data
+library(terra)  # for raster import and display
+```
+
+# Directories {#dirs}
+
+```{r}
+base.dir.import <- "/Volumes/Pythagoras/ds/"
+base.dir.issr8.import <- paste0(base.dir.import, "ISSR8")
+base.dir <- "/Users/rossiter/ds/"
+base.dir.issr8 <- paste0(base.dir, "ISSR8")
+```
+
+Make sure the import directory exists:
+
+```{r}
+if (!dir.exists(base.dir.issr8.import)) {
+   dir.create(dbase.dir.issr8.import,recursive = TRUE)
+}
+```
+
+# Property of interest {#prop}
+
+List of properties:
+
+```{r}
+voi.list.issr8 <- c("clay", "silt","sand","ph", "cec", "ec", "rf", "paws", "sar")
+```
+
+Select a property:
+
+```{r}
+voi.issr8 <- "clay"
+```
+
+# Depth of interest {#depth}
+
+Depth slices:
+
+```{r}
+depth.list.issr8 <- c("05", "025", "2550", "3060")
+```
+
+Select a depth slice. Note only 0-5 and 30-60 can be directly compared to GSM-standard PSM maps.
+
+```{r}
+depth.issr8 <- "3060"
+```
+
+# Download
+
+ISSR-800 maps can be interactively
+[downloaded from here](https://casoilresource.lawr.ucdavis.edu/soil-properties/download.php)
+as all-48 State GeoTIFF.
+
+To download programmatically, use the base URL where the maps are stored:
+
+```{r base.url}
+base.url <- "http://soilmap2-1.lawr.ucdavis.edu/800m_grids/rasters/"
+```
+
+Note the use of `http` rather than `https` to avoid problems with certificates.
+
+ISSR-800 properties have to be provided at the required depth slice. Some were done by NRCS for their own interests (0-5, 0-25, 25-50), and others can be produced by request.
+
+Build the name of the ISSR8 map. Note not all depths are available for all properties, so check this.
+
+```{r}
+issr8.map <- paste0(voi.issr8, "_", depth.issr8, ".tif")
+```
+
+Download the all-CONUS raster. These are quite large (8 -- 35 Mb) and therefore are read into the import location. Note that once read in, any number of tiles can be extracted from this.
+
+
+```{r download.conus}
+(dest.file <- paste0(base.dir.issr8.import, "/", issr8.map))
+if (!file.exists(dest.file)) {
+   download.file(
+      url = 
+         paste0(base.url, issr8.map), 
+      destfile = dest.file,
+      extra = "--max-redirect=0",
+      method = "auto")
+} else {
+   print("Local copy of file already exists")
+}
+```
+
+
+Read into R and plot:
+
+```{r plot.properties.issr8.import}
+r.issr8 <- terra::rast(dest.file)
+print(r.issr8)
+terra::plot(r.issr8, main=paste("ISSR-800;",  main=voi.issr8))
+```
+
+Note the CRS is defined, a CONUS Albers Equal Area.
+
+# Area of interest {#aoi}
+
+The AOI is a tile using WGS84 geographic coordinates. A $1 \times 1^\circ$ allows comparison with POLARIS, but here other sizes can be specified.
+
+Specify the _lower-right corner_ and _tile size_, then compute the upper-right corner west and north.
+
+```{r lrc}
+tile.lrc <- c(-76, 42) # lower-right corner: central NY
+size <- 1                # tile dimensions
+```
+
+Compute the upper-left corner:
+
+```{r ulc}
+tile.ulc <- c(tile.lrc[1]-size, tile.lrc[2]+size) 
+```
+
+A prefix for directories, to keep AOI results separate.
+
+```{r dir.prefix}
+AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
+                         "_lon", tile.ulc[1], tile.lrc[1])
+```
+
+Set up a directory for the products, separated by AOI:
+
+```{r}
+(dest.dir.issr8 <-  file.path(base.dir.issr8,
+                       AOI.dir.prefix))
+if (!dir.exists(dest.dir.issr8)) {
+   dir.create(dest.dir.issr8,recursive = TRUE)
+}
+```
+
+# Crop to AOI
+
+Compute a bounding box:
+
+```{r}
+m <- matrix(c(tile.ulc[1],tile.lrc[1],  #ulc
+              tile.ulc[2], tile.lrc[2]), nrow=2) #lrc
+bb.ll <- st_sfc(st_multipoint(m))
+st_crs(bb.ll) <- 4326   # ESPG code for WGS84 long/lat
+```
+
+Project the bounding box to the AEA. This is the CRS used by ISSR-800:
+
+```{r}
+crs.aea <- "+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"
+(bb.aea <- st_transform(bb.ll, crs.aea))
+```
+
+Crop to the bounding box
+
+Make a `terra` `SpatExtent` object from the bounding box and use it to crop.
+
+```{r plot.properties.issr8.crop}
+st_bbox(bb.aea)
+bb.vect <- as.vector(matrix(st_bbox(bb.aea), nrow=2, byrow=T))
+bb.aea.ext <- ext(bb.vect)
+r.issr8.crop <- terra::crop(r.issr8, bb.aea.ext)
+plot(r.issr8.crop, main=paste("ISSR-800;",  main=voi.issr8))
+print(r.issr8.crop)
+summary(r.issr8.crop)
+```
+
+We now have a $1 \times 1^\circ$ tile from ISSR800. Note the NA's can be used as a mask -- these are water areas.
+
+# Save tile {#import}
+
+```{r save.tile}
+f <- writeRaster(r.issr8.crop, file=paste0(dest.dir.issr8,"/issr8_tile_aea_",
+                              voi.issr8, ".tiff"),
+            overwrite=TRUE, wopt=list(gdal=c("TFW=YES")),
+            filetype="GTiff")
+```
+
+
+
+
