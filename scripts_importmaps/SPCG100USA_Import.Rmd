@@ -1,0 +1,240 @@
+---
+title: "Importing USA 100m grids"
+author: "D G Rossiter"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    fig_align: center
+    fig_height: 6
+    fig_width: 6
+    number_section: yes
+    theme: spacelab
+    df_print: paged
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center', fig.path = './figs/diffs_spcgusa_sg_polaris/')
+knitr::opts_chunk$set(cache.extra = R.version.string)
+```
+
+# Objective
+
+_Soil Properties and Class 100m Grids USA_ (further abbreviated as SPCG100USA) is an adaption of the SoilGrids methodology for the USA, using  the NCSS Characterization Database, the National Soil Information System (NASIS), and the Rapid Carbon Assessment (RaCA) point datasets and some covariates only available for the USA, giving a 100 m grid resolution. 
+
+It is explained in Ramcharan, A., T. Hengl, T. Nauman, C. Brungard, S. Waltman, et al. 2018. Soil property and class maps of the conterminous United States at 100-meter spatial resolution. Soil Science Society of America Journal 82(1): 186–201. https://doi.org/10.2136/sssaj2017.04.0122.  This source was able to use 87 parent material classes  four and drainage classes based on the representative soil components of gSSURGO map units. These are 3D "point" predictions at 7 standard soil depths (0, 5, 15, 30, 60, 100 and 200 cm). This by contrast to SoiLGrids250 which predicts at 6 depth slices using these limits.
+
+This documents has two parts. The first is a long step-by-step explanation with a single $1 \times 1^\circ$ Area of Interest (AOI) which can be adjusted manually [in this section](#aoi), property, and depth which can be adjusted manually [in this section](#voi). The second is a self-contained [function](#function)  to carry out the analysis for a user-selected set of properties, depths and quantiles for a single AOI and save all the results in the file system; this is [here](#compare). This set of maps can then be used to compare prediction intervals.`
+
+When compiling this document with `knitr`, sample calls to the function are suppressed with the `eval=FALSE` markdown tag.
+
+To use this script:
+
+1. Adjust the [directory structure](#dirs) to your system
+
+2. _Manually_ [Download the all-CONUS maps](#spcgdata) to the import directory for the properties and point depths corresponding to the next two points.
+
+3. [Select a property](#prop) and [select a depth slice](#depth).
+
+4. [Select an Area of Interest](#aoi).
+
+5. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
+
+6. The processed tile will be in the directory structure, in a [subdirectory named for the AOI](#import).
+
+This GeoTIFF can then be read into R and compared with other PSM products.
+
+
+# Packages
+
+```{r}
+library(sf)     # Simple Features representation of spatial data
+library(terra)  # for raster import and display
+```
+
+# Directories {#dirs}
+
+```{r}
+base.dir.import <- "/Volumes/Pythagoras/ds/"
+base.dir.psu.import <- paste0(base.dir.import, "SPCG100USA")
+base.dir <- "/Users/rossiter/ds/"
+base.dir.psu <- paste0(base.dir, "SPCG100USA")
+```
+
+Make sure the import directory exists:
+
+```{r}
+if (!dir.exists(base.dir.psu.import)) {
+   dir.create(dbase.dir.psu.import, recursive = TRUE)
+}
+```
+
+# Download SPCG100USA Data {#spcgdata}
+
+The data repository is [here](https://scholarsphere.psu.edu/collections/jw827b80n). This is also accessible with a [DOI](https://doi.org/10.18113/S1KW2H)
+
+There does not seem to be an API, but the maps can be directly accessed via HTML, if the coverage name is known. This can be found with the "Copy Link Address" for the dataset. For example, `gth83kz171_version1_clay_M_sl5_100m.tif` is the slice 5 (60 cm) clay, this is https://scholarsphere.psu.edu/concern/parent/tm70mv355/file_sets/gth83kz171. But there is no way to find the file name programmatically, because the prefix, e.g., `gth83kz171_version1` was automatically generated and can not be reproduced.
+
+Therefore the coverage must be manually downloaded from the data repository, into the import directory specified in the [directory structure](#dirs), below. These are quite large files, $\approx 370 \; \textrm{Mb}$.
+
+Then the file name must be manually edited to remove the prefix before the property name. For example, the above-named file becomes `clay_M_sl5_100m.tif`. This shows the property, the prediction (`M` = mean), the depth slice, and the resolution.
+
+There are seven point depth predictions: 0, 5, 15, 30, 60, 100, and 200 cm, labelled as `sl1`, `sl2` ..., `sl7`.
+
+
+# Select a property {#voi}
+
+According to the journal paper six properties are predicted by SPCG100USA: percent organic C, total N, bulk density, pH, percent sand, and clay. These have SoilGrids250 equivalents. The database also shows additional properites: EC, K, Mg. The methods for these are not given, and there is no SoilGrids250 equivalent.
+
+```{r}
+voi.list.psu <- c("soc", "n", "bd", "sand", "clay", "ph_h2o", "ec", "k", "mg")
+```
+
+Select the position in these lists
+
+```{r}
+voi.n <- 6
+voi.psu <- voi.list.psu[voi.n]
+```
+
+# Select a depth slice {#depth}
+
+SPCG100USA are point predictions within the profile, conceptually the value of an infinitely thin slice. By contrast, predictions conforming GlobalSoilMap standards refer to a depth slice. To compare these _two adjacent SPCG100USA predictions must be averaged_, as an approximation to the value at the centre of the slice, which approximates the averae over the slice.
+
+Here are the GSM standard slices, and the SPCG100USA point predictions:
+
+```{r}
+depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
+depth.list.psu <- c("0", "5", "15", "30", "60", "100", "200")
+```
+
+Select a slice:
+
+```{r}
+depth.n<- 1
+depth.sg <- depth.list.sg[depth.n]
+depth.psu.top <- paste0("sl", depth.n)  # slice at top of layer
+depth.psu.bottom <- paste0("sl", depth.n+1)  # slice at bottom of layer
+```
+
+# Set the Area of Interest (AOI) {#aoi}
+
+Specify the two corners using WGS84 geographic coordinates, and the size of the tile. If comparing with POLARIS these should be $1 \times 1^\circ$.
+
+Specify the lower-right corner:
+
+```{r lrc}
+tile.lrc <- c(-76, 42)   # lower-right corner
+tile.size <- 1
+```
+
+Compute the upper-left coner:
+
+```{r ulc}
+tile.ulc <- c(tile.lrc[1]-tile.size, tile.lrc[2]+tile.size) # upper-left corner
+```
+
+A prefix for directories, to keep AOI results separate.
+
+```{r}
+AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
+                         "_lon", tile.ulc[1], tile.lrc[1])
+```
+
+# Import the SPCG100USA maps
+
+We need both the upper and lower point predictions:
+
+```{r in.slice1}
+filename.in <- paste0(base.dir.psu.import, "/", voi.psu, "_M_", depth.psu.top ,"_100m.tif")
+r.psu.top <- terra::rast(filename.in)
+print(r.psu.top)
+```
+
+The next-lower slice should be imported and then averaged with this one.
+
+```{r in.slice2}
+filename.in <- paste0(base.dir.psu.import, "/", voi.psu, "_M_", depth.psu.bottom ,"_100m.tif")
+r.psu.bottom <- terra::rast(filename.in)
+print(r.psu.bottom)
+```
+
+Average after cropping, [in the next section](#crop)
+
+# Crop to the bounding box {#crop}
+
+Make a `terra` `SpatExtent` object from the bounding box:
+
+```{r plot.properties.crop, fig.width=10, fig.height=5}
+m <- matrix(c(tile.ulc[1],tile.lrc[1],  #ulc
+              tile.ulc[2], tile.lrc[2]),  #lrc
+            nrow=2)
+bb.ll <- st_sfc(st_multipoint(m)); st_crs(bb.ll) <- 4326
+# convert the bounding box to the AEA CRS used in SPCG100USA
+bb.aea <- st_transform(bb.ll, crs(r.psu.top))
+bb.vect <- as.vector(matrix(st_bbox(bb.aea), nrow=2, byrow=T))
+(bb.aea.ext <- ext(bb.vect))
+```
+
+Use this extent to crop the two maps to the AOI:
+
+```{r crop.both}
+r.psu.crop.top <- terra::crop(r.psu.top, bb.aea.ext)
+r.psu.crop.bottom <- terra::crop(r.psu.bottom, bb.aea.ext)
+```
+
+Plot them side-by-side:
+
+```{r crop.plot}
+zlim = c(floor(min(values(r.psu.crop.top), values(r.psu.crop.bottom), na.rm=TRUE)),
+         ceiling(max(values(r.psu.crop.top), values(r.psu.crop.bottom), na.rm=TRUE)))
+par(mfrow=c(1,2))
+terra::plot(r.psu.crop.top, range=zlim,
+            main=paste0(voi.psu, ", depth ", depth.list.psu[depth.n], " cm"))
+terra::plot(r.psu.crop.bottom, range=zlim,
+            main=paste0(voi.psu, ", depth ", depth.list.psu[depth.n+1], " cm"))
+par(mfrow=c(1,1))
+print(r.psu.crop.top)
+print(r.psu.crop.bottom)
+summary(r.psu.crop.top)
+summary(r.psu.crop.bottom)
+```
+
+Remove the two all-CONUS maps:
+
+```{r}
+rm(r.psu.top, r.psu.bottom)
+```
+
+This is somewhat larger than a $1 \times 1^\circ$ tile, because it is square in the AEA, i.e., uses the extremes of the geographic coordinates bounding box.
+
+# Average the two layers
+
+This is an estimate of the average value of the depth slice:
+
+```{r}
+r.psu.crop <- ((r.psu.crop.bottom + r.psu.crop.top)/2)
+summary(r.psu.crop)
+plot(r.psu.crop)
+rm(r.psu.crop.top, r.psu.crop.bottom)
+```
+
+# Save the tile {#import}
+
+Save to a local directory, using the AOIas subdirectories, and the variable of interest and depth slice in the file name. Note the depth slice is consisent with GSM standards.
+
+```{r}
+(dest.dir.psu <-  paste0(base.dir.psu, "/", AOI.dir.prefix))
+if (!dir.exists(dest.dir.psu)) {
+  dir.create(dest.dir.psu, recursive = TRUE)}
+```
+    
+```{r}
+(file.name <- paste0(voi.psu, "_", depth.sg))
+f <- writeRaster(r.psu.crop, file=paste0(dest.dir.psu,"/",
+                                        file.name, ".tiff"),
+                 overwrite=TRUE, wopt=list(gdal=c("TFW=YES")),
+                 filetype="GTiff")
+```
+
