@@ -1,5 +1,5 @@
 ---
-title: "Importing USA 100m grids"
+title: "USA 100m grids  --- Import for PSM comparisons"
 author: "D G Rossiter"
 date: "`r Sys.Date()`"
 output:
@@ -14,14 +14,15 @@ output:
     toc_float: yes
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center', fig.path = './figs/diffs_spcgusa_sg_polaris/')
+```{r setup, include=FALSE, purl=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center')
 knitr::opts_chunk$set(cache.extra = R.version.string)
 ```
 
+
 # Objective
 
-_Soil Properties and Class 100m Grids USA_ (further abbreviated as SPCG100USA) is an adaption of the SoilGrids methodology for the USA, using  the NCSS Characterization Database, the National Soil Information System (NASIS), and the Rapid Carbon Assessment (RaCA) point datasets and some covariates only available for the USA, giving a 100 m grid resolution. 
+_Soil Properties and Class 100m Grids USA_ (further abbreviated as SPCG100USA) is an adaption of the SoilGrids methodology for the USA, using  the NCSS Characterization Database, the National Soil Information System (NASIS), and the Rapid Carbon Assessment (RaCA) point datasets and some covariates only available for the USA, giving a 100 m grid resolution.
 
 It is explained in Ramcharan, A., T. Hengl, T. Nauman, C. Brungard, S. Waltman, et al. 2018. Soil property and class maps of the conterminous United States at 100-meter spatial resolution. Soil Science Society of America Journal 82(1): 186–201. https://doi.org/10.2136/sssaj2017.04.0122.  This source was able to use 87 parent material classes  four and drainage classes based on the representative soil components of gSSURGO map units. These are 3D "point" predictions at 7 standard soil depths (0, 5, 15, 30, 60, 100 and 200 cm). This by contrast to SoiLGrids250 which predicts at 6 depth slices using these limits.
 

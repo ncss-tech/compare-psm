@@ -1,0 +1,129 @@
+---
+title: "Compare Predictive Soil Mapping (PSM) products for the USA"
+author: "D G Rossiter"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+    toc_float: yes
+    theme: spacelab
+    number_section: yes
+    fig_height: 4
+    fig_width: 4
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center')
+knitr::opts_chunk$set(cache.extra = R.version.string)
+```
+
+# Objective
+
+This document explains the procedures to evaluate of maps of soil properties made by Predictive Soil Mapping (PSM) in the USA. It refers to a set of R Markdown scripts for the various steps of the procedure.
+
+The USA has a long-established soil survey, and most of the lower 48 States (CONUS) have been mapped in detail with extensive field investigation. Thus digital products directly based on these surveys (e.g., GSM v0.5) are presumed to be as accurate as possible, or at least can serve as a reference for comparison.
+
+By contrast there are several [PSM products](#srcs) that are based on these surveys but with some PSM applied (e.g., POLARIS), and others that are only based on point datasets, environmental covariates that are supposed to represent soil-forming factors, and models. These may be global (e.g., SoilGrids250 from ISRIC) or USA-specific (e.g., Soil Properties and Class 100m Grids USA), which can use CONUS-only covariates such as surficial geology and parent material derived from the original soil survey.
+
+The procedures explained here allow comparison between digital products, and can reveal to what extent predictions made by predictive match predictions made with the best available local knowledge, especially detailed field survey.
+
+
+# Data sources {#srcs}
+
+There are several sources of soil property information for the USA:
+
+* [gSSURGO](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/survey/geo/?cid=nrcs142p2_053628);
+* [Global Soil Map v0.5](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/research/?cid=nrcseprd1321715), further abbreviated as _GSMv05_;
+* [Intermediate-scale gridded soil property and interpretation maps from averaged and aggregated SSURGO and STATSGO data](https://github.com/ncss-tech/ISSR-800), further abbreviated as _ISSR-800_;
+* POLARIS Soil Properties;
+* [SoiLGrids250](https://www.isric.org/explore/soilgrids)  from ISRIC further abbreviated as _SG2_;
+* [Soil Properties and Class 100m Grids USA](https://doi.org/10.18113/S1KW2H), further abbreviated as _SPCG100USA_;
+* [LandGIS](https://opengeohub.org/about-landgis) from the private company [EnvirometriX](http://envirometrix.nl/).
+
+SG2, POLARIS and LandGIS also give uncertainty estimates as the 5/95% quantiles.
+
+Here is a brief explanation of each of these:
+
+* _gSSURGO_ is a set of statewide polygon maps with the associated SSURGO relational database that can be rasterized. ESRI file geodatabases. [here](https://nrcs.app.box.com/v/soils).
+<br>
+The map units often have multiple components and properties must be extracted by weighted aggregation from the relational database.
+
+* _Global Soil Map v0.5_ is the USA's contribution to the GlobalSoilMap.net project, Gbased on Soil Survey Geographic Database (SSURGO), at nominal 100 m grid resolution.
+<br>
+Partially explained in Hempel, J., Libohova, Z., Odgers, N., Thompson, J., Smith, C. A., & Lelyk, G. (2012). Versioning of GlobalSoilMap.net raster property maps for the North American Node. In Digital Soil Assessments and Beyond: Proceedings of the Fifth Global Workshop on Digital Soil Mapping 2012, Sydney, Australia (pp. 429–433). CRC Press. https://doi.org/10.13140/2.1.4670.2404. 
+<br>
+A promised 1.0+ is supposed to use a DSM approach from NCSS-KSSL point observations, i.e., a conventional DSM approach.
+
+* _ISSR-800_ "Intermediate-scale gridded soil property and interpretation maps from averaged and aggregated SSURGO and STATSGO data" at 800 m resolution. 
+
+* _POLARIS_ is the result of harmonizing diverse SSURGO and STATSGO polygon data with the DSMART algorithm to produce a raster soil series map (30 m resolution) and then extracting property information from Official Series Descriptions.
+<br>
+It is explained in: Chaney, N. W., Minasny, B., Herman, J. D., Nauman, T. W., Brungard, C. W., Morgan, C. L. S., McBratney, A. B., Wood, E. F., & Yimam, Y. (2019). POLARIS soil properties: 30-m probabilistic maps of soil properties over the contiguous United States. Water Resources Research, 55(4), 2916–2938. Scopus. https://doi.org/10.1029/2018WR022797 
+
+
+* _SoilGrids_ is a system for global digital soil mapping that makes use of global soil profile information and covariate data to model the spatial distribution of soil properties across the globe. SoilGrids250 is a collections of soil property maps at six standard depths at 250 m grid resolution.
+<br>
+SoilGrids250 filenames, procedures etc. are explained in a [FAQ](https://www.isric.org/explore/soilgrids/faq-soilgrids).
+<br>
+The choice of the [Goode Homolosine projection](https://en.wikipedia.org/wiki/Goode_homolosine_projection) is explained in Moreira de Sousa, L., L. Poggio, and B. Kempen. 2019. Comparison of FOSS4G Supported Equal-Area Projections Using Discrete Distortion Indicatrices. ISPRS International Journal of Geo-Information 8(8): 351. https://doi.org/10.3390/ijgi8080351.
+ 
+
+* _SPCG100US_ is an adaption of the SoilGrids methodology for the USA, using  the NCSS Characterization Database, the National Soil Information System (NASIS), and the Rapid Carbon Assessment (RaCA) point datasets and some covariates only available for the USA, giving a 100 m grid resolution. 
+<br>
+Explained in Ramcharan, A., T. Hengl, T. Nauman, C. Brungard, S. Waltman, et al. 2018. Soil property and class maps of the conterminous United States at 100-meter spatial resolution. Soil Science Society of America Journal 82(1): 186–201. https://doi.org/10.2136/sssaj2017.04.0122. This source was able to use 87 parent material classes  four and drainage classes based on the representative soil components of gSSURGO map units.
+
+* _LandGIS_ follows the approach of SoilGrids V1 (ISRIC), with more points, additional covariates, and ensemble machine-learning methods.
+
+# Depth slices
+
+* _gSSURGO_ gives values by genetic horizon, with no standard intervals.
+* _GSMv05_, _SoilGrids250_ and _POLARIS_ predict as average values over the GlobalSoilMap.net specification depth slices: 0-5, 5-15, 15-30, 30-60, 60-100, and 100-200 cm. In fact SoilGrids250 (and POLARIS?) predict at the midpoint of these intervals but report the values as if they cover the interval.
+* _SPCG100US_ makes predictions for 7 standard soil depths (0, 5, 15, 30, 60, 100 and 200 cm). These are considered "point" predictions, i.e., the values for an infintesimal vertical extent at these depth points.
+* _ISSR-800_ can be produced for any depth slice, as a thickness-weighted average based on gSSURGO.
+
+# Download locations
+
+* [gSSURGO](https://nrcs.app.box.com/v/soils) -- as polygon maps than can be rasterized
+* [Global Soil Map v0.5](https://new.cloudvault.usda.gov/index.php/s/AdiZdePpT9aJ6oZ) -- limited access, US Government site
+Also [here](https://edcftp.cr.usgs.gov/project/soil/GlobalSoilMap/)     
+* [ISSR-800 Soil Properties](https://casoilresource.lawr.ucdavis.edu/soil-properties/download.php)
+* [POLARIS soil properties](http://hydrology.cee.duke.edu/POLARIS/PROPERTIES/v1.0)
+* [SoilGrids250 web converage service](https://www.isric.org/web-coverage-services-wcs)
+* [SPCG100US](https://scholarsphere.psu.edu/collections/jw827b80n)
+* [LandGIS](https://gitlab.com/openlandmap/global-layers)
+
+# Soil properties
+
+Each download script explains which soil properties are included, how they are named, and their units of measurement.
+
+# Step 1: Import maps
+
+Each product has an R Markdown file to import the product, in subdirectory `scripts_importmaps`:
+
+* `GSM_USA_V05_import.Rmd`
+* `ISSR_import.Rmd`
+* `POLARIS_import.Rmd`
+* `SoilGrids250_import.Rmd`
+* `SPCG100USA_import.Rmd`
+
+To compare products, adjust each of these to the area of interest (AOI), property of interest, and the depth slice of interest, and import the product. To compare uncertainties also specify the quantile of interest, for those products that provide it.
+
+The AOI is typically a $1 \times 1^\circ$ tile in geographic coordinates. This is because POLARIS is provided in these tiles, and also because this is a large enough area to see the regional differences between products.
+
+# Step 2: Comparisons
+
+A set of scripts in subdirectory `scripts_compare` take the imported tiles and perform various comparisons.
+
+
+# Ground overlays
+
+Another way to qualitatively evaluate digital products is to produce ground overlays for Google Earth, for display within Google Earth and expert evaluation. 
+
+The overlay can be displayed along with [SoilWeb Apps](https://casoilresource.lawr.ucdavis.edu/soilweb-apps/), including SoilWeb Earth which displays SSURGO (detailed) or NATSGO (generalized) soil map units in Google Earth. 
+
+There is one R Markdown file for each product, in subdirectory `scripts_ground_overlays`.
+
+
+

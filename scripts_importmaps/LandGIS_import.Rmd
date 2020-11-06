@@ -1,0 +1,271 @@
+---
+title: "LandGIS grids  --- Import for PSM comparisons"
+author: "D G Rossiter"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    fig_align: center
+    fig_height: 6
+    fig_width: 6
+    number_section: yes
+    theme: spacelab
+    df_print: paged
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center', fig.path = './figs/diffs_sg_issr/')
+knitr::opts_chunk$set(cache.extra = R.version.string)
+```
+
+# Introduction
+
+[LandGIS](https://opengeohub.org/about-landgis) provides various gridded datasets. These are the products of the [EnvirometriX company](http://envirometrix.nl/) of Wageningen (NL).
+
+For their soil maps, _LandGIS_ follows the approach of SoilGrids V1 (ISRIC), with additional sources of point observations, additional covariates, and  usingensemble machine-learning methods.
+
+_LandGIS_ makes 3D "point" predictions at 6 standard soil depths (0, 10 (not 5 or 15), 30, 60, 100 and 200 cm).
+
+To use this script:
+
+1. Adjust the [directory structure](#dirs) to your system
+
+2. [Select a property](#prop)  and [select a depth slice](#depth).
+
+3. [Select an Area of Interest](#aoi).
+
+4. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
+
+5. The processed tile will be in the local directory structure, in a [subdirectory named for the AOI](#import).
+
+This GeoTIFF can then be read into R and compared with other PSM products.
+
+# Packages
+
+```{r}
+options("rgdal_show_exportToProj4_warnings"="none") 
+library(RCurl)          # access via URL
+library(rgdal)          # GDAL access from R
+library(gdalUtils)      # wrappers for GDAL utility programs that could be
+                        #  called from the command line
+library(sf)             # spatial data types 
+library(terra)          # raster data, replaces `raster`
+library(raster)         # `terra` sometimes blows up, then use this
+```
+
+
+# Directories {#dirs}
+
+Set a base directory, specific to the local file system. This is where downloaded LandGIS GeoTIFF are located,
+
+```{r}
+base.dir <- "/Users/rossiter/ds/"
+base.dir.landgis <- paste0(base.dir, "LandGIS")
+base.dir.import <- "/Volumes/Pythagoras/ds/"
+base.dir.landgis.import <- paste0(base.dir.import, "LandGIS")
+```
+
+# Select a property {#prop}
+
+The grids can be downloaded from [Zenodo](https://zenodo.org/record/2525676) (example for silt) does have the coverages.
+
+For example the Zenodo links for [pH](https://zenodo.org/record/2525817) and [silt](https://zenodo.org/record/2525676). These links refer to all the depths and quantiles.
+
+Search for these coverages as TIFF [here in Zenodo](https://zenodo.org/search?page=1&size=20&q=landgis%20soil&file_type=tif).
+
+Files are named as explained [here](https://github.com/Envirometrix/LandGISmaps#soil-properties-and-classes) and on the Zenodo page.  The standard depths are 0, 10 (not 5 or 15), 30, 60, 100, 200 point predictions.
+
+"For soil variable names we use consistently the National Cooperative Soil Characterization Database column names and codes. For example:
+
+`sol_bulkdens.fineearth_usda.4a1h_m_250m_b30..30cm_1950..2017_v0.2.tif`
+
+refers to the `db_od` column in the database and `4a1h` laboratory method (bulk density oven-dry), as described in:
+
+* [Laboratory Methods Manual (SSIR 42) - NRCS - USDA](https://www.nrcs.usda.gov/Internet/FSE_DOCUMENTS/nrcseprd1026806.pdf)
+* [Soil Survey Field and Laboratory Methods Manual - NRCS - USDA](https://www.nrcs.usda.gov/Internet/FSE_DOCUMENTS/stelprdb1244466.pdf)
+
+"Continuous 3D soil properties are predicted at 6 standard depths: 0, 10, 30, 60, 100 and 200 cm and then aggregated to standard depth intervals (5): 0–10, 10–30, 30–60, 60–100 and 100–200 cm." -- Note: *these intervals were not found on the map server*.
+
+Standard prediction errors (either as the prediction variance of prediction confidence limits) are provided for each soil property / depth. For example:
+
+`sol_bulkdens.fineearth_usda.4a1h_md_250m_b30..30cm_1950..2017_v0.2.tif`"
+
+To find these, use the search box. E.g., for pH, this will result in the search string https://maps.opengeohub.org/layers/?limit=20&offset=0&title__icontains=pH 
+
+Examples:
+
+`sol_sand.wfraction_usda.3a1a1a_m_250m_b60..60cm_1950..2017_v0.2`: sand, using the `usda.3a1a1a` method, the `m`ean, `250m` resoltuion, 60 cm depth, data from 1950 to 2017, version 0.2.
+
+According to the data store six properties are predicted by LandGIS:
+
+This part of the name specifies the property:
+
+* clay.wfraction_usda.3a1a1a
+* sand.wfraction_usda.3a1a1a
+* ph.h2o_usda.4c1a2a
+* organic.carbon_usda.6a1c
+* bulkdens.fineearth_usda.4a1h
+* watercontent.33kPa_usda.4b1c
+* texture.class_usda.tt
+
+The first five have SoilGrids250 equivalents:
+
+Zenodo IDs:
+
+* clay: stable 1476885; latest 2525663
+* silt: stable 2525675; latest 2525676
+* sand: stable 1476851; latest 2525662
+* bulk density: stable 1475971; latest 2525665
+* coarse fragments: stable 2525681; latest 2525682
+* soc: stable 1475458; latest 2525553
+
+Use the stable Zenodo codes to get the most recent version.
+
+```{r}
+voi.list.landgis <- c("clay.wfraction_usda.3a1a1a",
+                      "silt.wfraction_usda.3a1a1a",
+                      "sand.wfraction_usda.3a1a1a",
+                      "ph.h2o_usda.4c1a2a",
+                      "organic.carbon_usda.6a1c",
+                      "bulkdens.fineearth_usda.4a1h",
+                      "coarsefrag.vfraction_usda_3b1")
+voi.list.landgis.code <- c(1476854, 2525675, 1476851,
+                           1475459, 1475457, 1475970,
+                           2525681)
+voi.list.sg <- c("clay", "silt", "sand", "phh2o", "soc",  "bdod", "cfvo")
+```
+
+
+Select the position in these lists:
+
+```{r}
+voi.n <- 4
+voi.sg <- voi.list.sg[voi.n]
+voi.landgis <- voi.list.landgis[voi.n]
+voi.landgis.code <- voi.list.landgis.code[voi.n]
+```
+
+# Select a depth slice {#depth}
+
+LandGIS are point predictions within the profile, conceptually the value of an infinitely thin slice. 
+
+```{r}
+depth.list.landgis <- c("0", "10", "30", "60", "100", "200")
+```
+
+Select a slice:
+
+```{r}
+depth <- 1
+depth.landgis <- depth.list.landgis[depth]
+depth.landgis.suffix <- paste0("b", depth.landgis, "..", depth.list.landgis[depth], "cm")
+```
+
+
+# Area of Interest (AOI) {#aoi}
+
+Specify the two corners using WGS84 geographic coordinates (this is the CRS used in LandGIS), and the tile size.  If comparing with POLARIS these should be $1 \times 1^\circ$.
+
+```{r lrc}
+tile.lrc <- c(-76, 42)   # lower-right corner
+tile.size <- 1
+```
+
+Compute the upper-left coner:
+
+```{r ulc}
+tile.ulc <- c(tile.lrc[1]-tile.size, tile.lrc[2]+tile.size) # upper-left corner
+```
+
+
+# Download LandGIS layers 
+
+Import via Zenodo. Note that this imports *all* the layers for the property, both the mean and the mean deviation. 
+
+Names look like `sol_ph.h2o_usda.4c1a2a_m_250m_b0..0cm_1950..2017_v0.2`
+
+This is very slow, so check if the file has already been downloaded.
+```{r zenodo.new}
+(filename.in <- paste0(base.dir.landgis.import, 
+                          "/sol_", voi.landgis, 
+                          "_m_250m_", depth.landgis.suffix,
+                          "_1950..2017_v0.2.tif"))
+if (!file.exists(filename.in)) {
+  system.time(
+  download_zenodo(paste0("10.5281/zenodo.",voi.landgis.code),
+                  path=base.dir.landgis.import,
+                  logger="INFO")
+  )
+}
+```
+
+
+# Import LandGIS layer to R
+
+```{r in.slice1}
+r.landgis <- terra::rast(filename.in)
+print(r.landgis)
+```
+
+# Crop to the bounding box {#crop}
+
+Make a `terra` `SpatExtent` object from the bounding box and use it to crop.
+
+Bounding box in geographic coordinates in WGS84:
+
+```{r}
+m <- matrix(c(tile.ulc[1],tile.lrc[1],  #ulc
+              tile.ulc[2], tile.lrc[2]),  #lrc
+            nrow=2)
+bb.ll <- st_sfc(st_multipoint(m))
+st_crs(bb.ll) <- 4326
+bb.vect <- as.vector(matrix(st_bbox(bb.ll), nrow=2, byrow=T))
+bb.ll.ext <- ext(bb.vect)
+```
+
+Crop to this extent:
+
+```{r crop, fig.width=10}
+r.landgis.crop <- terra::crop(r.landgis, bb.ll.ext)
+```
+
+Show the cropped layer:
+
+```{r plot.properties}
+print(r.landgis.crop)
+summary(r.landgis.crop)
+terra::plot(r.landgis.crop,
+            main=paste0("LandGIS, ", voi.landgis, ", depth ", depth.landgis))
+```
+
+# Save the tile {#import}
+
+Save to a local directory, using the AOIas subdirectories, and the variable of interest and depth slice in the file name.
+
+
+A prefix for directories, to keep AOI results separate.
+
+```{r}
+AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
+                         "_lon", tile.ulc[1], tile.lrc[1])
+```
+
+Destination directory:
+
+```{r}
+(dest.dir.landgis <-  paste0(base.dir.landgis, "/", AOI.dir.prefix))
+if (!dir.exists(dest.dir.landgis)) {
+  dir.create(dest.dir.landgis, recursive = TRUE)}
+```
+    
+```{r}
+(file.name <- paste0(voi.landgis, "_", depth.landgis))
+f <- writeRaster(r.landgis.crop, file=paste0(dest.dir.landgis,"/",
+                                             file.name, ".tiff"),
+                 overwrite=TRUE, wopt=list(gdal=c("TFW=YES")),
+                 filetype="GTiff")
+```
+
+
+
