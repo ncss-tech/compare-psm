@@ -21,25 +21,16 @@ knitr::opts_chunk$set(cache.extra = R.version.string)
 
 # Introduction
 
+This script compares PSM products at 800m grid resolution.
+We consider this an appropriate resolution for regional studies.
 
-
-The [Intermediate-scale gridded soil property and interpretation maps from averaged and aggregated SSURGO and STATSGO data](https://casoilresource.lawr.ucdavis.edu/soil-properties/) from the [California Soil Resource Lab](https://casoilresource.lawr.ucdavis.edu) at UC Davis contains "a variety of soil properties throughout the continental United States ... obtained by aggregating USDA-NCSS soil survey data (SSURGO back-filled with STATSGO where SSURGO is not available) within 800m² grid cells." 
-
-This product is also known as [ISSR-800](https://github.com/ncss-tech/ISSR-800).
-
-The grids were aggregated to 800 x 800 m grid cells:
-
-* Area weighted average of components by map unit
-* Area weighted average of all map units within each grid cell
-
-Here we import, limit to a $1 \times 1^\circ$ tile (to match POLARIS) and then compare to POLARIS,  SoilGrids250, which are upscaled in this script to the same resolution. We also compare to the _Soil Properties and Class 100m Grids USA_ (further abbreviated as SPCG100USA) USA-only 100m grids, also upscaled.
+The PSM products must have been previously imported and restricted to the same area of interest (AOI), typically $1 \times 1^\circ$, to the locations indicated in the directory list.
 
 These properties can be directly compared:
 
 * pH (SoilGrids  `phh2o`,pH x 10, POLARIS `ph`)
 * clay % (SoilGrids `clay` %%, POLARIS `clay` %)
 * sand % (SoilGrids `sand` %%, POLARIS `sand` %)
-
 
 Only compare with SoilGrids (not in POLARIS or SPCG100USA):
 
@@ -58,12 +49,6 @@ Others can not be directly compared, because of the additional aggregation metho
 To compare these the SoilGrids250 depth slices need to be combined as a thickness-weighted average.
 
 SOC stocks in SoilGrids is `ocs` Organic Carbon Stocks, $Mg \; {dam}^{-2}$ ("Tons per hectare"), conversion factor to $kg \; {m}^{-2}$ is to divide by 10. However, these stocks are only for 0-30 cm. In ISSR-800 these are in the same units but as SOM.
-
-ISSR-800 maps can be
-[downloaded here](https://casoilresource.lawr.ucdavis.edu/soil-properties/download.php)
-as all-48 State GeoTIFF.
-
-ISSR-800 properties have to be provided at the required depth slice. Some were done by NRCS for their own interests (0-5, 0-25, 25-50), and others can be produced by request.
 
 For more on the SoilGrids properties see [here](https://www.isric.org/explore/soilgrids/faq-soilgrids).
 
@@ -86,47 +71,48 @@ require(xtable)  # format tables for LaTeX
 
 Set base directories, specific to the local file system. 
 
-1. `base.dir`: This is the location of the processed POLARIS and SoilGrids250 maps from script `SoilGrids250_POLARIS_compare.Rmd`.
+1. `base.dir`: This is the location of the PSM tiles that have been cropped to an AOI.
 
-2. `base.dir.import`: This is where downloaded large GeoTIFF are located. Because of their size they may be on a separate file system, e.g., removable or networked drive.
+2. `base.dir.import`: This is where downloaded large GeoTIFF are located. Because of their size they may be on a separate file system, e.g., removable or networked drive. In this script this location is only used for POLARIS, since they are imported directly as $1 \times 1^\circ$ tiles.
 
 ```{r}
 base.dir <- "/Users/rossiter/ds/"
+base.dir.gsm <- paste0(base.dir, "GSM_USA")
 base.dir.issr8 <- paste0(base.dir, "ISSR8")
 base.dir.sg <- paste0(base.dir, "SoilGrids250")
 base.dir.polaris <- paste0(base.dir, "POLARIS")
 base.dir.psu <- paste0(base.dir, "SPCG100USA")
+#
 base.dir.import <- "/Volumes/Pythagoras/ds/"
-base.dir.issr8.import <- paste0(base.dir.import, "ISSR8")
-base.dir.sg.import <- paste0(base.dir.import, "SoilGrids250")
 base.dir.polaris.import <- paste0(base.dir.import, "POLARIS")
-base.dir.psu.import <- paste0(base.dir.import, "SPCG100USA")
-# GSM tiles must have been imported already and cropped to here
-base.dir.gsm <- paste0(base.dir, "GSM_USA")
 ```
-
-
 
 # Property of interest
 
-The SoilGrids250 and POLARIS maps must have previously been downloaded and processed with `SoilGrids250_POLARIS_compare.Rmd` using the same property of interest and depth slice.
+Property names in various systems:
 
-The GSM_05 maps maps must have previously been downloaded and processed with `GSM_USA_V05.Rmd` using the same property of interest and depth slice.
-
-Select a property:
 
 ```{r}
-# property names in various systems
-voi.list.issr8 <- c("clay_", "silt_","sand_","ph_", "cec_") # depth slice will be added below
-voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec")
-voi.list.polaris <- c("clay", "silt", "sand", "ph", "")  # no CEC
-voi.list.psu <- c("clay", "", "sand", "ph_h2o", "")  # no silt or CEC
-voi.list.gsm <- c("claytotal_r_g_kg", "silttotal_r_g_kg", "sandtotal_r_g_kg", "ph1to1h2o_r_ions_pHx10", "ecec_r_cmolc_kg")
+# clay, silt, sand, pH, CEC, SOC, bulk density, coarse fragments
+voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod")
+voi.list.gsm <- c("claytotal_r_g_kg", "silttotal_r_g_kg", "sandtotal_r_g_kg", 
+                  "ph1to1h2o_r_ions_pHx10", "ecec_r_cmolc_kg", "soc_r_mr_g_gF", "", "")
+voi.list.issr8 <- c("clay", "silt","sand","ph", "cec", "", "", "")
+voi.list.polaris <- c("clay", "silt", "sand", "ph", "", "om", "bd", "") 
+voi.list.psu <- c("clay", "", "sand", "ph_h2o", "", "soc", "bd", "")
+voi.list.landgis <- c("clay.wfraction_usda.3a1a1a",
+                      "silt.wfraction_usda.3a1a1a",
+                      "sand.wfraction_usda.3a1a1a",
+                      "ph.h2o_usda.4c1a2a",
+                      "",
+                      "organic.carbon_usda.6a1c",
+                      "bulkdens.fineearth_usda.4a1h",
+                      "coarsefrag.vfraction_usda_3b1")
 ```
 
-So ISSR8 can be used as a reference for sand, clay, pH for all products, also for CEC for SPCGUSA, also for silt for POLARIS.
-
-Depending on the property, there has to be conversion. 
+Depending on the property, there has to be conversion.
+We choose to use SoilGrids250 as the reference units, and provide conversions to this.
+Note that these are integers, to save storage and processing time.
 
 * pH: Divide the SoilGrids, SPCGUSA100 and GSM05 pHX10 by 10.
 * sand, silt, clay: Divide the SoilGrids and GSM05 %% by 10.
@@ -158,10 +144,10 @@ Depth slices:
 
 ```{r}
 depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
+# SPCGUSA100 predicts at points, these were averaged to GSM slices during import
+# these have the SG names
 depth.list.polaris <- gsub("-", "_", depth.list.sg)
 depth.list.issr8 <- gsub("-", "", depth.list.sg)
-# SPCGUSA100 predicts at points, these must be averaged
-depth.list.psu <- c(0, 5, 15, 30, 60, 100, 200)
 depth.list.gsm <- c("000_005", "005_015", "015_030", "030_060", "060_100", "100_200")
 ```
 
@@ -169,36 +155,42 @@ Select the depth slice:
 
 ```{r}
 depth <- 4
-# this is the slice for SoilGrids, POLARIS, ISSR-8; the upper boundary for SPCGUSA100
 ```
 
 Add depth to ISSR-800 property name:
 
 ```{r}
-voi.issr8 <- paste0(voi.issr8, depth.list.issr8[depth])
+voi.issr8 <- paste0(voi.issr8, "_", depth.list.issr8[depth])
 ```
 
 
 # Area of Interest (AOI) {#aoi}
-
-The SoilGrids250 and POLARIS maps must have previously been downloaded and processed with `SoilGrids250_POLARIS_compare.Rmd` using the same $1 \times 1^\circ$  AOI.
 
 We use a $1 \times 1^\circ$ tile, because that is how POLARIS data is served.
 Specify the lower-right corner, then compute the upper-right corner 1 degree west and north.
 
 Specify the two corners using WGS84 geographic coordinates:
 
-```{r}
-# tile.lrc <- c(-121, 46)  # lower-right corner: Centralia WA
-# tile.lrc <- c(-86, 38)  # lower-right corner: southern Indiana
-# tile.lrc <- c(-76, 42)   # lower-right corner: central NY
-tile.lrc <- c(-77, 35)   # lower-right corner: coastal plain NC
-tile.ulc <- c(tile.lrc[1]-1, tile.lrc[2]+1) # upper-left corner
-m <- matrix(c(tile.ulc[1],tile.lrc[1],  #ulc
-              tile.ulc[2], tile.lrc[2]), nrow=2) #lrc
-bb.ll <- st_sfc(st_multipoint(m))
-st_crs(bb.ll) <- 4326   # ESPG code for WGS84 long/lat
+Specify the lower-right corner:
+
+```{r lrc}
+tile.lrc <- c(-76, 42)   # lower-right corner
+tile.size <- 1
 ```
+
+Compute the upper-left coner:
+
+```{r ulc}
+tile.ulc <- c(tile.lrc[1]-tile.size, tile.lrc[2]+tile.size) # upper-left corner
+```
+
+A prefix for directories, to keep AOI results separate.
+
+```{r}
+AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
+                         "_lon", tile.ulc[1], tile.lrc[1])
+```
+
 
 A prefix for directories, to keep AOI results separate.
 
@@ -217,9 +209,18 @@ if (!dir.exists(dest.dir.issr8)) {
 }
 ```
 
+Bounding box:
+
+```{r bbox.4326}
+m <- matrix(c(tile.ulc[1],tile.lrc[1],  #ulc
+              tile.ulc[2], tile.lrc[2]), nrow=2) #lrc
+bb.ll <- st_sfc(st_multipoint(m))
+st_crs(bb.ll) <- 4326   # ESPG code for WGS84 long/lat
+```
+
 Project the bounding box to Goode Interrupted Homolosine (IGH) used by SoilGrids:
 
-```{r}
+```{r bbox.igh}
 # convert to Homolosine. Note epsg=152160 is not in PROJ4 database
 crs.igh <- '+proj=igh +lat_0=0 +lon_0=0 +datum=WGS84 +units=m +no_defs'
 (bb.igh <- st_transform(bb.ll, crs.igh))
@@ -229,228 +230,9 @@ crs.igh <- '+proj=igh +lat_0=0 +lon_0=0 +datum=WGS84 +units=m +no_defs'
 
 Project the bounding box to the AEA. This is the CRS used by ISSR-800 and SPCG100USA:
 
-```{r}
+```{r bbox.aea}
 crs.aea <- "+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"
 (bb.aea <- st_transform(bb.ll, crs.aea))
-```
-
-# Import all products
-
-Import and limit to bounding box, and make the units compatible. The following section will compare them.
-
-
-## ISSR-800 
-
-```{r plot.properties.issr8.import}
-r.issr8 <- terra::rast(paste0(base.dir.issr8.import, "/", voi.issr8, ".tif"))
-print(r.issr8)
-terra::plot(r.issr8, main=paste("ISSR-800;",  main=voi.issr8))
-```
-
-This is in a continental Albers Equal Area projection on the GRS80 ellipsoid.
-
-Crop to the bounding box
-
-Make a `terra` `SpatExtent` object from the bounding box and use it to crop.
-
-```{r plot.properties.issr8.crop}
-st_bbox(bb.aea)
-bb.vect <- as.vector(matrix(st_bbox(bb.aea), nrow=2, byrow=T))
-bb.aea.ext <- ext(bb.vect)
-r.issr8.crop <- terra::crop(r.issr8, bb.aea.ext)
-plot(r.issr8.crop, main=paste("ISSR-800;",  main=voi.issr8))
-print(r.issr8.crop)
-summary(r.issr8.crop)
-# cat(crs(r.issr8.crop))
-```
-
-We now have a $1 \times 1^\circ$ tile from ISSR800. Note the NA's can be used as a mask -- these are water areas.
-
-## POLARIS
-
-Get a file that was downloaded in script  `SoilGrids250_POLARIS_compare.Rmd`.
-
-```{r import-polaris-tile}
-file.in <- paste0(base.dir.polaris.import, "/",
-                  AOI.dir.prefix, "/",
-                  voi.polaris,"/mean/",
-                  depth.list.polaris[depth], "/",
-                  AOI.dir.prefix, ".tif")
-if (file.exists(file.in)) {
-  r.p <- terra::rast(file.in); print(r.p)
-} else {
-  print("No corresponding POLARIS tile, property is skipped") # this will fail for CEC
-}
-```
-
-Resample POLARIS to match ISSR-800:
-
-```{r resample-polaris}
-if (exists("r.p")) {
-  r.p.aea <- terra::project(r.p, r.issr8.crop, method="bilinear")
-  plot(r.p.aea, main=paste("POLARIS;", voi.issr8))
-}
-```
-
-Note this step has converted from integers to floating-point.
-
-## SoilGrids
-
-Get a tile that was downloaded with script `SoilGrids250_POLARIS_compare.Rmd`. This was placed directly in the local storage.
-
-```{r get-sg}
-file.in <- paste0(base.dir.sg, "/",
-                  AOI.dir.prefix, "/",
-                  voi.sg,"/mean/",
-                  depth.list.sg[depth],"cm/SG_",
-                  voi.sg,"_",
-                  depth.list.sg[depth],
-                  "cm_mean.tiff")
-if (file.exists(file.in)) {
-  r.sg <- terra::rast(file.in); print(r.sg)
-} else {
-  print("No corresponding SoilGrids250 tile")
-  stop("Missing input file")
-}
-```
-
-The 0 values are masked urban and water. To compare with other grids, convert these to `NA`.
-
-```{r zero-to-na}
-r.sg <- terra::classify(r.sg,  matrix(c(0, NA), nrow=1), include.lowest=TRUE)
-```
-
-
-Resample the SoilGrids to match ISSR800. This aggregates from 250 m to 800  m resolution.  Resample into the AEA grid used by ISSR800, and also make units compatible
-
-```{r plot.sg.aea}
-r.sg.aea <- terra::project(r.sg, r.issr8.crop)/sg.to.issr8[depth]
-plot(r.sg.aea, main=paste("SoilGrids250;", voi.issr8))
-```
-
-Note this step has converted from integers to floating-point.
-
-## SPCG100 USA
-
-The slice numbers which will be averaged to match the required slice are the the `depth` and `depth + 1`.
-
-
-Import the relevant depths, crop, and average through the slice.
-
-
-```{r in.slices}
-filename.in <- paste0(base.dir.psu.import, "/", voi.psu, "_M_sl", depth, "_100m.tif")
-if (file.exists(filename.in)) {
-  r.psu.top <- terra::rast(filename.in)
-} else {
-  print("No corresponding SPCG100 property at 0 cm, skipping this property")  # this will fail for CEC
-}
-filename.in <- paste0(base.dir.psu.import, "/", voi.psu, "_M_sl", depth+1, "_100m.tif")
-if (file.exists(filename.in)) {
-  r.psu.bottom <- terra::rast(filename.in)
-} else {
-  print("No corresponding SPCG100 property at 5 cm, skipping this property")  # this will fail for CEC
-}
-# crop to study area and average the two layers to give 0-5 slice
-if (exists("r.psu.top") && exists("r.psu.bottom")) {
-  bb.vect <- as.vector(matrix(st_bbox(bb.aea), nrow=2, byrow=T))
-  bb.aea.ext <- ext(bb.vect)
-  r.psu.crop.top <- terra::crop(r.psu.top, bb.aea.ext)
-  r.psu.crop.bottom <- terra::crop(r.psu.bottom, bb.aea.ext)
-  r.psu.crop <- ((r.psu.crop.bottom + r.psu.crop.top)/2)
-  rm(r.psu.top, r.psu.bottom, r.psu.crop.top, r.psu.crop.bottom)
-
-  # aggregate to 800 m resolution 
-  r.psu.aea <- terra::project(r.psu.crop, r.issr8.crop)
-  terra::plot(r.psu.aea, main="SPCGUSA100", xlab=voi.issr8)
-  
-  # and make units compatible
-  r.psu.aea <- r.psu.aea/psu.to.issr8[voi]
-  
-  # destination directory
-  dest.dir.psu <-  paste0(base.dir.psu, "/", AOI.dir.prefix, "/",
-                          voi.psu, "/mean/sl", depth)
-  if (!dir.exists(dest.dir.psu)) {
-    dir.create(dest.dir.psu, recursive = TRUE)}
-}
-```
-
-
-  
-## GSM v0.5
-
-The tile, in its original resolution and CRS, must have been prepared in `GSM_USA_V05.Rmd`.
-
-```{r get-gsm}
-file.in <- paste0(base.dir.gsm, "/", AOI.dir.prefix,
-                   "/GSM_mu_", voi.gsm, "_", depth.list.gsm[depth], ".tif")
-rgdal::GDALinfo(file.in)
-if (file.exists(file.in)) {
-  r.gsm <- terra::rast(file.in); print(r.gsm)
-} else {
-  print("No corresponding GSM v0.5 tile")
-  stop("Missing input file")
-}
-terra::plot(r.gsm)
-```
-
-
-Aggregate to 800 m resolution and resample to ISSR8 CRS:
-
-```{r}
-r.gsm.aea <- terra::project(r.gsm, r.issr8.crop)
-```
-
-Make units compatible:
-
-```{r}
-r.gsm.aea <- r.gsm.aea/gsm.to.issr8[voi]
-terra::plot(r.gsm.aea, main="GSM v0.5", xlab=voi.issr8)
-```
-
-Destination directory for created files:
-
-```{r}
-dest.dir.gsm <-  paste0(base.dir.psu, "/", AOI.dir.prefix, "/",
-                        voi.psu, "/mean/sl", depth)
-if (!dir.exists(dest.dir.psu)) {
-  dir.create(dest.dir.psu, recursive = TRUE)}
-```
-
-## Save tiles for pattern analysis
-
-
-Save all of these under a local directory for ISSR-800. These will be used by script `CompareSpatialPatterns.Rmd`.
-
-(Note: Neither `.Rdata` nor `.rds` formats are suitable, since there are internal "promises" which can't be evaluated when read back with `load` or `readRDS`.)
-
-```{r save.tiles}
-f <- writeRaster(r.issr8.crop, file=paste0(dest.dir.issr8,"/issr8_tile_aea_",
-                              voi.issr8, ".tiff"),
-            overwrite=TRUE, wopt=list(gdal=c("TFW=YES")),
-            filetype="GTiff")
-f <- writeRaster(r.sg.aea, file=paste0(dest.dir.issr8,"/sg_tile_aea_",
-                              voi.issr8, ".tiff"),
-            overwrite=TRUE, wopt=list(gdal=c("TFW=YES")),
-            filetype="GTiff")
-if (exists("r.psu.aea")) {
-  f <- writeRaster(r.psu.aea, file=paste0(dest.dir.issr8,"/psu_tile_aea_",
-                              voi.issr8, ".tiff"),
-            overwrite=TRUE, wopt=list(gdal=c("TFW=YES")),
-            filetype="GTiff")
-}
-if (exists("r.p.aea")) {
-  f <- writeRaster(r.p.aea, file=paste0(dest.dir.issr8,"/polaris_tile_aea_",
-                              voi.issr8, ".tiff"),
-            overwrite=TRUE, wopt=list(gdal=c("TFW=YES")),
-            filetype="GTiff")
-}
-if (exists("r.gsm.aea")) {
-  f <- writeRaster(r.p.aea, file=paste0(dest.dir.issr8,"/gsm_tile_aea_",
-                              voi.issr8, ".tiff"),
-            overwrite=TRUE, wopt=list(gdal=c("TFW=YES")),
-            filetype="GTiff")
-}
 ```
 
 # Compare
@@ -458,7 +240,6 @@ if (exists("r.gsm.aea")) {
 ## Mask out common areas
 
 POLARIS predicts in the lakes, for example.
-
 
 ```{r mask.lakes}
 r.p.aea <- mask(r.p.aea, r.sg.aea)

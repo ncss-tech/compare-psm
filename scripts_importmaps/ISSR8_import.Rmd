@@ -74,8 +74,12 @@ if (!dir.exists(base.dir.issr8.import)) {
 List of properties:
 
 ```{r}
+# clay, silt, sand, pH, CEC, SOC, bulk density, coarse fragments
+
 voi.list.issr8 <- c("clay", "silt","sand","ph", "cec", "ec", "rf", "paws", "sar")
 ```
+
+Note ISSR-800 only has SOM stocks and average bulk density, not by depth slice.
 
 Select a property:
 

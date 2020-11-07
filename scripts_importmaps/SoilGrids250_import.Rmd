@@ -103,16 +103,14 @@ Define the variables for the soil property and layer of interest. See [here](htt
 `mean` - mean of the distribution;
 `Q0.95` - 95% quantile from the QRF.
 
-These have different names in POLARIS:
-
 ```{r}
 quantile.list <- c("Q0.05", "Q0.5", "Q0.95", "mean")
 ```
 
-Here are the properties that are in both databases:
+Here are the properties predicted by SoilGrids250:
 
 ```{r}
-voi.list <- c("bdod", "clay", "phh2o", "sand", "silt", "soc")
+voi.list <- c("bdod", "cec", "cfvo", "clay", "nitrogen", "phh2o", "sand", "silt", "soc", "ocd")
 ```
 
 Depth slices:

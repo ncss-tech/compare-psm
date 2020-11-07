@@ -82,7 +82,7 @@ quantile.list.polaris <- c("p5", "p50", "p95", "mean")
 Here are the primary soil properties, there are also soil hydrological parameters we do not process.
 
 ```{r}
-voi.list.polaris <- c("bd", "clay", "ph", "sand", "silt", "om")
+voi.list.polaris <- c("clay", "silt", "sand", "ph", "om", "bd") 
 ```
 
 Depth slices, in cm:
@@ -94,8 +94,8 @@ depth.list.polaris <- c("0_5", "5_15", "15_30", "30_60", "60_100", "100_200")
 Set the property, depth and quantile:
 
 ```{r}
-voi.polaris <- "ph"   # variable of interest, POLARIS name
-depth.polaris <- "0_5" # "0-5", "5-15", "15-30", "30-60", "60-100", "100-200"
+voi.polaris <- "bd"   # variable of interest, POLARIS name
+depth.polaris <- "60_100" # "0-5", "5-15", "15-30", "30-60", "60-100", "100-200"
 quantile.polaris <- "mean"  # p5, p50, mean, p95
 (voi_layer <- paste(voi.polaris, depth.polaris, quantile.polaris, sep="_")) # layer of interest 
 ```

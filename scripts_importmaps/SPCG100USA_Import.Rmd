@@ -26,10 +26,6 @@ _Soil Properties and Class 100m Grids USA_ (further abbreviated as SPCG100USA) i
 
 It is explained in Ramcharan, A., T. Hengl, T. Nauman, C. Brungard, S. Waltman, et al. 2018. Soil property and class maps of the conterminous United States at 100-meter spatial resolution. Soil Science Society of America Journal 82(1): 186–201. https://doi.org/10.2136/sssaj2017.04.0122.  This source was able to use 87 parent material classes  four and drainage classes based on the representative soil components of gSSURGO map units. These are 3D "point" predictions at 7 standard soil depths (0, 5, 15, 30, 60, 100 and 200 cm). This by contrast to SoiLGrids250 which predicts at 6 depth slices using these limits.
 
-This documents has two parts. The first is a long step-by-step explanation with a single $1 \times 1^\circ$ Area of Interest (AOI) which can be adjusted manually [in this section](#aoi), property, and depth which can be adjusted manually [in this section](#voi). The second is a self-contained [function](#function)  to carry out the analysis for a user-selected set of properties, depths and quantiles for a single AOI and save all the results in the file system; this is [here](#compare). This set of maps can then be used to compare prediction intervals.`
-
-When compiling this document with `knitr`, sample calls to the function are suppressed with the `eval=FALSE` markdown tag.
-
 To use this script:
 
 1. Adjust the [directory structure](#dirs) to your system
@@ -87,6 +83,8 @@ There are seven point depth predictions: 0, 5, 15, 30, 60, 100, and 200 cm, labe
 # Select a property {#voi}
 
 According to the journal paper six properties are predicted by SPCG100USA: percent organic C, total N, bulk density, pH, percent sand, and clay. These have SoilGrids250 equivalents. The database also shows additional properites: EC, K, Mg. The methods for these are not given, and there is no SoilGrids250 equivalent.
+
+Note that silt is not predicted; it could be computed as `(100 - clay - sand)`.
 
 ```{r}
 voi.list.psu <- c("soc", "n", "bd", "sand", "clay", "ph_h2o", "ec", "k", "mg")
