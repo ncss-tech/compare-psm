@@ -3,6 +3,8 @@ title: "POLARIS --- Import for PSM comparisons"
 author: "D G Rossiter"
 date: "`r Sys.Date()`"
 output:
+  pdf_document:
+    toc: yes
   html_document:
     toc: yes
     toc_float: yes
@@ -10,8 +12,6 @@ output:
     number_section: yes
     fig_height: 7
     fig_width: 7
-  pdf_document:
-    toc: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -31,7 +31,7 @@ To use this script:
 
 1. Ajust the [directory structure](#dirs) to your system
 
-2. [Select a property](#prop) and [select a depth slice](#depth).
+2. [Select a property](#voi) and [select a depth slice](#depth).
 
 3. [Select an Area of Interest](#aoi).
 
@@ -79,11 +79,26 @@ Define the variables for the soil property and layer of interest.
 quantile.list.polaris <- c("p5", "p50", "p95", "mean")
 ```
 
-Here are the primary soil properties, there are also soil hydrological parameters we do not process.
+The list of properties and their units of measure is [here](http://hydrology.cee.duke.edu/POLARIS/PROPERTIES/v1.0/Readme).
+
+Relevant here are:
+
+* clay - clay percentage, %
+* silt - silt percentage, %
+* sand - sand percentage, %
+* ph - soil pH in H2O, N/A
+* om - organic matter, log10(%)
+* bd - bulk density, g/cm3
+
+There are also soil hydrological parameters we do not process.
 
 ```{r}
 voi.list.polaris <- c("clay", "silt", "sand", "ph", "om", "bd") 
 ```
+
+
+
+# Set depth slice {#depth}
 
 Depth slices, in cm:
 
@@ -94,8 +109,8 @@ depth.list.polaris <- c("0_5", "5_15", "15_30", "30_60", "60_100", "100_200")
 Set the property, depth and quantile:
 
 ```{r}
-voi.polaris <- "bd"   # variable of interest, POLARIS name
-depth.polaris <- "60_100" # "0-5", "5-15", "15-30", "30-60", "60-100", "100-200"
+voi.polaris <- "clay"   # variable of interest, POLARIS name
+depth.polaris <- "30_60" # "0-5", "5-15", "15-30", "30-60", "60-100", "100-200"
 quantile.polaris <- "mean"  # p5, p50, mean, p95
 (voi_layer <- paste(voi.polaris, depth.polaris, quantile.polaris, sep="_")) # layer of interest 
 ```

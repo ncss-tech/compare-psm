@@ -84,6 +84,8 @@ There are seven point depth predictions: 0, 5, 15, 30, 60, 100, and 200 cm, labe
 
 According to the journal paper six properties are predicted by SPCG100USA: percent organic C, total N, bulk density, pH, percent sand, and clay. These have SoilGrids250 equivalents. The database also shows additional properites: EC, K, Mg. The methods for these are not given, and there is no SoilGrids250 equivalent.
 
+"Final soil properties modeled and mapped included soil organic C in % weight, sand and clay in % weight, bulk density of the fine earth fraction (<2 mm) in g cm-3, total N in % weight, and soil pH in 1:1 soil–H2O solution."
+
 Note that silt is not predicted; it could be computed as `(100 - clay - sand)`.
 
 ```{r}
@@ -232,7 +234,7 @@ if (!dir.exists(dest.dir.psu)) {
 ```{r}
 (file.name <- paste0(voi.psu, "_", depth.sg))
 f <- writeRaster(r.psu.crop, file=paste0(dest.dir.psu,"/",
-                                        file.name, ".tiff"),
+                                        file.name, ".tif"),
                  overwrite=TRUE, wopt=list(gdal=c("TFW=YES")),
                  filetype="GTiff")
 ```

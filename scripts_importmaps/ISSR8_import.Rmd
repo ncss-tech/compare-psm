@@ -223,7 +223,7 @@ We now have a $1 \times 1^\circ$ tile from ISSR800. Note the NA's can be used as
 
 ```{r save.tile}
 f <- writeRaster(r.issr8.crop, file=paste0(dest.dir.issr8,"/",
-                              voi.issr8, "_", depth.issr8, ".tiff"),
+                              voi.issr8, "_", depth.issr8, ".tif"),
             overwrite=TRUE, wopt=list(gdal=c("TFW=YES")),
             filetype="GTiff")
 ```

@@ -122,8 +122,9 @@ depth.list <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
 Set the property, depth and quantile:
 
 ```{r}
-voi <- "soc"   # variable of interest, SoilGrids name
-depth <- "0-5cm" # "0-5", "5-15", "15-30", "30-60", "60-100", "100-200"
+voi.n <- 4
+voi <- voi.list[voi.n]   # variable of interest, SoilGrids name
+depth <- "30-60cm" # "0-5", "5-15", "15-30", "30-60", "60-100", "100-200"
 quantile.sg <- "mean"  # "Q0.05", "Q0.5" [not 0.50 !], "Q0.95", "mean"
 (voi_layer <- paste(voi, depth, quantile.sg, sep="_")) # layer of interest 
 ```
@@ -213,7 +214,7 @@ Here is is the part of a URL that describes the location and downloading paramet
 sg_url <- "/vsicurl?max_retry=3&retry_delay=1&list_dir=no&url=https://files.isric.org/soilgrids/latest/data/"
 ```
 
-## Native format tile
+## Import native format tile
 
 Here is the destination file:
 
@@ -259,7 +260,7 @@ terra::plot(r.sg)
 The NA values are masked urban and water.
 
 
-## Reprojected tile
+## Import reprojected tile
 
 Now re-project to another virtual raster:
 

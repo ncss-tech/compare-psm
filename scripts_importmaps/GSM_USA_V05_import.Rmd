@@ -39,6 +39,23 @@ To use this script:
 
 5. The processed tile will be in the directory structure, in a [subdirectory named for the AOI](#save).
 
+# Packages and Drivers
+
+```{r pack}
+library(sf)
+library(rgdal)
+library(terra) 
+library(tidyverse)
+``` 
+
+Check that the system has a driver for OpenFile Geodatabases:
+
+```{r drive}
+ogr.d <- ogrDrivers()
+ogr.d[ix <- which(ogr.d$name=="OpenFileGDB"), ]
+```
+
+
 # Directories {#dirs}
 
 One directory is used for the large original files (all-CONUS grid and all-map unit database), and another for the extracted tiles. Set these to areas on your own system.
@@ -52,9 +69,9 @@ base.dir.gsm05.import <- "/Volumes/Pythagoras/ds/GSM_USA/"
 
 These must be downloaded prior to running this script:
 
-* [URL for all files](https://edcftp.cr.usgs.gov/project/soil/GlobalSoilMap/) https://edcftp.cr.usgs.gov/project/soil/GlobalSoilMap/
+* [URL for all files](https://edcftp.cr.usgs.gov/project/soil/GlobalSoilMap/):  https://edcftp.cr.usgs.gov/project/soil/GlobalSoilMap/
 
-* [Database](https://edcftp.cr.usgs.gov/project/soil/GlobalSoilMap/GSM_34LRH_20180606094754.gdb.7z) https://edcftp.cr.usgs.gov/project/soil/GlobalSoilMap/GSM_34LRH_20180606094754.gdb.7z
+* [Database](https://edcftp.cr.usgs.gov/project/soil/GlobalSoilMap/GSM_34LRH_20180606094754.gdb.7z):  https://edcftp.cr.usgs.gov/project/soil/GlobalSoilMap/GSM_34LRH_20180606094754.gdb.7z
 
 Download and then uncompress into a directory named `GSM_34LRH_20180606094754.gdb`, under `base.dir.gsm05.import` (see above). This is an ESRI Open File Geodatabase with 43 files, total size 1.8 GB.
 
@@ -64,32 +81,16 @@ Each attribute that varies by depth was coded for 8 depth zones given here with 
 
 This version of the table also contains intermediate values used in the calculation of the primary GlobalSoilMap variables, which are not required by the specifications, such as the thickness, volume, and mass of soil which was used for weighting when computing weighted averages across horizons. It also includes metadata variables, such as the sum of the component percentages (`mu_sum_comppct_r_fix_`) which were used in the calculation, where a high value indicates that a large proportion of the land area is included in the calculated result, and a low value indicates that only a small proportion of the land area contributed to the result.
 
-* [Grid](https://edcftp.cr.usgs.gov/project/soil/GlobalSoilMap/mukeyint_SaS_3as.7z)
+* [Download the grid](https://edcftp.cr.usgs.gov/project/soil/GlobalSoilMap/mukeyint_SaS_3as.7z): 
  https://edcftp.cr.usgs.gov/project/soil/GlobalSoilMap/mukeyint_SaS_3as.7z
 
-Download and then uncompress into a directory named `mukeyint_SaS_3as`, under `base.dir.gsm05.import` (see above). This has a GeoTIFF and related metadata files; total size 9.8 GB.
-
+* Uncompress into a directory named `mukeyint_SaS_3as`, under `base.dir.gsm05.import` (see above). This has a GeoTIFF and related metadata files; total size 9.8 GB.
+<br>
 The NoData values are 255 for 8-bit unsigned integers, 65535 for 16-bit unsigned integers, 4294967295 for 32-bit unsigned integers, and -3.39999995214436E+38 for 32-bit floating point numbers.
 
-* [Metadata](https://edcftp.cr.usgs.gov/project/soil/GlobalSoilMap/T_GSM_20180430162220_metadata.xml) written by Norman Bliss. 
-
+* [Download the metadata](https://edcftp.cr.usgs.gov/project/soil/GlobalSoilMap/T_GSM_20180430162220_metadata.xml) written by Norman Bliss. 
+<br>
 Download and open in a web browser that can interpret XML.
-
-# Packages and Drivers
-
-```{r pack}
-library(sf)
-library(rgdal)
-library(raster)   # `terra` has some problems with clipping
-library(tidyverse)
-``` 
-
-Check that the system has a driver for OpenFile Geodatabases:
-
-```{drive}
-ogr.d <- ogrDrivers()
-ogr.d[ix <- which(ogr.d$name=="OpenFileGDB"), ]
-```
 
 
 # Attribute database
@@ -183,7 +184,7 @@ voi.list.gsm <- c("claytotal_r_g_kg", "silttotal_r_g_kg", "sandtotal_r_g_kg", "p
 *Select a property* by its position in the list, and make a full name from it:
 
 ```{r voi}
-voi <- 6
+voi <- 1
 voi.name <- paste0("mu_", voi.list.gsm[voi], "_")
 ```
 
@@ -218,7 +219,7 @@ depth.list.gsm <- c("000_005", "005_015", "015_030", "030_060", "060_100", "100_
 *Select a depth slice* by its position in the list, and make a full name from the property of interest and the selected depth slice:
 
 ```{r depth}
-depth <- 1
+depth <- 4
 voi.depth.name <- paste0(voi.name, depth.list.gsm[depth])
 ```
 
@@ -230,8 +231,7 @@ voi.depth.name <- paste0(voi.name, depth.list.gsm[depth])
 ```{r tile.1}
 ## Lower-right corner, in integer degrees
 #
-# tile.lrc <- c(-76, 42) # lower-right corner: central NY
-tile.lrc <- c(-77, 35) # coastal plain NC
+tile.lrc <- c(-76, 42) # lower-right corner: central NY
 #
 ## Tile size, in integer degrees
 # 
@@ -260,8 +260,8 @@ file.info(grid.name)[c("size", "mtime")]
 Import the grid:
 
 ```{r read.grid}
-r <- raster(grid.name)
-extent(r)
+r <- rast(grid.name)
+ext(r)
 crs(r)
 dim(r)
 res(r)
@@ -287,7 +287,7 @@ Clip to a study area:
 
 ```{r clip.grid}
 bb.vect <- as.vector(matrix(st_bbox(bb.ll), nrow=2, byrow=T))
-r.crop <- crop(r, bb.vect)
+r.crop <- terra::crop(r, bb.vect)
 dim(r.crop)
 length(unique(r.crop))
 head(r.crop, rows=8, cols=8)
@@ -301,9 +301,13 @@ Link these values with the grid cell, via the map unit key `mu_key` which is the
 Determine the substitution value column number from the name.
 
 ```{r link}
-r.attr <- subs(r.crop, db.attr,
-               by=1,
-               which=match(voi.depth.name, names(db.attr)))
+m.reclass <- data.frame(from=db.attr[,1],
+                    to=db.attr[, match(voi.depth.name, names(db.attr))])
+dim(m.reclass)
+m.reclass[1:6,]
+system.time(
+  r.attr <- classify(r.crop, m.reclass)
+)
 plot(r.attr)
 summary(r.attr)
 ```
@@ -331,7 +335,7 @@ if (!dir.exists(dest.dir)) {
 Save the tile. Note that the file name includes the property name and depth slice. Specify the integer datatype and a GeoTIFF "world" file.
 
 ```{r}
-f <- raster::writeRaster(r.attr, file=paste0(dest.dir, "/GSM_",
+f <- terra::writeRaster(r.attr, file=paste0(dest.dir, "/GSM_",
                                               voi.depth.name, ".tif"),
                         overwrite=TRUE, datatype="INT2U", options=c("TFW=YES"),
                         filetype="GTIFF")
