@@ -122,9 +122,9 @@ depth.list <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
 Set the property, depth and quantile:
 
 ```{r}
-voi.n <- 4
+voi.n <- 6
 voi <- voi.list[voi.n]   # variable of interest, SoilGrids name
-depth <- "30-60cm" # "0-5", "5-15", "15-30", "30-60", "60-100", "100-200"
+depth <- "0-5cm" # "0-5", "5-15", "15-30", "30-60", "60-100", "100-200"
 quantile.sg <- "mean"  # "Q0.05", "Q0.5" [not 0.50 !], "Q0.95", "mean"
 (voi_layer <- paste(voi, depth, quantile.sg, sep="_")) # layer of interest 
 ```

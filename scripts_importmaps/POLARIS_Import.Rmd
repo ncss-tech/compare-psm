@@ -3,8 +3,6 @@ title: "POLARIS --- Import for PSM comparisons"
 author: "D G Rossiter"
 date: "`r Sys.Date()`"
 output:
-  pdf_document:
-    toc: yes
   html_document:
     toc: yes
     toc_float: yes
@@ -12,6 +10,8 @@ output:
     number_section: yes
     fig_height: 7
     fig_width: 7
+  pdf_document:
+    toc: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -96,6 +96,12 @@ There are also soil hydrological parameters we do not process.
 voi.list.polaris <- c("clay", "silt", "sand", "ph", "om", "bd") 
 ```
 
+Set the property and quantile:
+
+```{r}
+voi.polaris <- "ph"   # variable of interest, POLARIS name
+quantile.polaris <- "mean"  # p5, p50, mean, p95
+```
 
 
 # Set depth slice {#depth}
@@ -106,12 +112,10 @@ Depth slices, in cm:
 depth.list.polaris <- c("0_5", "5_15", "15_30", "30_60", "60_100", "100_200")
 ```
 
-Set the property, depth and quantile:
+Set the depth, and build a full layer name with the property, depth, and quantile:
 
 ```{r}
-voi.polaris <- "clay"   # variable of interest, POLARIS name
-depth.polaris <- "30_60" # "0-5", "5-15", "15-30", "30-60", "60-100", "100-200"
-quantile.polaris <- "mean"  # p5, p50, mean, p95
+depth.polaris <- "0_5" # "0-5", "5-15", "15-30", "30-60", "60-100", "100-200"
 (voi_layer <- paste(voi.polaris, depth.polaris, quantile.polaris, sep="_")) # layer of interest 
 ```
 

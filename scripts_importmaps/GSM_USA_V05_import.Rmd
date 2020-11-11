@@ -177,20 +177,22 @@ SSURGO and STATSGO2 have a "low", "representative", and "high" value for most qu
 The following properties can be compared to SoilGrids250 and other PSM products. We need to specify the long GSM names because of the units of measure.
 
 ```{r voi.list}
-voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc")
-voi.list.gsm <- c("claytotal_r_g_kg", "silttotal_r_g_kg", "sandtotal_r_g_kg", "ph1to1h2o_r_ions_pHx10", "ecec_r_cmolc_kg", "soc_r_mr_g_gF")
+voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
+voi.list.gsm <- c("claytotal_r_g_kg", "silttotal_r_g_kg", "sandtotal_r_g_kg",
+                  "ph1to1h2o_r_ions_pHx10", "ecec_r_cmolc_kg", "soc_r_mr_g_gF", 
+                  "dbthirdbar_lt2mm_r_g_cm3", "gravel_r_vol_ratio_m3_m3")
 ```
 
 *Select a property* by its position in the list, and make a full name from it:
 
 ```{r voi}
-voi <- 1
-voi.name <- paste0("mu_", voi.list.gsm[voi], "_")
+voi <- 7
+(voi.name <- paste0("mu_", voi.list.gsm[voi], "_"))
 ```
 
 ## Representative values
 
-Get the representative values for the selected property and replace NoData values used in the database with R `NA`. The NoData values vary by data type. Also include the map unit key, for joining with the grid.
+Get the representative values for the selected property and _replace NoData values_ used in the database with R `NA`. The NoData values vary by data type. Also include the map unit key, for joining with the grid.
 
 "Data are within the stated data ranges, except for the NoData values. The NoData values are 255 for 8-bit unsigned integers, 65535 for 16-bit unsigned integers, 4294967295 for 32-bit unsigned integers, and -3.4e38 for 32-bit floating point numbers." Actually the 32-bit floating point value is -3.39999995214436E+38, it's most reliable to get the exact value as the minimum of the corresponding value.
 
@@ -206,7 +208,7 @@ na.val <- ifelse(is.integer(db.attr[,2]), 2^16-1,
                  ifelse(is.double(db.attr[,2]), min(db.attr[,2]),NA))
 db.attr <- db.attr %>%
   na_if(., na.val)
-summary(db.attr)
+# summary(db.attr)
 ```
 
 # Depth of interest {#depth}
@@ -220,7 +222,7 @@ depth.list.gsm <- c("000_005", "005_015", "015_030", "030_060", "060_100", "100_
 
 ```{r depth}
 depth <- 4
-voi.depth.name <- paste0(voi.name, depth.list.gsm[depth])
+(voi.depth.name <- paste0(voi.name, depth.list.gsm[depth]))
 ```
 
 
@@ -248,7 +250,7 @@ bb.ll <- st_sfc(st_multipoint(m))
 st_crs(bb.ll) <- 4326
 ```
 
-# Grid
+# Import the grid
 
 Information:
 
@@ -283,7 +285,9 @@ names(r) <- "mukeyint"
 
 This is 3' resolution in geographic coordinates.
 
-Clip to a study area:
+## Clip to the AOI
+
+Clip to the AOI:
 
 ```{r clip.grid}
 bb.vect <- as.vector(matrix(st_bbox(bb.ll), nrow=2, byrow=T))
@@ -295,7 +299,7 @@ head(r.crop, rows=8, cols=8)
 
 There are `r length(unique(r.crop))` unique map unit IDs in this window. The upper-left corner is shown with the `head` function.
 
-# Mapping
+# Link to attribute of interest
 
 Link these values with the grid cell, via the map unit key `mu_key` which is the first column in the reduced data table.
 Determine the substitution value column number from the name.

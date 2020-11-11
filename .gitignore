@@ -1,8 +1,14 @@
 .DS_Store
+*.csv
+*.txt
 *.html
+*.pdf
 *.png
 *.Rproj
-*.pdf
-*.csv
 .Rhistory
 .Rproj.user
+LaTeX_tables/
+figs/
+scripts_compare/figs/
+scripts_importmaps/figs/
+scripts_ground_overlays/figs/
