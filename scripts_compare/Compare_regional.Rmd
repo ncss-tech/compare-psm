@@ -1,8 +1,12 @@
 ---
 title: "Comparing PSM products at regional resolution"
-author: "D G Rossiter"
-date: "`r Sys.Date()`"
+author:
+- D G Rossiter
+- d.g.rossiter@cornell.edu
+date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 output:
+  word_document:
+    toc: yes
   html_document:
     fig_align: center
     fig_height: 6
@@ -39,29 +43,47 @@ Depending on the [property of interest](#voi), the following can be compared:
 
 The PSM products must have been previously imported and restricted to the same area of interest (AOI), typically $1 \times 1^\circ$, to the locations indicated in the directory list.
 
+We use GSM v0.5 as the reference map, since it is based directly on field survey (SSURGO and STATSGO). So this script requires, at a minimum, SoilGrids250 and GSM v0.5 products to have been imported.
+
+This script must follow the import of the various products; these are in directory `../scripts_importmaps`.
+
+To use this script:
+
+1. Ajust the [directory structure](#dirs) to your system
+
+2. [Select a property](#voi) and [select a depth slice](#depth).
+
+3. [Select an Area of Interest](#aoi).
+
+4. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
+
+5. Generated figures will be in directory `./figs/compare_sg/`.
+
+6. Generated tables in \LaTeX format will be in directory `../LaTeX_tables`.
+
+7. Generated harmonized maps will be [saved](#save) to directory `PSM_compare` under the base directory
+
 
 # Setup
 
 ## Packages
 
 ```{r}
-library(rgdal)     # R interface to GDAL
-library(terra)     # for raster maps
-library(sf)        # Simple Features spatial data
-library(gridExtra)  # arrange multiple plots
+library(rgdal)      # R interface to GDAL
+library(terra)      # for raster maps
+library(sf)         # Simple Features spatial data
+# library(gridExtra)  # arrange multiple plots
 library(knitr)      # for fancy tables
 library(xtable)     # (same)
 ```
 
-## Base directory paths
+## Base directory paths {#dirs}
 
 Set base directories, specific to the local file system. 
 
-1. `base.dir`: This is the location of the PSM tiles that have been cropped to an AOI.
+1. `base.dir`: This is the location of the PSM tiles that have been cropped to an AOI by an import script.
 
-2. `base.dir.import`: This is where downloaded large GeoTIFF are located. Because of their size they may be on a separate file system, e.g., removable or networked drive. In this script this location is only used for POLARIS, since they are imported directly as $1 \times 1^\circ$ tiles.
-
-```{r}
+```{r base.dir}
 base.dir <- "/Users/rossiter/ds/"
 base.dir.sg <- paste0(base.dir, "SoilGrids250")
 base.dir.gsm <- paste0(base.dir, "GSM_USA")
@@ -69,18 +91,30 @@ base.dir.issr8 <- paste0(base.dir, "ISSR8")
 base.dir.polaris <- paste0(base.dir, "POLARIS")
 base.dir.psu <- paste0(base.dir, "SPCG100USA")
 base.dir.landgis <- paste0(base.dir, "LandGIS")
-# POLARIS tiles are large, they were imported to the "raw import" volume
+```
+
+2. `base.dir.import`: This is where downloaded large GeoTIFF are located. Because of their size they may be on a separate file system, e.g., removable or networked drive. Files may have been downloaded here by an import script, or by direct download from the data provider.
+
+In this script this location is only used for POLARIS, since they are imported directly as $1 \times 1^\circ$ tiles by script `./scripts_importmaps/POLARIS_import.Rmd`.
+
+```{r base.dir.import}
 base.dir.import <- "/Volumes/Pythagoras/ds/"
 base.dir.polaris.import <- paste0(base.dir.import, "POLARIS")
 ```
 
+3. `base.dir.export`: This is where generated harmonized maps will be saved for further processing, e.g., comparing patterns.
+
+```{r base.dir.export}
+base.dir.export <- paste0(base.dir, "Compare_PSM")
+```
+
 # Property of interest {#voi}
 
-Property names in various systems. Note that all by SoilGrids250 are missing one or more properties.
-These maps will be omitted from comparisons for those properties.
+Property names in various systems. Note that all except GSM v0.5 and SoilGrids250 are missing one or more properties. Such products will be omitted from comparisons for those properties.
+
+Properties that be compared are: clay, silt, sand weight concentrations; pH in 1:1 water; CEC; SOC; bulk density of the fine earth; coarse fragment volume proportion. See the import script for each product for a link to a description of the properties and their units of measure.
 
 ```{r}
-# clay, silt, sand, pH, CEC, SOC, bulk density, coarse fragments
 voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
 voi.list.gsm <- c("claytotal_r_g_kg", "silttotal_r_g_kg", "sandtotal_r_g_kg", 
                   "ph1to1h2o_r_ions_pHx10", "ecec_r_cmolc_kg", "soc_r_mr_g_gF",
@@ -97,10 +131,6 @@ voi.list.landgis <- c("clay.wfraction_usda.3a1a1a",
                       "bulkdens.fineearth_usda.4a1h",
                       "coarsefrag.vfraction_usda_3b1")
 ```
-
-For more on the SoilGrids properties see [here](https://www.isric.org/explore/soilgrids/faq-soilgrids).
-
-For POLARIS properties see [this file](http://hydrology.cee.duke.edu/POLARIS/PROPERTIES/v1.0/Readme).
 
 Select the position in these lists
 
@@ -134,12 +164,6 @@ Select the depth slice:
 depth <- 1
 ```
 
-Add depth to ISSR-800 property name:
-
-```{r}
-voi.issr8 <- paste0(voi.issr8, "_", depth.list.issr8[depth])
-```
-
 
 # Area of Interest (AOI) {#aoi}
 
@@ -161,7 +185,7 @@ Compute the upper-left coner:
 tile.ulc <- c(tile.lrc[1]-tile.size, tile.lrc[2]+tile.size) # upper-left corner
 ```
 
-A prefix for directories, to keep AOI results separate.
+A prefix for directories and file names, to keep AOI results separate.
 
 ```{r}
 AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
@@ -169,22 +193,6 @@ AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
 ```
 
 
-A prefix for directories, to keep AOI results separate.
-
-```{r}
-AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
-                         "_lon", tile.ulc[1], tile.lrc[1])
-```
-
-Set up a directory for the products, separated by AOI:
-
-```{r}
-dest.dir.issr8 <-  file.path(base.dir.issr8,
-                       AOI.dir.prefix)
-if (!dir.exists(dest.dir.issr8)) {
-   dir.create(dest.dir.issr8,recursive = TRUE)
-}
-```
 
 Bounding box:
 
@@ -243,14 +251,12 @@ if (file.exists(file.name)) {
 src.dir <-  paste0(base.dir.gsm ,"/", AOI.dir.prefix)
 voi.depth.name <- paste0(voi.gsm, "_", depth.list.gsm[depth])
 (file.name <- paste0(src.dir, "/GSM_mu_", voi.depth.name, ".tif"))
-file.exists(file.name)
 if (file.exists(file.name)) {
   r.gsm <- terra::rast(file.name)
   names(r.gsm) <- "GSMv0.5"
   print(r.gsm)
-}
+} else { stop("No GSM v0.5 tile, stopping") }
 ```
-
 
 
 ## SPCG100USA
@@ -357,22 +363,25 @@ Convert units as necessary:
 
 ```{r convert}
 (factors <- conversions[match(voi.sg, conversions$property),])
-if (exists("r.gsm")) {
-  fact <- as.numeric(factors[2])
-  if (!is.na(fact) && (fact != 1)) { r.gsm <- r.gsm*fact }
-}
+# GSM
+fact <- as.numeric(factors[2])
+if (!is.na(fact) && (fact != 1)) { r.gsm <- r.gsm*fact }
+# POLARIS
 if (exists("r.p")) {
   fact <- as.numeric(factors[3])
   if (!is.na(fact) && (fact != 1)) { r.p <- r.p*fact }
 }
+# SPCG100USA
 if (exists("r.psu")) {
   fact <- as.numeric(factors[4])
   if (!is.na(fact) && (fact != 1)) { r.psu <- r.psu*fact }
 }
+# LandGIS
 if (exists("r.landgis")) {
   fact <- as.numeric(factors[5])
   if (!is.na(fact) && (fact != 1)) { r.landgis <- r.landgis*fact }
 }
+# ISSR-800
 if (exists("r.issr8")) {
   fact <- as.numeric(factors[6])
   if (!is.na(fact) && (fact != 1)) { r.issr8 <- r.issr8*fact }
@@ -387,15 +396,6 @@ if (exists("r.p") && (voi.sg=="soc")) {
 }
 ```
 
-```{r eval=FALSE}
-cbind(summary(r.sg),
-summary(r.p),
-summary(r.gsm),
-summary(r.psu),
-summary(r.landgis),
-summary(r.issr8))
-```
-
 # Match resolution and CRS
 
 SoilGrids250, GSM v0.5, POLARIS and LandGIS are in EPSG:4326 (WGS84 long/lat), at different grid resolutions.
@@ -404,7 +404,7 @@ SoilGrids250, GSM v0.5, POLARIS and LandGIS are in EPSG:4326 (WGS84 long/lat), a
 rgdal::showP4(crs(r.sg))
 data.frame(sg=res(r.sg)[1], 
            polaris=ifelse(exists("r.p"), res(r.p)[1], ""),
-           gsm=ifelse(exists("r.gsm"), res(r.gsm)[1], ""),
+           gsm=res(r.gsm)[1],
            landgis=ifelse(exists("r.landgis"), res(r.landgis)[1], ""))
 ```
 
@@ -419,8 +419,8 @@ Resample products into SoilGrids250 WGS84, using cubic interpolation.
 
 
 ```{r crs.resample}
+r.gsm.sg <- terra::resample(r.gsm, r.sg)
 if (exists("r.p")) { r.p.sg <- terra::resample(r.p, r.sg) }
-if (exists("r.gsm")) { r.gsm.sg <- terra::resample(r.gsm, r.sg) }
 if (exists("r.psu")) { r.psu.sg <- terra::resample(r.psu, r.sg) }
 if (exists("r.landgis")) { r.landgis.sg <- terra::resample(r.landgis, r.sg) }
 if (exists("r.issr8")) { r.issr8.sg <- terra::resample(r.issr8, r.sg) }
@@ -438,9 +438,9 @@ if (exists("r.p.sg")) { r.p.sg <- mask(r.p.sg, r.sg) }
 Mask from SoilGrids to get consistent coverge:
 
 ```{r}
+r.gsm.sg <- mask(r.gsm.sg, r.sg)
 if (exists("r.issr.sg")) { r.issr.sg <- mask(r.issr8.sg, r.sg) }
 if (exists("r.psu.sg")) { r.psu.sg <- mask(r.psu.sg, r.sg) }
-if (exists("r.gsm.sg")) { r.gsm.sg <- mask(r.gsm.sg, r.sg) }
 if (exists("r.landgis.sg")) { r.landgis.sg <- mask(r.landgis.sg, r.sg) }
 ```
 
@@ -448,9 +448,9 @@ Check that the maps cover the same area, ignore different stretches for now:
 
 ```{r plot.resampled, fig.width=8, fig.height=12}
 par(mfrow=c(3, 2))
+plot(r.gsm.sg, main="GSM v0.5")
 plot(r.sg, main="SoilGrids250")
 if (exists("r.p.sg")) { plot(r.p.sg, main="POLARIS") }
-if (exists("r.gsm.sg")) { plot(r.gsm.sg, main="GSM v0.5") }
 if (exists("r.psu.sg")) { plot(r.psu.sg, main="SPCG100USA") }
 if (exists("r.landgis.sg")) { plot(r.landgis.sg, main="LandGIS") }
 if (exists("r.issr8.sg")) { plot(r.issr8.sg, main="ISSR-800") }
@@ -465,6 +465,8 @@ par(mfrow=c(1, 1))
 ```{r compare.zlim}
 zlim <- c(min(values(r.sg)*10, na.rm = TRUE),
           max(values(r.sg)*10, na.rm = TRUE))/10
+zlim <- c(floor(min(zlim[1]*10, values(r.gsm.sg)*10, na.rm=TRUE)),
+          ceiling(max(zlim[2]*10, values(r.gsm.sg)*10, na.rm=TRUE)))/10
 if (exists("r.p.sg")) {
   zlim <- c(floor(min(zlim[1]*10, values(r.p.sg)*10, na.rm=TRUE)),
             ceiling(max(zlim[2]*10, values(r.p.sg)*10, na.rm=TRUE)))/10
@@ -472,10 +474,6 @@ if (exists("r.p.sg")) {
 if (exists("r.psu.sg")) {
   zlim <- c(floor(min(zlim[1]*10, values(r.psu.sg)*10, na.rm=TRUE)),
             ceiling(max(zlim[2]*10, values(r.psu.sg)*10, na.rm=TRUE)))/10
-}
-if (exists("r.gsm.sg")) {
-  zlim <- c(floor(min(zlim[1]*10, values(r.gsm.sg)*10, na.rm=TRUE)),
-            ceiling(max(zlim[2]*10, values(r.gsm.sg)*10, na.rm=TRUE)))/10
 }
 if (exists("r.landgis.sg")) {
   zlim <- c(floor(min(zlim[1]*10, values(r.landgis.sg)*10, na.rm=TRUE)),
@@ -488,28 +486,31 @@ if (exists("r.issr8.sg")) {
 ```
 
 ## Histograms
-
-** Standardize frequency (density?) axis
     
 The property and depth will be given in the caption, if this is used in a publication.
 
-```{r hist.sg.props, fig.width=12, fig.height=18}
+```{r hist.sg.props, fig.width=14, fig.height=16}
+yl <- c(0, 0.14) # standardize the density axis
 par(mfrow=c(3,2))
-hist(r.sg, main="SoilGrids250", xlim=zlim, xlab="")
+hist(r.gsm.sg, main="GSM v0.5",
+     xlim=zlim, xlab="", freq = FALSE, ylim=yl)
+hist(r.sg, main="SoilGrids250",
+     xlim=zlim, xlab="", freq = FALSE, ylim=yl)
 if (exists("r.p.sg")) {
-  hist(r.p.sg, main="POLARIS", xlim=zlim, xlab="")
+  hist(r.p.sg, main="POLARIS",
+       xlim=zlim, xlab="", freq = FALSE, ylim=yl)
 }
 if (exists("r.psu.sg")) {
-  hist(r.psu.sg, main="SPCG100", xlim=zlim, xlab="")
-}
-if (exists("r.gsm.sg")) {
-  hist(r.gsm.sg, main="GSM v0.5", xlim=zlim, xlab="")
+  hist(r.psu.sg, main="SPCG100",
+       xlim=zlim, xlab="", freq = FALSE, ylim=yl)
 }
 if (exists("r.landgis.sg")) {
-  hist(r.landgis.sg, main="LandGIS", xlim=zlim, xlab="")
+  hist(r.landgis.sg, main="LandGIS",
+       xlim=zlim, xlab="", freq = FALSE, ylim=yl)
 }
 if (exists("r.issr8.sg")) {
-  hist(r.issr8.sg, main="ISSR-800", xlim=zlim, xlab="")
+  hist(r.issr8.sg, main="ISSR-800",
+       xlim=zlim, xlab="", freq = FALSE, ylim=yl)
 }
 par(mfrow=c(1,1))
 ```
@@ -519,15 +520,13 @@ par(mfrow=c(1,1))
 
 ```{r map.sg.props, fig.width=12, fig.height=18}
 par(mfrow=c(3,2))
-terra::plot(r.sg, range=zlim, main="SoilGrids")
+terra::plot(r.gsm.sg, main="GSM v0.5", range=zlim)
+terra::plot(r.sg, main="SoilGrids", range=zlim)
 if (exists("r.p.sg")) {
   terra::plot(r.p.sg, main="POLARIS", range=zlim)
 }
 if (exists("r.psu.sg")) {
   terra::plot(r.psu.sg, main="SPCG100", range=zlim)
-}
-if (exists("r.gsm.sg")) {
-  terra::plot(r.gsm.sg, main="GSM v0.5", range=zlim)
 }
 if (exists("r.landgis.sg")) {
   terra::plot(r.landgis.sg, range=zlim, main="LandGIS")
@@ -538,32 +537,28 @@ if (exists("r.issr8.sg")) {
 par(mfrow=c(1,1))
 ```
 
-<!-- To here  -->
-
-
 
 # Differences 
 
 ## Compute all differences
 
-** Relative to SoilGrids250 -- should be GSM v0.5?
+Relative to GSM v0.5, as the base product closest to the field soil survey.
 
 ```{r}
+diff.gsm.sg <- r.gsm.sg - r.sg
 if (exists("r.p.sg")) {
-  summary(diff.sg.p <-  r.sg - r.p.sg) }
+  diff.gsm.p <-  r.gsm.sg - r.p.sg }
 if (exists("r.psu.sg")) {
-  summary(diff.sg.psu <-  r.sg - r.psu.sg) }
-if (exists("r.gsm.sg")) {
-  summary(diff.sg.gsm <-  r.sg - r.gsm.sg) }
+  diff.gsm.psu <-  r.gsm.sg - r.psu.sg }
 if (exists("r.landgis.sg")) {
-  summary(diff.sg.landgis <-  r.sg - r.landgis.sg) }
+  diff.gsm.landgis <-  r.gsm.sg - r.landgis.sg }
 if (exists("r.issr8.sg")) {
-  summary(diff.sg.issr8 <-  r.sg - r.issr8.sg) }
+  diff.gsm.issr8 <-  r.gsm.sg - r.issr8.sg }
 ```
 
 ## Statistics
 
-RMSE, ME, RMSE adjusted to ME, for all products compared to SoilGrids250:
+RMSE, ME, RMSE adjusted to ME, for all products compared to GSM v0.5:
 
 ```{r stats.compare.sg, warning=FALSE}
 stats.compare <- data.frame(PSM_product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
@@ -578,39 +573,37 @@ rmse.adj <- function(v1, v2) {   # RMSE adjusted for ME (bias)
   v2.adj <- v2 + me
   round(sqrt(mean((v1-v2.adj)^2, na.rm=TRUE)),3)
 }
-if (exists("r.gsm.sg")) {
-  stats.compare[1, ] <- c("GSM v0.5",
-                        me(values(r.sg),values(r.gsm.sg)),
-                        rmse(values(r.sg),values(r.gsm.sg)),
-                        rmse.adj(values(r.sg),values(r.gsm.sg))
-                        )
-}
+stats.compare[1, ] <- c("SoilGrids250",
+                        me(values(r.gsm.sg),values(r.sg)),
+                        rmse(values(r.gsm.sg),values(r.sg)),
+                        rmse.adj(values(r.gsm.sg),values(r.sg))
+)
 if (exists("r.p.sg")) {
   stats.compare[2, ] <- c("POLARIS",
-                        me(values(r.sg),values(r.p.sg)),
-                        rmse(values(r.sg),values(r.p.sg)),
-                        rmse.adj(values(r.sg),values(r.p.sg))
+                        me(values(r.gsm.sg),values(r.p.sg)),
+                        rmse(values(r.gsm.sg),values(r.p.sg)),
+                        rmse.adj(values(r.gsm.sg),values(r.p.sg))
                         )
 }
 if (exists("r.psu.sg")) {
   stats.compare[3, ] <- c("SPCG100",
-                        me(values(r.sg),values(r.psu.sg)),
-                        rmse(values(r.sg),values(r.psu.sg)),
-                        rmse.adj(values(r.sg),values(r.psu.sg))
+                        me(values(r.gsm.sg),values(r.psu.sg)),
+                        rmse(values(r.gsm.sg),values(r.psu.sg)),
+                        rmse.adj(values(r.gsm.sg),values(r.psu.sg))
                         )
 }
 if (exists("r.landgis.sg")) {
   stats.compare[4, ] <- c("LandGIS",
-                        me(values(r.sg),values(r.landgis.sg)),
-                        rmse(values(r.sg),values(r.landgis.sg)),
-                        rmse.adj(values(r.sg),values(r.landgis.sg))
+                        me(values(r.gsm.sg),values(r.landgis.sg)),
+                        rmse(values(r.gsm.sg),values(r.landgis.sg)),
+                        rmse.adj(values(r.gsm.sg),values(r.landgis.sg))
                         )
 }
 if (exists("r.issr8.sg")) {
   stats.compare[5, ] <- c("ISSR-800",
-                        me(values(r.sg),values(r.issr8.sg)),
-                        rmse(values(r.sg),values(r.issr8.sg)),
-                        rmse.adj(values(r.sg),values(r.issr8.sg))
+                        me(values(r.gsm.sg),values(r.issr8.sg)),
+                        rmse(values(r.gsm.sg),values(r.issr8.sg)),
+                        rmse.adj(values(r.gsm.sg),values(r.issr8.sg))
                         )
 }
 ```
@@ -631,54 +624,50 @@ capture.output(print(x, include.rownames=FALSE),
 
 ```{r zlim.diff.sg}
 zlim <- c(NA, NA)
-if (exists("diff.sg.p")) {
-  zlim <- c(floor(min(zlim[1]*10, values(diff.sg.p)*10, na.rm=TRUE)),
-            ceiling(max(zlim[2]*10, values(diff.sg.p)*10, na.rm=TRUE)))/10
+zlim <- c(floor(min(zlim[1]*10, values(diff.gsm.sg)*10, na.rm=TRUE)),
+          ceiling(max(zlim[2]*10, values(diff.gsm.sg)*10, na.rm=TRUE)))/10
+if (exists("diff.gsm.p")) {
+  zlim <- c(floor(min(zlim[1]*10, values(diff.gsm.p)*10, na.rm=TRUE)),
+            ceiling(max(zlim[2]*10, values(diff.gsm.p)*10, na.rm=TRUE)))/10
 }
-if (exists("diff.sg.psu")) {
-  zlim <- c(floor(min(zlim[1]*10, values(diff.sg.psu)*10, na.rm=TRUE)),
-            ceiling(max(zlim[2]*10, values(diff.sg.psu)*10, na.rm=TRUE)))/10
+if (exists("diff.gsm.psu")) {
+  zlim <- c(floor(min(zlim[1]*10, values(diff.gsm.psu)*10, na.rm=TRUE)),
+            ceiling(max(zlim[2]*10, values(diff.gsm.psu)*10, na.rm=TRUE)))/10
 }
-if (exists("diff.sg.gsm")) {
-  zlim <- c(floor(min(zlim[1]*10, values(diff.sg.gsm)*10, na.rm=TRUE)),
-            ceiling(max(zlim[2]*10, values(diff.sg.gsm)*10, na.rm=TRUE)))/10
+if (exists("diff.gsm.landgis")) {
+  zlim <- c(floor(min(zlim[1]*10, values(diff.gsm.landgis)*10, na.rm=TRUE)),
+            ceiling(max(zlim[2]*10, values(diff.gsm.landgis)*10, na.rm=TRUE)))/10
 }
-if (exists("diff.sg.landgis")) {
-  zlim <- c(floor(min(zlim[1]*10, values(diff.sg.landgis)*10, na.rm=TRUE)),
-            ceiling(max(zlim[2]*10, values(diff.sg.landgis)*10, na.rm=TRUE)))/10
-}
-if (exists("diff.sg.issr8")) {
-  zlim <- c(floor(min(zlim[1]*10, values(diff.sg.issr8)*10, na.rm=TRUE)),
-            ceiling(max(zlim[2]*10, values(diff.sg.issr8)*10, na.rm=TRUE)))/10
+if (exists("diff.gsm.issr8")) {
+  zlim <- c(floor(min(zlim[1]*10, values(diff.gsm.issr8)*10, na.rm=TRUE)),
+            ceiling(max(zlim[2]*10, values(diff.gsm.issr8)*10, na.rm=TRUE)))/10
 }
 print(zlim)
 ```
 
 ## Histograms
 
-** Standardize frequency (density?) axis
 
-```{r hist.diff.sg, fig.width=12, fig.height=18}
+```{r hist.diff.sg, fig.width=14, fig.height=16}
+yl <- c(0, 0.14) # Standardize density axis
 par(mfrow=c(3,2))
+hist(diff.gsm.sg, main="GSM v0.5 - SoilGrids250", xlab="",
+     xlim=zlim, freq = FALSE, ylim=yl)
 if (exists("r.p.sg")) {
-  hist(diff.sg.p, main="SoilGrids250 - POLARIS", xlab="",
-     xlim=zlim)
+  hist(diff.gsm.p, main="GSM v0.5 - POLARIS", xlab="",
+     xlim=zlim, freq = FALSE, ylim=yl)
 }
 if (exists("r.psu.sg")) {
-  hist(diff.sg.psu, main="SoilGrids250 - SPCG100USA", xlab="",
-     xlim=zlim)
-}
-if (exists("r.gsm.sg")) {
-  hist(diff.sg.gsm, main="SoilGrids250 - GSM v0.5", xlab="",
-     xlim=zlim)
+  hist(diff.gsm.psu, main="GSM v0.5 - SPCG100USA", xlab="",
+     xlim=zlim, freq = FALSE, ylim=yl)
 }
 if (exists("r.landgis.sg")) {
-  hist(diff.sg.landgis, main="SoilGrids250 - LandGIS", xlab="",
-     xlim=zlim)
+  hist(diff.gsm.landgis, main="GSM v0.5 - LandGIS", xlab="",
+     xlim=zlim, freq = FALSE, ylim=yl)
 }
 if (exists("r.issr8.sg")) {
-  hist(diff.sg.p, main="SoilGrids250 - ISSR-800", xlab="",
-     xlim=zlim)
+  hist(diff.gsm.p, main="GSM v0.5 - ISSR-800", xlab="",
+     xlim=zlim, freq = FALSE, ylim=yl)
 }
 par(mfrow=c(1,1))
 ```
@@ -688,27 +677,91 @@ par(mfrow=c(1,1))
 
 ```{r plot.diff.sg, fig.width=12, fig.height=18}
 par(mfrow=c(3,2))
-if (exists("diff.sg.p")) {
-  terra::plot(diff.sg.p, main="Difference SoilGrids250 - POLARIS",
+terra::plot(diff.gsm.sg, main="Difference GSM v0.5 - SoilGrids250",
+            range=zlim, col=bpy.colors(64))
+if (exists("diff.gsm.p")) {
+  terra::plot(diff.gsm.p, main="Difference GSM v0.5 - POLARIS",
             range=zlim, col=bpy.colors(64))
 }
-if (exists("diff.sg.psu")) {
-  terra::plot(diff.sg.psu, main="Difference SoilGrids250 - SPCG100USA",
+if (exists("diff.gsm.psu")) {
+  terra::plot(diff.gsm.psu, main="Difference GSM v0.5 - SPCG100USA",
             range=zlim, col=bpy.colors(64))
 }
-if (exists("diff.sg.gsm")) {
-  terra::plot(diff.sg.gsm, main="Difference SoilGrids250 - GSM v0.5",
+if (exists("diff.gsm.landgis")) {
+  terra::plot(diff.gsm.landgis, main="Difference GSM v0.5 - LandGIS",
             range=zlim, col=bpy.colors(64))
 }
-if (exists("diff.sg.landgis")) {
-  terra::plot(diff.sg.landgis, main="Difference SoilGrids250 - LandGIS",
-            range=zlim, col=bpy.colors(64))
-}
-if (exists("diff.sg.issr8")) {
-  terra::plot(diff.sg.issr8, main="Difference SoilGrids250 - ISSR-800",
+if (exists("diff.gsm.issr8")) {
+  terra::plot(diff.gsm.issr8, main="Difference GSM v0.5 - ISSR-800",
             range=zlim, col=bpy.colors(64))
 }
 par(mfrow=c(1,1))
 ```
 
+# Save harmonized maps {#save}
 
+Set up a directory for these, based on the AOI:
+
+```{r save.dir}
+dest.dir.save <-  file.path(base.dir.export,
+                       AOI.dir.prefix)
+if (!dir.exists(dest.dir.save)) {
+   dir.create(dest.dir.save, recursive = TRUE)
+}
+```
+
+Same AOI, CRS, resolution, units of measure:
+
+```{r save.tiles}
+# SoilGrids250
+voi.depth.sg <- paste0(voi.sg, "_", depth.list.sg[depth])
+dest.name <- paste0(dest.dir.save,"/sg_tile_250_",  voi.depth.sg, ".tif")
+f <- terra::writeRaster(r.sg, file=dest.name,
+                        overwrite=TRUE,
+                        wopt=list(gdal=c("TFW=YES"), datatype="FLT4S"),
+                        filetype="GTiff")
+GDALinfo(dest.name)
+# GSM v0.5
+dest.name <- paste0(dest.dir.save,"/gsm_tile_250_",  voi.depth.sg, ".tif")
+f <- terra::writeRaster(r.gsm.sg, file=dest.name,
+                 overwrite=TRUE,
+                 wopt=list(gdal=c("TFW=YES"), datatype="FLT4S"),
+                 filetype="GTiff")
+GDALinfo(dest.name)
+# SPCG100USA
+if (exists("r.psu.sg")) {
+  dest.name <- paste0(dest.dir.save,"/psu_tile_250_",  voi.depth.sg, ".tif")
+  f <- terra::writeRaster(r.psu.sg, file=dest.name,
+                          overwrite=TRUE, 
+                          wopt=list(gdal=c("TFW=YES"), datatype="FLT4S"),
+                          filetype="GTiff")
+  GDALinfo(dest.name)
+}
+# POLARIS
+if (exists("r.p.sg")) {
+  dest.name <- paste0(dest.dir.save,"/polaris_tile_250_",  voi.depth.sg, ".tif")
+  f <- terra::writeRaster(r.p.sg, file=dest.name,
+            overwrite=TRUE,
+            wopt=list(gdal=c("TFW=YES"), datatype="FLT4S"),
+            filetype="GTiff")
+  GDALinfo(dest.name)
+}
+# LandGIS
+if (exists("r.landgis.sg")) {
+  dest.name <- paste0(dest.dir.save,"/landgis_tile_250_",  voi.depth.sg, ".tif")
+  f <- terra::writeRaster(r.landgis.sg, file=dest.name,
+            overwrite=TRUE, 
+            wopt=list(gdal=c("TFW=YES"), datatype="FLT4S"),
+            filetype="GTiff")
+  GDALinfo(dest.name)
+}
+# ISSR-800
+if (exists("r.issr8.sg")) {
+  dest.name <- paste0(dest.dir.save,"/issr8_tile_250_",  voi.depth.sg, ".tif")
+  f <- terra::writeRaster(r.issr8.sg, file=dest.name,
+            overwrite=TRUE,
+            wopt=list(gdal=c("TFW=YES"), datatype="FLT4S"),
+            filetype="GTiff")
+  GDALinfo(dest.name)
+}
+```

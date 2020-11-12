@@ -1,7 +1,9 @@
 ---
 title: "GlobalSoilMap USA v0.5 -- Import for PSM comparisons"
-author: "D G Rossiter"
-date: "`r Sys.Date()`"
+author:
+  - "D G Rossiter"
+  - "d.g.rossiter@cornell.edu"
+date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 output:
   html_document:
     fig_align: center
