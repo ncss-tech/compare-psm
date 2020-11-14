@@ -5,8 +5,6 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 output:
-  word_document:
-    toc: yes
   html_document:
     fig_align: center
     fig_height: 6
@@ -16,6 +14,8 @@ output:
     df_print: paged
     toc: yes
     toc_float: yes
+  word_document:
+    toc: yes
 ---
 
 ```{r setup, include=FALSE, purl=FALSE}
@@ -135,7 +135,7 @@ voi.list.landgis <- c("clay.wfraction_usda.3a1a1a",
 Select the position in these lists
 
 ```{r}
-voi <- 4
+voi <- 1
 voi.sg <- voi.list.sg[voi]
 voi.issr8 <- voi.list.issr8[voi]
 voi.polaris <- voi.list.polaris[voi]
@@ -161,7 +161,7 @@ depth.list.gsm <- c("000_005", "005_015", "015_030", "030_060", "060_100", "100_
 Select the depth slice:
 
 ```{r}
-depth <- 1
+depth <- 4
 ```
 
 
@@ -175,7 +175,7 @@ Specify the two corners using WGS84 geographic coordinates:
 Specify the lower-right corner:
 
 ```{r lrc}
-tile.lrc <- c(-76, 42)   # lower-right corner
+tile.lrc <- c(-77, 35)   # lower-right corner
 tile.size <- 1
 ```
 
@@ -415,33 +415,46 @@ if (exists("r.psu")) rgdal::showP4(crs(r.psu))
 if (exists("r.issr8")) rgdal::showP4(crs(r.issr8))
 ```
 
-Resample products into SoilGrids250 WGS84, using cubic interpolation.
-
+Resample products into SoilGrids250 WGS84 250m nominal pixels, using cubic interpolation.
 
 ```{r crs.resample}
-r.gsm.sg <- terra::resample(r.gsm, r.sg)
-if (exists("r.p")) { r.p.sg <- terra::resample(r.p, r.sg) }
-if (exists("r.psu")) { r.psu.sg <- terra::resample(r.psu, r.sg) }
-if (exists("r.landgis")) { r.landgis.sg <- terra::resample(r.landgis, r.sg) }
-if (exists("r.issr8")) { r.issr8.sg <- terra::resample(r.issr8, r.sg) }
+r.gsm.sg <- terra::resample(r.gsm, r.sg, method="cubic")
+if (exists("r.p")) { r.p.sg <- terra::resample(r.p, r.sg, method="cubic") }
+if (exists("r.psu")) { r.psu.sg <- terra::resample(r.psu, r.sg, method="cubic") }
+plot(r.psu.sg)
+```
+
+For LandGIS and ISSR-800 the CRS must be changed, not just the resolution:
+
+```{r crs.project}
+if (exists("r.landgis")) { 
+  r.landgis.sg <- terra::project(r.landgis, r.sg, method="cubic") 
+  }
+if (exists("r.issr8")) { 
+  r.issr8.sg <- terra::project(r.issr8, r.sg, method="cubic") 
+  }
 ```
 
 
 # Make all maps cover the same area
 
-POLARIS predicts in the lakes, for example.
+POLARIS predicts in the lakes, the USA products predict in built-up areas. Mask these out with SoilGrids250, which does not.
 
 ```{r mask.lakes}
-if (exists("r.p.sg")) { r.p.sg <- mask(r.p.sg, r.sg) }
-```
-
-Mask from SoilGrids to get consistent coverge:
-
-```{r}
 r.gsm.sg <- mask(r.gsm.sg, r.sg)
-if (exists("r.issr.sg")) { r.issr.sg <- mask(r.issr8.sg, r.sg) }
+if (exists("r.p.sg")) { r.p.sg <- mask(r.p.sg, r.sg) }
+if (exists("r.issr8.sg")) { r.issr8.sg <- mask(r.issr8.sg, r.sg) }
 if (exists("r.psu.sg")) { r.psu.sg <- mask(r.psu.sg, r.sg) }
 if (exists("r.landgis.sg")) { r.landgis.sg <- mask(r.landgis.sg, r.sg) }
+```
+
+Then mask from GSM v0.5 to get consistent coverage, because it is the true 1 degree tile. SoilGrids is larger and so are the two originally in AEA projection.
+
+```{r}
+r.sg <- mask(r.sg, r.gsm.sg)
+if (exists("r.issr8.sg")) { r.issr8.sg <- mask(r.issr8.sg, r.gsm.sg) }
+if (exists("r.psu.sg")) { r.psu.sg <- mask(r.psu.sg, r.gsm.sg) }
+if (exists("r.landgis.sg")) { r.landgis.sg <- mask(r.landgis.sg, r.gsm.sg) }
 ```
 
 Check that the maps cover the same area, ignore different stretches for now:

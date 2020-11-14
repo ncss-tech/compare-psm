@@ -188,7 +188,7 @@ voi.list.gsm <- c("claytotal_r_g_kg", "silttotal_r_g_kg", "sandtotal_r_g_kg",
 *Select a property* by its position in the list, and make a full name from it:
 
 ```{r voi}
-voi <- 7
+voi <- 1
 (voi.name <- paste0("mu_", voi.list.gsm[voi], "_"))
 ```
 
@@ -235,7 +235,7 @@ depth <- 4
 ```{r tile.1}
 ## Lower-right corner, in integer degrees
 #
-tile.lrc <- c(-76, 42) # lower-right corner: central NY
+tile.lrc <- c(-77, 35) # lower-right corner
 #
 ## Tile size, in integer degrees
 # 

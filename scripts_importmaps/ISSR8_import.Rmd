@@ -36,7 +36,7 @@ To use this script:
 
 2. [Select a property](#prop) and [select a depth slice](#depth).
 
-3. [Select an Area of Interest](#aoi).
+3. [Select an Area of Interest](#aoi), a $1 \times 1^\circ$ tile.
 
 4. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
 
@@ -84,7 +84,7 @@ Note ISSR-800 only has SOM stocks and average bulk density, not by depth slice.
 Select a property:
 
 ```{r}
-voi.issr8 <- "ph"
+voi.issr8 <- "clay"
 ```
 
 # Depth of interest {#depth}
@@ -98,7 +98,7 @@ depth.list.issr8 <- c("05", "025", "2550", "3060")
 Select a depth slice. Note only 0-5 and 30-60 can be directly compared to GSM-standard PSM maps.
 
 ```{r}
-depth.issr8 <- "05"
+depth.issr8 <- "3060"
 ```
 
 # Download
@@ -158,7 +158,7 @@ The AOI is a tile using WGS84 geographic coordinates. A $1 \times 1^\circ$ allow
 Specify the _lower-right corner_ and _tile size_, then compute the upper-right corner west and north.
 
 ```{r lrc}
-tile.lrc <- c(-76, 42) # lower-right corner: central NY
+tile.lrc <- c(-77, 35) # lower-right corner
 size <- 1                # tile dimensions
 ```
 
@@ -187,11 +187,12 @@ if (!dir.exists(dest.dir.issr8)) {
 
 # Crop to AOI
 
-Compute a bounding box:
+Make a `terra` `SpatExtent` object from the bounding box. Note we need all four corners to fully cover the $1 \times 1^\circ$ tile.
 
 ```{r}
-m <- matrix(c(tile.ulc[1],tile.lrc[1],  #ulc
-              tile.ulc[2], tile.lrc[2]), nrow=2) #lrc
+m <- matrix(c(tile.ulc[1], tile.lrc[1], tile.lrc[1], tile.ulc[1],  
+              tile.ulc[2], tile.ulc[2], tile.lrc[2], tile.lrc[2]),  
+            nrow=4)
 bb.ll <- st_sfc(st_multipoint(m))
 st_crs(bb.ll) <- 4326   # ESPG code for WGS84 long/lat
 ```

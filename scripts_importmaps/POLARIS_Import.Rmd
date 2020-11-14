@@ -68,7 +68,7 @@ library(terra)  # for raster import and display
 ```
 
 
-# Set variable of interest {#voi}
+# Variable of interest {#voi}
 
 Define the variables for the soil property and layer of interest.
 
@@ -101,12 +101,12 @@ voi.list.polaris <- c("clay", "silt", "sand", "ph", "om", "bd")
 Set the property and quantile:
 
 ```{r}
-voi.polaris <- "ph"   # variable of interest, POLARIS name
+voi.polaris <- "clay"   # variable of interest, POLARIS name
 quantile.polaris <- "mean"  # p5, p50, mean, p95
 ```
 
 
-# Set depth slice {#depth}
+# Depth slice {#depth}
 
 Depth slices, in cm:
 
@@ -117,18 +117,18 @@ depth.list.polaris <- c("0_5", "5_15", "15_30", "30_60", "60_100", "100_200")
 Set the depth, and build a full layer name with the property, depth, and quantile:
 
 ```{r}
-depth.polaris <- "0_5" # "0-5", "5-15", "15-30", "30-60", "60-100", "100-200"
+depth.polaris <- "30_60" # "0-5", "5-15", "15-30", "30-60", "60-100", "100-200"
 (voi_layer <- paste(voi.polaris, depth.polaris, quantile.polaris, sep="_")) # layer of interest 
 ```
 
-# Define Area of Interest (AOI) {#aoi}
+# Area of Interest (AOI) {#aoi}
 
 POLARIS data is served in $1 \times 1^\circ$ tiles using WGS84 geographic coordinates. Specify the _lower-right corner_, then compute the upper-right corner $1^\circ$ west and north.
 
 Specify the lower-right corner:
 
 ```{r lrc}
-tile.lrc <- c(-76, 42) # lower-right corner: central NY
+tile.lrc <- c(-77, 35) # lower-right corner: central NY
 ```
 
 Compute the upper-left corner:

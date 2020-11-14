@@ -14,7 +14,7 @@ output:
      fig_width: 4
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, purl=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center')
 knitr::opts_chunk$set(cache.extra = R.version.string)
 ```
@@ -36,7 +36,7 @@ To use this script:
 
 2. [Select a property](#prop) and [select a depth slice](#depth).
 
-3. [Select an Area of Interest](#aoi).
+3. [Select an Area of Interest](#aoi), typically a $1 \times 1^\circ$ tile.
 
 4. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
 
@@ -64,7 +64,6 @@ These are the base of destination directories built [below](#dest)
 
 ```{r}
 options("rgdal_show_exportToProj4_warnings"="none") 
-library(XML)            # various XML utilities
 library(rgdal)          # GDAL access from R
 library(gdalUtils)      # wrappers for GDAL utility programs that could be
                         #  called from the command line
@@ -74,7 +73,7 @@ library(terra)          # raster data, replaces `raster`
 
 GDAL is used for spatial data import/export, coordinate systems etc. Check for a valid GDAL installation.
 
-```{r check.GDAL}
+```{r check.GDAL, eval=FALSE, purl=FALSE}
 gdal_setInstallation()
 valid_install <- !is.null(getOption("gdalUtils_gdalPath"))
 if (valid_install)
@@ -96,7 +95,7 @@ This CRS with pseudo-EPSG code 152160 should be added to to the `epsg` file of t
 crs.igh <- '+proj=igh +lat_0=0 +lon_0=0 +datum=WGS84 +units=m +no_defs'
 ```
 
-# Set variable of interest {#voi}
+# Variable of interest {#voi}
 
 Define the variables for the soil property and layer of interest. See [here](https://www.isric.org/explore/soilgrids/faq-soilgrids#What_do_the_filename_codes_mean) for the naming conventions
 
@@ -115,37 +114,41 @@ Here are the properties predicted by SoilGrids250:
 voi.list <- c("bdod", "cec", "cfvo", "clay", "nitrogen", "phh2o", "sand", "silt", "soc", "ocd")
 ```
 
+# Depth slice {#depth}
+
 Depth slices:
 
 ```{r}
-depth.list <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
+depth.list <- paste0(c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200"),"cm")
 ```
 
 Set the property, depth and quantile:
 
 ```{r}
-voi.n <- 6
+voi.n <- 4
 voi <- voi.list[voi.n]   # variable of interest, SoilGrids name
-depth <- "0-5cm" # "0-5", "5-15", "15-30", "30-60", "60-100", "100-200"
+depth.n <- 4
+depth <- depth.list[depth.n]
 quantile.sg <- "mean"  # "Q0.05", "Q0.5" [not 0.50 !], "Q0.95", "mean"
 (voi_layer <- paste(voi, depth, quantile.sg, sep="_")) # layer of interest 
 ```
 
-# Define Area of Interest (AOI) {#aoi}
+# Area of Interest (AOI) {#aoi}
 
 The AOI is a tile using WGS84 geographic coordinates. A $1 \times 1^\circ$ allows comparison with POLARIS, but here other sizes can be specified.
 
 Specify the _lower-right corner_ and _tile size_, then compute the upper-right corner west and north.
 
 ```{r lrc}
-tile.lrc <- c(-76, 42) # lower-right corner: central NY
+tile.lrc <- c(-77, 35) # lower-right corner
 size <- 1                # tile dimensions
 ```
 
-Compute the upper-left corner and the bounding box:
+Compute the four corner and the bounding box. Note because of the projection this is somewhat larger than a 1 \times 1^\circ$  tile.
+
 
 ```{r ulc}
-tile.ulc <- c(tile.lrc[1]-size, tile.lrc[2]+size)   # lower-right corner: coastal plain NC
+tile.ulc <- c(tile.lrc[1]-size, tile.lrc[2]+size)   # lower-right corner
 m <- matrix(c(tile.lrc[1]-size, tile.lrc[2]+size,  #ulc
               tile.lrc[1], tile.lrc[2]+size,  #urc
               tile.lrc[1], tile.lrc[2],       #lrc

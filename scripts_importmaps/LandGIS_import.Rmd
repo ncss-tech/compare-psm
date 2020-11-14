@@ -67,7 +67,7 @@ base.dir.import <- "/Volumes/Pythagoras/ds/"
 base.dir.landgis.import <- paste0(base.dir.import, "LandGIS")
 ```
 
-# Select a property {#prop}
+# Variable of interest {#prop}
 
 The grids can be downloaded from [Zenodo](https://zenodo.org/), either manually or (as here) programmatically.
 
@@ -139,13 +139,13 @@ voi.list.sg <- c("clay", "silt", "sand", "phh2o", "soc",  "bdod", "cfvo")
 Select the position in these lists:
 
 ```{r}
-voi.n <- 4
+voi.n <- 1
 voi.sg <- voi.list.sg[voi.n]
 voi.landgis <- voi.list.landgis[voi.n]
 voi.landgis.code <- voi.list.landgis.code[voi.n]
 ```
 
-# Select a depth slice {#depth}
+# Depth slice {#depth}
 
 LandGIS are point predictions within the profile, conceptually the value of an infinitely thin slice. 
 To compare with GlobalSoilMap standards they must be averaged. 
@@ -164,7 +164,7 @@ depth.list.landgis <- c("0", "10", "30", "60", "100", "200")
 Select a slice:
 
 ```{r}
-depth <- 1
+depth <- 4
 depth.sg <- depth.list.sg[depth]
 if (depth == 1) {
   top <- 1; bottom <- 2; weights <- c(2/3, 1/3)  
@@ -196,7 +196,7 @@ depth.landgis.suffix.bottom <- paste0("b", depth.landgis.bottom, "..", depth.lis
 Specify the two corners using WGS84 geographic coordinates (this is the CRS used in LandGIS), and the tile size.  If comparing with POLARIS these should be $1 \times 1^\circ$.
 
 ```{r lrc}
-tile.lrc <- c(-76, 42)   # lower-right corner
+tile.lrc <- c(-77, 35)   # lower-right corner
 tile.size <- 1
 ```
 

@@ -36,7 +36,7 @@ To use this script:
 
 3. [Select a property](#prop) and [select a depth slice](#depth).
 
-4. [Select an Area of Interest](#aoi).
+4. [Select an Area of Interest](#aoi), a $1 \times 1^\circ$ tile.
 
 5. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
 
@@ -82,7 +82,7 @@ Then the file name must be manually edited to remove the prefix before the prope
 There are seven point depth predictions: 0, 5, 15, 30, 60, 100, and 200 cm, labelled as `sl1`, `sl2` ..., `sl7`.
 
 
-# Select a property {#voi}
+# Variable of interest {#voi}
 
 According to the journal paper six properties are predicted by SPCG100USA: percent organic C, total N, bulk density, pH, percent sand, and clay. These have SoilGrids250 equivalents. The database also shows additional properites: EC, K, Mg. The methods for these are not given, and there is no SoilGrids250 equivalent.
 
@@ -97,11 +97,11 @@ voi.list.psu <- c("soc", "n", "bd", "sand", "clay", "ph_h2o", "ec", "k", "mg")
 Select the position in these lists
 
 ```{r}
-voi.n <- 6
+voi.n <- 5
 voi.psu <- voi.list.psu[voi.n]
 ```
 
-# Select a depth slice {#depth}
+# Depth slice {#depth}
 
 SPCG100USA are point predictions within the profile, conceptually the value of an infinitely thin slice. By contrast, predictions conforming GlobalSoilMap standards refer to a depth slice. To compare these _two adjacent SPCG100USA predictions must be averaged_, as an approximation to the value at the centre of the slice, which approximates the averae over the slice.
 
@@ -115,20 +115,20 @@ depth.list.psu <- c("0", "5", "15", "30", "60", "100", "200")
 Select a slice:
 
 ```{r}
-depth.n<- 1
+depth.n <- 4
 depth.sg <- depth.list.sg[depth.n]
 depth.psu.top <- paste0("sl", depth.n)  # slice at top of layer
 depth.psu.bottom <- paste0("sl", depth.n+1)  # slice at bottom of layer
 ```
 
-# Set the Area of Interest (AOI) {#aoi}
+# Area of Interest (AOI) {#aoi}
 
 Specify the two corners using WGS84 geographic coordinates, and the size of the tile. If comparing with POLARIS these should be $1 \times 1^\circ$.
 
 Specify the lower-right corner:
 
 ```{r lrc}
-tile.lrc <- c(-76, 42)   # lower-right corner
+tile.lrc <- c(-77, 35)   # lower-right corner
 tile.size <- 1
 ```
 
@@ -167,18 +167,19 @@ Average after cropping, [in the next section](#crop)
 
 # Crop to the bounding box {#crop}
 
-Make a `terra` `SpatExtent` object from the bounding box:
+Make a `terra` `SpatExtent` object from the bounding box. Note we need all four corners to fully cover the $1 \times 1^\circ$ tile.
 
 ```{r plot.properties.crop, fig.width=10, fig.height=5}
-m <- matrix(c(tile.ulc[1],tile.lrc[1],  #ulc
-              tile.ulc[2], tile.lrc[2]),  #lrc
-            nrow=2)
+m <- matrix(c(tile.ulc[1], tile.lrc[1], tile.lrc[1], tile.ulc[1],  
+              tile.ulc[2], tile.ulc[2], tile.lrc[2], tile.lrc[2]),  
+            nrow=4)
 bb.ll <- st_sfc(st_multipoint(m)); st_crs(bb.ll) <- 4326
 # convert the bounding box to the AEA CRS used in SPCG100USA
 bb.aea <- st_transform(bb.ll, crs(r.psu.top))
 bb.vect <- as.vector(matrix(st_bbox(bb.aea), nrow=2, byrow=T))
 (bb.aea.ext <- ext(bb.vect))
 ```
+
 
 Use this extent to crop the two maps to the AOI:
 
