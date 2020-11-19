@@ -1,7 +1,9 @@
 ---
-title: "Comparing Spatial Patterns of Maps"
-author: "D G Rossiter"
-date: "`r Sys.Date()`"
+title: "Comparing spatial patterns of PSM mapsat regional resolution"
+author:
+- D G Rossiter
+- d.g.rossiter@cornell.edu
+date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 output:
   html_document:
     fig_align: center
@@ -14,8 +16,9 @@ output:
     toc_float: yes
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center', fig.path = './figs/cf_maps/')
+```{r setup, include=FALSE, purl=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
+                      fig.align = 'center', fig.path = './figs/cf_maps/')
 knitr::opts_chunk$set(cache.extra = R.version.string)
 ```
 
@@ -25,23 +28,27 @@ Quantify the *spatial* agreement between soil maps, using several methods: (1) [
 
 Here we compare:
 
-* [ISSR-800](https://github.com/ncss-tech/ISSR-800); this is the _reference_ map;
-* [SoiLGrids250](https://www.isric.org/explore/soilgrids)  from ISRIC, further abbreviated as `SG2`;
-* [Soil Properties and Class 100m Grids USA](https://doi.org/10.18113/S1KW2H), further abbreviated as `SPCG100USA`;
-* [POLARIS](http://hydrology.cee.duke.edu/POLARIS/PROPERTIES/v1.0).
+* [SoiLGrids250](https://www.isric.org/explore/soilgrids)  from ISRIC further abbreviated as _SG2_;
+* [Global Soil Map v0.5 for the USA](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/research/?cid=nrcseprd1321715), further abbreviated as _GSMv05_;
+* [Intermediate-scale gridded soil property and interpretation maps from averaged and aggregated SSURGO and STATSGO data](https://github.com/ncss-tech/ISSR-800), further abbreviated as _ISSR-800_;
+* POLARIS Soil Properties;
+* [Soil Properties and Class 100m Grids USA](https://doi.org/10.18113/S1KW2H), further abbreviated as _SPCG100USA_;
+* [LandGIS](https://opengeohub.org/about-landgis) from the private company [EnvirometriX](http://envirometrix.nl/).
 
-This script must follow script `ISSR800_compare_all.Rmd` "Comparing PSM products with the USA SoilProperties grids (ISSR-800)". That script harmonizes the area and resolution of these sources.
+
+This script must follow script `Compare_regional.Rmd` "Comparing PSM products at regional resolution". That script harmonizes the area of interest and resolution of these sources.
 
 # Packages
 
 ```{r}
-library(dplyr)       # data wrangling
-library(raster)      # previous version of raster classes now in `terra`
-library(terra)       # Robert Hijmans raster and vector data
+library(raster, warn.conflicts=FALSE)      # previous version of raster classes now in `terra`
+                     #   needed for landscape metrics
+library(terra, warn.conflicts=FALSE)       # Robert Hijmans raster and vector data
 library(rgdal)       # CRS
 library(sp)          # `sp` spatial classes
 library(sf)          # Simple Features
 require(xtable)      # format tables for LaTeX
+library(dplyr)       # data wrangling
 library(ggplot2)     # ggplot graphics
 library(gridExtra)
 library(RColorBrewer)
@@ -53,26 +60,46 @@ library(gstat)      # variogram modelling
 
 # Local storage
 
-Set the directory on the local file system, under which local files were stored by `ISSR800_compare_all.Rmd`, and where this script will store its results.
+Set the directory on the local file system, under which local files were stored by `Compare_regional.Rmd`, and where this script will store its results.
 
 ```{r}
-base.dir <- "/Users/rossiter/ds/ISSR8/"
+base.dir <- "/Users/rossiter/ds/Compare_PSM/"
 ```
 
 # Area, property and depth to compare
 
 Set part of a file path using the AOI and property to be compared.
-These names correspond to files stored by script `ISSR800_compare_all.Rmd`, which incorporate the AOI `aoi` and the property of interest and depth slice `voi`.
+These names correspond to files stored by script `Compare_regional.Rmd`, which incorporate the AOI `aoi` and the property of interest and depth slice `voi`.
 
-Some test cases: (1) topsoil pH in central NY State; (2) clay concentration in subsoil, coastal plain NC; (3) clay concentration in subsoil, southern IN
+AOI:
 
-```{r}
-# aoi <- "lat4243_lon-77-76"
-# voi <- "ph_05"
-# aoi <- "lat3536_lon-78-77"
-# voi <- "clay_3060"
-aoi <- "lat3839_lon-87-86"
-voi <- "clay_3060"
+```{r aoi}
+tile.lrc <- c(-76, 42)   # lower-right corner
+tile.size <- 1
+tile.ulc <- c(tile.lrc[1]-tile.size, tile.lrc[2]+tile.size) # upper-left corner
+aoi <- paste0("lat", tile.lrc[2], tile.ulc[2],
+                         "_lon", tile.ulc[1], tile.lrc[1])
+```
+
+
+Property of interest:
+
+```{r voi}
+voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
+voi.n <- 4
+voi.sg <- voi.list.sg[voi.n]
+```
+
+Depth slice:
+
+```{r depth}
+depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
+depth.n <- 1
+```
+
+
+```{r voi.depth.sg}
+voi.depth <- paste0(voi.sg, "_", depth.list.sg[depth.n])
 ```
 
 # Source rasters
@@ -82,69 +109,76 @@ The maps from SG2, SPCG100USA and POLARIS were upscaled to 800 m, to match ISSR8
 Load the rasters and name the data item generically, so it can be used in expressions.
 
 ```{r}
-library(terra)
-(sg <- rast(paste0(base.dir, aoi, "/sg_tile_aea_", voi, ".tiff")))
+(gsm <- rast(paste0(base.dir, aoi, "/gsm_tile_250_", voi.depth, ".tif")))
+names(gsm) <- "voi"
+(sg <- rast(paste0(base.dir, aoi, "/sg_tile_250_", voi.depth, ".tif")))
 names(sg) <- "voi"
-(issr8 <- rast(paste0(base.dir, aoi, "/issr8_tile_aea_", voi, ".tiff")))
-names(issr8) <- "voi"
-(psu <- rast(paste0(base.dir, aoi, "/psu_tile_aea_", voi, ".tiff")))
-names(psu) <- "voi"
-(polaris <- rast(paste0(base.dir, aoi, "/polaris_tile_aea_", voi, ".tiff")))
-names(polaris) <- "voi"
-cat(crs(psu))
+file.name <- paste0(base.dir, aoi, "/issr8_tile_250_", voi.depth, ".tif")
+if (file.exists(file.name)) { (issr8 <- rast(file.name)); names(issr8) <- "voi" }
+file.name <- paste0(base.dir, aoi, "/psu_tile_250_", voi.depth, ".tif")
+if (file.exists(file.name)) { (psu <- rast(file.name)); names(psu) <- "voi" }
+file.name <- paste0(base.dir, aoi, "/polaris_tile_250_", voi.depth, ".tif")
+if (file.exists(file.name)) { (polaris <- rast(file.name)); names(polaris) <- "voi" }
+file.name <- paste0(base.dir, aoi, "/landgis_tile_250_", voi.depth, ".tif")
+if (file.exists(file.name)) { (landgis <- rast(file.name)); names(landgis) <- "voi" }
+rgdal::showP4(crs(sg))
 ```
 
-These are all in an Albers Equal Area projection optimized for the lower 48 States (USA).
+These are all in WGS84 geographic coordinates, cover the same area, and have the same no-data areas.
 
-Mask each one by the other, to only compare areas where both make a prediction:
-
-```{r}
-issr8 <- mask(issr8, sg)
-sg <- mask(sg, issr8)
-psu <- mask(psu, sg)
-issr8 <- mask(issr8, psu)
-sg <- mask(sg, psu)
-polaris <- mask(polaris, sg)
-```
 
 ## Test area
 
 Test on small part, 40 x 40 km:
 
 ```{r crop.test.area}
+test.tile.size <- 0.2  # degrees
+test.tile.x.offset <- 0.2  # west from right edge
+test.tile.y.offset <- 0.7  # north from bottom edge
 (tmp <- as.vector(ext(sg)))
-tmp["xmax"] <- tmp["xmin"] + 80000
-tmp["xmin"] <- tmp["xmin"] + 40000 # move LLC
-tmp["ymax"] <- tmp["ymin"] + 80000
-tmp["ymin"] <- tmp["ymin"] + 40000
+tmp["xmax"] <- tmp["xmax"] - test.tile.x.offset
+tmp["xmin"] <- tmp["xmax"] - test.tile.size
+tmp["ymin"] <- tmp["ymin"] + test.tile.y.offset
+tmp["ymax"] <- tmp["ymin"] + test.tile.size
 ext(tmp)
 sg.crop <- crop(sg, ext(tmp))
-issr8.crop <- crop(issr8, ext(tmp))
-psu.crop <- crop(psu, ext(tmp))
-polaris.crop <- crop(polaris, ext(tmp))
+gsm.crop <- crop(gsm, ext(tmp))
+if (exists("issr8")) { issr8.crop <- crop(issr8, ext(tmp)) }
+if (exists("psu")) { psu.crop <- crop(psu, ext(tmp)) }
+if (exists("polaris")) { polaris.crop <- crop(polaris, ext(tmp)) }
+if (exists("landgis")) { landgis.crop <- crop(landgis, ext(tmp)) }
 ```
 
 Determine the full range of the property across all maps, to one decimal place:
 
 ```{r zlim}
-zlim <- c(floor(min(values(sg.crop)*10, 
-                    values(issr8.crop)*10, 
-                    values(psu.crop)*10,
-                    values(polaris.crop)*10, na.rm=TRUE)),
-          ceiling(max(values(sg.crop)*10, 
-                      values(issr8.crop)*10, 
-                      values(psu.crop)*10, 
-                      values(psu.crop)*10, na.rm=TRUE)))/10
+zlim <- c(floor(min(values(sg.crop)*10,
+                    values(gsm.crop)*10,
+                    ifelse(exists("issr8.crop"), values(issr8.crop)*10, NA),
+                    ifelse(exists("psu.crop"), values(psu.crop)*10, NA),
+                    ifelse(exists("polaris.crop"), values(polaris.crop)*10, NA),
+                    ifelse(exists("landgis.crop"), values(landgis.crop)*10, NA),
+                    na.rm=TRUE)),
+          ceiling(max(values(sg.crop)*10,
+                      values(gsm.crop)*10, 
+                      ifelse(exists("issr8.crop"), values(issr8.crop)*10,  NA),
+                      ifelse(exists("psu.crop"), values(psu.crop)*10, NA),
+                      ifelse(exists("polaris.crop"), values(polaris.crop)*10, NA),
+                      ifelse(exists("landgis.crop"), values(landgis.crop)*10, NA),
+                      na.rm=TRUE)))/10
+print(zlim)
 ```
 
-Now show the 4 maps together:
+Now show the maps together:
 
-```{r side.by.side, fig.width=12, fig.height=12}
-par(mfrow=c(2,2))
+```{r side.by.side, fig.width=12, fig.height=18}
+par(mfrow=c(3,2))
+plot(gsm.crop, main="GSM v0.5", range=zlim)
 plot(sg.crop, main="SoilGrids250", range=zlim)
-plot(issr8.crop, main="ISSR-800", range=zlim)
-plot(psu.crop, main="SPCG100USA", range=zlim)
-plot(polaris.crop, main="POLARIS", range=zlim)
+if (exists("psu.crop")) plot(psu.crop, main="SPCG100USA", range=zlim)
+if (exists("polaris.crop")) plot(polaris.crop, main="POLARIS", range=zlim)
+if (exists("landgis.crop")) plot(landgis.crop, main="LandGIS", range=zlim)
+if (exists("issr8.crop")) plot(issr8.crop, main="ISSR-800", range=zlim)
 par(mfrow=c(1,1))
 ```   
 
@@ -168,42 +202,66 @@ rmse.adj <- function(v1, v2) {   # RMSE adjusted for ME (bias)
 ```{r}
 stats.compare <- data.frame(PSM_product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
 stats.compare[1, ] <- c("SoilGrids250",
-                        me(values(issr8.crop),values(sg.crop)),
-                        rmse(values(issr8.crop),values(sg.crop)),
-                        rmse.adj(values(issr8.crop),values(sg.crop))
+                        me(values(gsm.crop),values(sg.crop)),
+                        rmse(values(gsm.crop),values(sg.crop)),
+                        rmse.adj(values(gsm.crop),values(sg.crop))
                         )
-stats.compare[2, ] <- c("SPCG100USA",
-                        me(values(issr8.crop),values(psu.crop)),
-                        rmse(values(issr8.crop),values(psu.crop)),
-                        rmse.adj(values(issr8.crop),values(psu.crop))
+if (exists("psu.crop")) stats.compare[2, ] <- c("SPCG100USA",
+                        me(values(gsm.crop),values(psu.crop)),
+                        rmse(values(gsm.crop),values(psu.crop)),
+                        rmse.adj(values(gsm.crop),values(psu.crop))
                         )
-stats.compare[3, ] <- c("POLARIS",
-                        me(values(issr8.crop),values(polaris.crop)),
-                        rmse(values(issr8.crop),values(polaris.crop)),
-                        rmse.adj(values(issr8.crop),values(polaris.crop))
+if (exists("polaris.crop")) stats.compare[3, ] <- c("POLARIS",
+                        me(values(gsm.crop),values(polaris.crop)),
+                        rmse(values(gsm.crop),values(polaris.crop)),
+                        rmse.adj(values(gsm.crop),values(polaris.crop))
+                        )
+if (exists("landgis.crop")) stats.compare[4, ] <- c("POLARIS",
+                        me(values(gsm.crop),values(landgis.crop)),
+                        rmse(values(gsm.crop),values(landgis.crop)),
+                        rmse.adj(values(gsm.crop),values(landgis.crop))
+                        )
+if (exists("issr8.crop")) stats.compare[5, ] <- c("POLARIS",
+                        me(values(gsm.crop),values(issr8.crop)),
+                        rmse(values(gsm.crop),values(issr8.crop)),
+                        rmse.adj(values(gsm.crop),values(issr8.crop))
                         )
 print(stats.compare)
 ```
 
 Any bias in the three will affect the cross-classification and spatial statistics. 
 
-So also make a bias-adjusted version of the PSM products.
+So also make a bias-adjusted version of the PSM products, using GSM as the basis.
 
 ## Adjust for bias (systematic error)
 
 
 ```{r side.by.side.unbiased, fig.width=12, fig.height=12}
-sg.adj <- sg.crop + me(values(issr8.crop),values(sg.crop))
-psu.adj <- psu.crop + me(values(issr8.crop),values(psu.crop))
-polaris.adj <- polaris.crop + me(values(issr8.crop),values(polaris.crop))
-zlim.adj <- c(floor(min(values(sg.adj)*10, values(issr8.crop)*10, values(psu.adj)*10, na.rm=TRUE)),
-          ceiling(max(values(sg.adj)*10, values(issr8.crop)*10, values(psu.adj)*10, na.rm=TRUE)))/10
-par(mfrow=c(2,2))
-plot(issr8.crop, main="ISSR-800", range=zlim.adj)
-plot(sg.adj, main="SoilGrids250 unbiased", range=zlim.adj)
-plot(psu.adj, main="SPCG100USA unbiased", range=zlim.adj)
-plot(polaris.adj, main="POLARIS unbiased", range=zlim.adj)
-par(mfrow=c(1,1))
+sg.adj <- sg.crop + me(values(gsm.crop),values(sg.crop))
+if (exists("psu.crop")) psu.adj <- psu.crop + me(values(gsm.crop),values(psu.crop))
+if (exists("polaris.crop")) polaris.adj <- polaris.crop + me(values(gsm.crop),values(polaris.crop))
+if (exists("landgis.crop")) landgis.adj <- landgis.crop + me(values(gsm.crop),values(landgis.crop))
+if (exists("issr8.crop")) issr8.adj <- issr8.crop + me(values(gsm.crop),values(issr8.crop))
+```
+
+Recompute limits:
+
+```{r zlim.adj}
+zlim.adj <- c(floor(min(values(sg.adj)*10,
+                    values(gsm.crop)*10,
+                    ifelse(exists("issr8.adj"), values(issr8.adj)*10, NA),
+                    ifelse(exists("psu.adj"), values(psu.adj)*10, NA),
+                    ifelse(exists("polaris.adj"), values(polaris.adj)*10, NA),
+                    ifelse(exists("landgis.adj"), values(landgis.adj)*10, NA),
+                    na.rm=TRUE)),
+          ceiling(max(values(sg.adj)*10,
+                      values(gsm.crop)*10, 
+                      ifelse(exists("issr8.adj"), values(issr8.adj)*10,  NA),
+                      ifelse(exists("psu.adj"), values(psu.adj)*10, NA),
+                      ifelse(exists("polaris.adj"), values(polaris.adj)*10, NA),
+                      ifelse(exists("landgis.adj"), values(landgis.adj)*10, NA),
+                      na.rm=TRUE)))/10
+print(zlim.adj)
 ```
 
 These are now similar in their ranges, but not in their patterns.
@@ -213,9 +271,13 @@ Removing bias changes the spatial statistics only slightly, because the cut poin
 So for now, _do not adjust_: here we re-set the "adjusted" to the original:
 
 ```{r reset.adj}
+# gsm was the basis
 sg.adj <- sg.crop
-psu.adj <- psu.crop
-polaris.adj <- polaris.crop
+if (exists("psu.crop")) psu.adj <- psu.crop
+if (exists("polaris.crop")) polaris.adj <- polaris.crop
+if (exists("landgis.crop")) landgis.adj <- landgis.crop
+if (exists("issr8.crop")) issr8.adj <- issr8.crop
+zlim.adj <- zlim
 ```
 
 
@@ -229,32 +291,19 @@ The metrics used require classified maps, so we must classify into ranges. These
 
 In both cases using sharp class boundaries can lead to artefacts caused by the PSM method.
 
-Here is an example a coarse comparison, use user-defined class widths at "pretty" limits.
+## Histogram equalization   
+A better method is histogram equalization, with a user-defined number of classes. This avoids subjectivity and will work on any property.
 
-```{r expert.cuts.1}
-class.width <- 0.5
-(cuts <- seq(4, 8, by=class.width))
-n.class <- length(cuts) - 1
-```
-
-Another version of cuts: on the full integer range of this map fragment, with user-defined number of classes:
-
-```{r expert.cuts.2}
-n.class <- 9
-(cuts <- seq(floor(zlim[1]), ceiling(zlim[2]), length=n.class))
-```
-
-(Problem: How to have all the classes, even ones with no values? For example SG2 does not have class 7 for 0.5-width pH (and none of them have class 1). We need to have the same set of levels for the metrics.  Or, we can use these classes and specify colour ramps to show the same colour for the same value.)
-
-Histogram equalization, with a user-defined number of classes.
 
 ```{r hist.equal.cuts, fig.width=8, fig.height=4}
 n.class <- 8
 #
-values.all <- c(values(sg.crop), 
-                values(issr8.crop), 
-                values(psu.crop),
-                values(polaris.crop))
+values.all <- c(values(gsm.crop),
+                values(sg.adj), 
+                ifelse(exists("issr8.adj"), values(issr8.adj), NA),
+                ifelse(exists("psu.adj"), values(psu.adj), NA),
+                ifelse(exists("landgis.adj"), values(landgis.adj), NA),
+                ifelse(exists("polaris.adj"), values(polaris.adj), NA))
 length(values.all)
 summary(values.all)
 values.all.sort <- sort(values.all)
@@ -266,17 +315,24 @@ hist(values.all, breaks=36, main="Histogram equalization")
 abline(v=cuts, col="blue", lwd=2)
 ```
 
-To avoid subjectivity we use this latter method. It will work on any property.
 
 We set up a colour ramp that covers the entire range, and then select the colours out of it that match the actual value range.
 
 
-```{r classify.raster, fig.width=12, fig.height=12}
-(cut.names <- cut(zlim, breaks=c(zlim[1], cuts, zlim[2]), ordered_result=TRUE))
+```{r classify.raster}
+(cut.names <- cut(zlim.adj, breaks=c(zlim.adj[1], cuts, zlim.adj[2]), ordered_result=TRUE))
 # common colour ramp
 color.ramp <- bpy.colors(n.class)
 #
-(class.limits <- c(zlim[1], cuts, zlim[2]))
+(class.limits <- c(zlim.adj[1], cuts, zlim.adj[2]))
+gsm.class <- classify(gsm.crop, rcl=class.limits)
+# gsm.class <- as.factor(gsm.class)
+table(values(gsm.class))
+# .l <- range(values(gsm.class), na.rm=TRUE)
+# terra::plot(gsm.class,
+#             col=color.ramp[.l[1]:.l[2]], type="classes",
+#             main="SoilGrids250")
+#
 sg.class <- classify(sg.adj, rcl=class.limits)
 # sg.class <- as.factor(sg.class)
 table(values(sg.class))
@@ -285,75 +341,124 @@ table(values(sg.class))
 #             col=color.ramp[.l[1]:.l[2]], type="classes",
 #             main="SoilGrids250")
 #
-issr8.class <- classify(issr8.crop, rcl=class.limits)
-table(values(issr8.class))
-# issr8.class <- as.factor(issr8.class)
-# .l <- range(values(issr8.class), na.rm=TRUE)
-# terra::plot(issr8.class,
-#             col=color.ramp[.l[1]:.l[2]], type="classes",
-#             main="ISSR-800")
-#
-psu.class <- classify(psu.adj, rcl=class.limits)
-# psu.class <- as.factor(psu.class)
-table(values(psu.class))
-# .l <- range(values(psu.class), na.rm=TRUE)
-# terra::plot(psu.class,
-#             col=color.ramp[.l[1]:.l[2]], type="classes",
-#             main="SPCG100USA")
-#
-polaris.class <- classify(polaris.adj, rcl=class.limits)
-# psu.class <- as.factor(psu.class)
-table(values(polaris.class))
-# .l <- range(values(polaris.class), na.rm=TRUE)
-# terra::plot(polaris.class,
-#             col=color.ramp[.l[1]:.l[2]], type="classes",
-#             main="POLARIS")
-#
-par(mfrow=c(2,2))
-.l <- range(values(issr8.class), na.rm=TRUE)
-terra::plot(issr8.class,
+if (exists("issr8.adj")) {
+  issr8.class <- classify(issr8.adj, rcl=class.limits)
+  table(values(issr8.class))
+  # issr8.class <- as.factor(issr8.class)
+  # .l <- range(values(issr8.class), na.rm=TRUE)
+  # terra::plot(issr8.class,
+  #             col=color.ramp[.l[1]:.l[2]], type="classes",
+  #             main="ISSR-800")
+  #
+}
+if (exists("psu.adj")) {
+  psu.class <- classify(psu.adj, rcl=class.limits)
+  # psu.class <- as.factor(psu.class)
+  table(values(psu.class))
+  # .l <- range(values(psu.class), na.rm=TRUE)
+  # terra::plot(psu.class,
+  #             col=color.ramp[.l[1]:.l[2]], type="classes",
+  #             main="SPCG100USA")
+  #
+}
+if (exists("polaris.adj")) {
+  polaris.class <- classify(polaris.adj, rcl=class.limits)
+  # psu.class <- as.factor(psu.class)
+  table(values(polaris.class))
+  # .l <- range(values(polaris.class), na.rm=TRUE)
+  # terra::plot(polaris.class,
+  #             col=color.ramp[.l[1]:.l[2]], type="classes",
+  #             main="POLARIS")
+  #
+}
+if (exists("landgis.adj")) {
+  landgis.class <- classify(landgis.adj, rcl=class.limits)
+  # psu.class <- as.factor(psu.class)
+  table(values(landgis.class))
+  # .l <- range(values(landgis.class), na.rm=TRUE)
+  # terra::plot(landgis.class,
+  #             col=color.ramp[.l[1]:.l[2]], type="classes",
+  #             main="LandGIS")
+  #
+}
+```
+
+```{r show.classified, fig.width=12, fig.height=18}
+par(mfrow=c(3,2))
+.l <- range(values(gsm.class), na.rm=TRUE)
+terra::plot(gsm.class,
             col=color.ramp[.l[1]:.l[2]], type="classes",
-            main="ISSR-800")
+            main="GSM v0.5")
 .l <- range(values(sg.class), na.rm=TRUE)
 terra::plot(sg.class,
             col=color.ramp[.l[1]:.l[2]], type="classes",
             main="SoilGrids250")
-.l <- range(values(psu.class), na.rm=TRUE)
-terra::plot(psu.class,
-            col=color.ramp[.l[1]:.l[2]], type="classes",
-            main="SPCG100USA")
-.l <- range(values(polaris.class), na.rm=TRUE)
-terra::plot(polaris.class,
-            col=color.ramp[.l[1]:.l[2]], type="classes",
-            main="POLARIS")
+if (exists("psu.class")) {
+  .l <- range(values(psu.class), na.rm=TRUE)
+  terra::plot(psu.class,
+              col=color.ramp[.l[1]:.l[2]], type="classes",
+              main="SPCG100USA")
+}
+if (exists("polaris.class")) {
+  .l <- range(values(polaris.class), na.rm=TRUE)
+  terra::plot(polaris.class,
+              col=color.ramp[.l[1]:.l[2]], type="classes",
+              main="POLARIS")
+}
+if (exists("landgis.class")) {
+  .l <- range(values(issr8.class), na.rm=TRUE)
+  terra::plot(landgis.class,
+              col=color.ramp[.l[1]:.l[2]], type="classes",
+              main="LandGIS")
+}
+if (exists("issr8.class")) {
+  .l <- range(values(issr8.class), na.rm=TRUE)
+  terra::plot(issr8.class,
+              col=color.ramp[.l[1]:.l[2]], type="classes",
+              main="ISSR-800")
+}
 par(mfrow=c(1,1))
 ```
 
 ## Cross-classification
 
-Cross-classification ISSR-800 (rows) vs. SoilGrids250 (columns):
+Cross-classification GSM (rows) vs. SoilGrids250 (columns):
 
 ```{r xclass.1}
-table(as.vector(issr8.class), as.vector(sg.class))
+table(as.vector(gsm.class), as.vector(sg.class))
 ```
 
-Cross-classification ISSR-800 (rows) vs. SPCG100USA (columns):
+Cross-classification GSM (rows) vs. SPCG100USA (columns):
 
 ```{r xclass.2}
-table(as.vector(issr8.class), as.vector(psu.class))
+if (exists("psu.class")) { 
+  table(as.vector(gsm.class), as.vector(psu.class))
+}
 ```
 
-Cross-classification ISSR-800 (rows) vs. POLARIS (columns):
+Cross-classification GSM (rows) vs. POLARIS (columns):
 
 ```{r xclass.2a}
-table(as.vector(issr8.class), as.vector(polaris.class))
+if (exists("polaris.class")) {
+  table(as.vector(gsm.class), as.vector(polaris.class))
+}
+```
+
+```{r xclass.2b}
+if (exists("landgis.class")) { 
+  table(as.vector(gsm.class), as.vector(landgis.class))
+}
 ```
 
 Cross-classification SoilGrids250 (rows) vs. SPCG100USA (columns):
 
 ```{r xclass.3}
-table(as.vector(sg.class), as.vector(psu.class))
+if (exists("psu.class")) { 
+  table(as.vector(sg.class), as.vector(psu.class))
+}
 ```
+
+
 
 Much closer agreement between the two products using PSM, also closer agreement between the two products derived from SSURGO.
 
@@ -364,10 +469,12 @@ The V-metrics require polygon maps, not gridded maps of classes.
 Polygonize them:
 
 ```{r polygonize}
+gsm.poly <- terra::as.polygons(gsm.class, dissolve=TRUE, trunc=FALSE)
 sg.poly <- terra::as.polygons(sg.class, dissolve=TRUE, trunc=FALSE)
-issr8.poly <- terra::as.polygons(issr8.class, dissolve=TRUE, trunc=FALSE)
-psu.poly <- terra::as.polygons(psu.class, dissolve=TRUE, trunc=FALSE)
-polaris.poly <- terra::as.polygons(polaris.class, dissolve=TRUE, trunc=FALSE)
+if (exists("issr8.class")) issr8.poly <- terra::as.polygons(issr8.class, dissolve=TRUE, trunc=FALSE)
+if (exists("psu.class")) psu.poly <- terra::as.polygons(psu.class, dissolve=TRUE, trunc=FALSE)
+if (exists("polaris.class")) polaris.poly <- terra::as.polygons(polaris.class, dissolve=TRUE, trunc=FALSE)
+if (exists("landgis.class")) landgis.poly <- terra::as.polygons(landgis.class, dissolve=TRUE, trunc=FALSE)
 ```
 
 ## Simple Features
@@ -377,25 +484,44 @@ Some of the methods require Simple Features representation of spatial objects.
 Convert the `terra::SpatVector` objects to Simple Features. As of now (2020-08-29) there seems to be no direct way, so save as a vector file and read into `sf`:
 
 ```{r convert.polygons.sf}
-tmpf <- tempfile()
-terra::writeVector(issr8.poly, tmpf, overwrite=TRUE)
-issr8.sf <- st_read(tmpf); unlink(tmpf)
-colnames(issr8.sf)[1] <- "class"
+#
+tmpf1 <- tempfile()
+terra::writeVector(gsm.poly, tmpf1, overwrite=TRUE)
+gsm.sf <- st_read(tmpf1); unlink(tmpf1)
+names(gsm.sf)[1] <- "class"
 #
 tmpf2 <- tempfile()
 terra::writeVector(sg.poly, tmpf2, overwrite=TRUE)
 sg.sf <- st_read(tmpf2); unlink(tmpf2)
 names(sg.sf)[1] <- "class"
 #
-tmpf3 <- tempfile()
-terra::writeVector(psu.poly, tmpf3, overwrite=TRUE)
-psu.sf <- st_read(tmpf3); unlink(tmpf3)
-names(psu.sf)[1] <- "class"
+if (exists("psu.class")) {
+  tmpf3 <- tempfile()
+  terra::writeVector(psu.poly, tmpf3, overwrite=TRUE)
+  psu.sf <- st_read(tmpf3); unlink(tmpf3)
+  names(psu.sf)[1] <- "class"
+}
 #
-tmpf4 <- tempfile()
-terra::writeVector(polaris.poly, tmpf4, overwrite=TRUE)
-polaris.sf <- st_read(tmpf4); unlink(tmpf4)
-names(polaris.sf)[1] <- "class"
+if (exists("polaris.class")) {
+  tmpf4 <- tempfile()
+  terra::writeVector(polaris.poly, tmpf4, overwrite=TRUE)
+  polaris.sf <- st_read(tmpf4); unlink(tmpf4)
+  names(polaris.sf)[1] <- "class"
+}
+#
+if (exists("issr8.class")) { 
+  tmpf5 <- tempfile()
+  terra::writeVector(issr8.poly, tmpf5, overwrite=TRUE)
+  issr8.sf <- st_read(tmpf5); unlink(tmpf5)
+  colnames(issr8.sf)[1] <- "class"
+}
+if (exists("landgis.class")) {
+  tmpf6 <- tempfile()
+  terra::writeVector(landgis.poly, tmpf6, overwrite=TRUE)
+  landgis.sf <- st_read(tmpf6); unlink(tmpf6)
+  colnames(landgis.sf)[1] <- "class"
+}
+#
 ```
 
 This is a Simple feature collection with 4 features and 1 field (and the geometry).
@@ -407,61 +533,104 @@ The topology is not correct, so `vmeasure_calc` throws an error. Clean up the to
 See https://www.r-spatial.org/r/2017/03/19/invalid.html. 
 
 ```{r}
+st_is_valid(gsm.sf, reason=TRUE)
+gsm.sf.v <- sf::st_make_valid(gsm.sf)
+# st_is_valid(gsm.sf.v, reason=TRUE)
+#
 st_is_valid(sg.sf, reason=TRUE)
 sg.sf.v <- sf::st_make_valid(sg.sf)
 # st_is_valid(sg.sf.v, reason=TRUE)
-st_is_valid(issr8.sf, reason=TRUE)
-issr8.sf.v <- sf::st_make_valid(issr8.sf)
-# st_is_valid(issr8.sf.v, reason=TRUE)
-st_is_valid(psu.sf, reason=TRUE)
-psu.sf.v <- sf::st_make_valid(psu.sf)
-# st_is_valid(psu.sf.v, reason=TRUE)
-st_is_valid(polaris.sf, reason=TRUE)
-polaris.sf.v <- sf::st_make_valid(polaris.sf)
-# st_is_valid(psu.sf.v, reason=TRUE)
+if (exists("issr8.sf")) {
+  st_is_valid(issr8.sf, reason=TRUE)
+  issr8.sf.v <- sf::st_make_valid(issr8.sf)
+  # st_is_valid(issr8.sf.v, reason=TRUE)
+}
+if (exists("psu.sf")) {
+  st_is_valid(psu.sf, reason=TRUE)
+  psu.sf.v <- sf::st_make_valid(psu.sf)
+  # st_is_valid(psu.sf.v, reason=TRUE)
+}
+if (exists("polaris.sf")) {
+  st_is_valid(polaris.sf, reason=TRUE)
+  polaris.sf.v <- sf::st_make_valid(polaris.sf)
+  # st_is_valid(polaris.sf.v, reason=TRUE)
+}
+if (exists("landgis.sf")) {
+  st_is_valid(landgis.sf, reason=TRUE)
+  landgis.sf.v <- sf::st_make_valid(landgis.sf)
+  # st_is_valid(landgis.sf.v, reason=TRUE)
+}
 ```
+
 
 Now the topology is correct.
 
 ## Plot the polygonized class maps
 
-Display the maps:
+Display the maps. Compute each legend from the classes present in that map.
 
-```{r class_maps, fig.width=12, fig.height=12}
+```{r class_maps, fig.width=7, fig.height=5}
 my.pal <- brewer.pal(n.class, "RdYlGn")
+l.gsm <- range(gsm.sf.v$class, na.rm = TRUE)
 l.sg <- range(sg.sf.v$class, na.rm = TRUE)
-l.issr8 <- range(issr8.sf.v$class, na.rm = TRUE)
-l.psu <- range(psu.sf.v$class, na.rm = TRUE)
-l.polaris <- range(polaris.sf.v$class, na.rm = TRUE)
+if (exists("issr8.sf")) { l.issr8 <- range(issr8.sf.v$class, na.rm = TRUE) }
+if (exists("psu.sf")) { l.psu <- range(psu.sf.v$class, na.rm = TRUE) }
+if (exists("polaris.sf")) { l.polaris <- range(polaris.sf.v$class, na.rm = TRUE) }
+if (exists("landgis.sf")) { l.landgis <- range(landgis.sf.v$class, na.rm = TRUE) }
+g0 <- ggplot(data=gsm.sf.v) +
+  geom_sf(aes(fill = class)) +
+  coord_sf(crs = st_crs(gsm.sf)) +
+#  guides(fill=FALSE) +   # no legend on the two leftmost
+# no, that distorts the size compared to the one with legend
+   labs(title = "GSV v0.5")  +
+  scale_fill_continuous(low=my.pal[l.gsm[1]], high=my.pal[l.gsm[2]]) +
+  theme(legend.position = "bottom", legend.direction = "horizontal")
 g1 <- ggplot(data=sg.sf.v) +
   geom_sf(aes(fill = class)) +
   coord_sf(crs = st_crs(sg.sf)) +
-#  guides(fill=FALSE) +   # no legend on the two leftmost
-# no, that distorts the size compared to the one with legend
-   labs(title = "SoilGrids250")  +
+  labs(title = "SoilGrids250")  +
   scale_fill_continuous(low=my.pal[l.sg[1]], high=my.pal[l.sg[2]]) +
   theme(legend.position = "bottom", legend.direction = "horizontal")
-g2 <- ggplot(data=issr8.sf.v) +
-  geom_sf(aes(fill = class)) +
-  coord_sf(crs = st_crs(sg.sf)) +
-#  guides(fill=FALSE)  + # no legend on the two leftmost
-# no, that distorts the size compared to the one with legend
-  labs(title = "ISSR-800")  +
-  scale_fill_continuous(low=my.pal[l.issr8[1]], high=my.pal[l.issr8[2]]) +
-  theme(legend.position = "bottom", legend.direction = "horizontal")
-g3 <- ggplot(data=psu.sf.v) +
-  geom_sf(aes(fill = class)) +
-  coord_sf(crs = st_crs(sg.sf)) +
-  labs(title = "SPCG100USA") +
-  scale_fill_continuous(low=my.pal[l.psu[1]], high=my.pal[l.psu[2]]) +
-  theme(legend.position = "bottom", legend.direction = "horizontal")
-g4 <- ggplot(data=polaris.sf.v) +
-  geom_sf(aes(fill = class)) +
-  coord_sf(crs = st_crs(sg.sf)) +
-  labs(title = "POLARIS") +
-  scale_fill_continuous(low=my.pal[l.polaris[1]], high=my.pal[l.polaris[2]]) +
-  theme(legend.position = "bottom", legend.direction = "horizontal")
-grid.arrange(g2, g1, g3, g4, nrow=2)
+if (exists("issr8.sf")) { 
+  g2 <- ggplot(data=issr8.sf.v) +
+    geom_sf(aes(fill = class)) +
+    coord_sf(crs = st_crs(sg.sf)) +
+    labs(title = "ISSR-800")  +
+    scale_fill_continuous(low=my.pal[l.issr8[1]], high=my.pal[l.issr8[2]]) +
+    theme(legend.position = "bottom", legend.direction = "horizontal")
+}
+if (exists("psu.sf")) { 
+  g3 <- ggplot(data=psu.sf.v) +
+    geom_sf(aes(fill = class)) +
+    coord_sf(crs = st_crs(sg.sf)) +
+    labs(title = "SPCG100USA") +
+    scale_fill_continuous(low=my.pal[l.psu[1]], high=my.pal[l.psu[2]]) +
+    theme(legend.position = "bottom", legend.direction = "horizontal")
+}
+if (exists("polaris.sf")) { 
+  g4 <- ggplot(data=polaris.sf.v) +
+    geom_sf(aes(fill = class)) +
+    coord_sf(crs = st_crs(sg.sf)) +
+    labs(title = "POLARIS") +
+    scale_fill_continuous(low=my.pal[l.polaris[1]], high=my.pal[l.polaris[2]]) +
+    theme(legend.position = "bottom", legend.direction = "horizontal")
+}
+if (exists("landgis.sf")) { 
+  g5 <- ggplot(data=landgis.sf.v) +
+    geom_sf(aes(fill = class)) +
+    coord_sf(crs = st_crs(sg.sf)) +
+    labs(title = "LandGIS") +
+    scale_fill_continuous(low=my.pal[l.landgis[1]], high=my.pal[l.landgis[2]]) +
+    theme(legend.position = "bottom", legend.direction = "horizontal")
+}
+# show them separately, because we don't which ones are defined
+# then arrange manually in the paper
+print(g0)
+print(g1)
+print(g2)
+print(g3)
+print(g4)
+print(g5)
 ```
 
 
@@ -500,16 +669,16 @@ For this function we must specify the names of the columns with the region names
 
 Compute the metrics with the `sabre` package.
 
-### ISSR8 vs. SoilGrids
+### GSM vs. SoilGrids
 
-```{r issr8.sg}
-regions.issr.sg <- vmeasure_calc(x = issr8.sf.v, 
+```{r gsm8.sg}
+regions.gsm.sg <- vmeasure_calc(x = gsm.sf.v, 
                                  y = sg.sf.v, 
                                  x_name = class, y_name = class)
-class(regions.issr.sg) 
-print(regions.issr.sg)
-names(regions.issr.sg)
-names(regions.issr.sg$map1)
+class(regions.gsm.sg) 
+print(regions.gsm.sg)
+names(regions.gsm.sg)
+names(regions.gsm.sg$map1)
 ```
 
 `rih` is the intersection map. Show these:
@@ -517,53 +686,53 @@ names(regions.issr.sg$map1)
 Geometric precision is set by `st_as_binary`, default is `attr(x, "precision")`. Here we didn't change it and the intersection looks good.
 
 ```{r}
-attr(regions.issr.sg, "precision")  # NULL, means a system default
+attr(regions.gsm.sg, "precision")  # NULL, means a system default
 ```
 
 Here we leave it as the default `NULL`.
 
-```{r vmaps.issr.sg}
-  ## produced maps -- the homogeneity of the regions.issr.sg
-terra::plot(regions.issr.sg$map1["rih"], main = "Homogeneity -- SG2 vs. ISSR-800")
-terra::plot(regions.issr.sg$map2["rih"], main = "Completeness -- SG2 vs. ISSR-800")
+```{r vmaps.gsm.sg}
+  ## produced maps -- the homogeneity of the regions.gsm.sg
+terra::plot(regions.gsm.sg$map1["rih"], main = "Homogeneity -- SG250 vs. GSM")
+terra::plot(regions.gsm.sg$map2["rih"], main = "Completeness -- SG250 vs. GSM")
 ```
 
-### ISSR8 vs. SPCG100USA
+### GSM vs. SPCG100USA
 
-```{r issr8.psu}
-regions.issr.psu <- vmeasure_calc(x = issr8.sf.v, 
+```{r gsm.psu}
+regions.gsm.psu <- vmeasure_calc(x = gsm.sf.v, 
                                   y = psu.sf.v, 
                                   x_name = class, y_name = class)
-class(regions.issr.psu) 
-print(regions.issr.psu)
-names(regions.issr.psu)
-names(regions.issr.psu$map1)
+class(regions.gsm.psu) 
+print(regions.gsm.psu)
+names(regions.gsm.psu)
+names(regions.gsm.psu$map1)
 ```
 
 
-```{r vmaps.issr.psu}
-## produced maps -- the homogeneity of the regions.issr.psu
-terra::plot(regions.issr.psu$map1["rih"], main = "Homogeneity -- SPCG100USA vs. ISSR-800")
-terra::plot(regions.issr.psu$map2["rih"], main = "Completeness -- SPCG100USA vs. ISSR-800")
+```{r vmaps.gsm.psu}
+## produced maps -- the homogeneity of the regions.gsm.psu
+terra::plot(regions.gsm.psu$map1["rih"], main = "Homogeneity -- SPCG100USA vs. GSM")
+terra::plot(regions.gsm.psu$map2["rih"], main = "Completeness -- SPCG100USA vs. GSM")
 ```
 
-### ISSR8 vs. POLARIS
+### GSM vs. POLARIS
 
-```{r issr8.polaris}
-regions.issr.polaris <- vmeasure_calc(x = issr8.sf.v, 
+```{r gsm.polaris}
+regions.gsm.polaris <- vmeasure_calc(x = gsm.sf.v, 
                                       y = polaris.sf.v, 
                                       x_name = class, y_name = class)
-class(regions.issr.polaris) 
-print(regions.issr.polaris)
-names(regions.issr.polaris)
-names(regions.issr.polaris$map1)
+class(regions.gsm.polaris) 
+print(regions.gsm.polaris)
+names(regions.gsm.polaris)
+names(regions.gsm.polaris$map1)
 ```
 
 
-```{r vmaps.issr.polaris}
-## produced maps -- the homogeneity of the regions.issr.polaris
-terra::plot(regions.issr.psu$map1["rih"], main = "Homogeneity -- POLARIS vs. ISSR-800")
-terra::plot(regions.issr.psu$map2["rih"], main = "Completeness -- POLARIS vs. ISSR-800")
+```{r vmaps.gsm.polaris}
+## produced maps -- the homogeneity of the regions.gsm.polaris
+terra::plot(regions.gsm.psu$map1["rih"], main = "Homogeneity -- POLARIS vs. GSM")
+terra::plot(regions.gsm.psu$map2["rih"], main = "Completeness -- POLARIS vs. GSM")
 ```
 
 ### SoilGrids250 vs. SPCG100USA
@@ -588,29 +757,37 @@ terra::plot(regions.sg.psu$map2["rih"], main = "Completeness -- SPCG100USA -- So
 ## Table with `vmeasure` statistics
 
 ```{r}
-str(regions.issr.sg, max.level = 1)
-vgms.compare <- data.frame(PSM_products = "", V_measure = 0, Homogeneity = 0, Completeness = 0)
-vgms.compare[1,] <- c("ISSR-800 vs. SG2", 
-                       round(regions.issr.sg$v_measure, 4),
-                       round(regions.issr.sg$homogeneity, 4),
-                       round(regions.issr.sg$completeness, 4)
+str(regions.gsm.sg, max.level = 1)
+vmeasure.compare <- data.frame(PSM_products = "", V_measure = 0, Homogeneity = 0, Completeness = 0)
+vmeasure.compare[1,] <- c("GSM v0.5 vs. SG2", 
+                       round(regions.gsm.sg$v_measure, 4),
+                       round(regions.gsm.sg$homogeneity, 4),
+                       round(regions.gsm.sg$completeness, 4)
                        )
-vgms.compare[2,] <- c("ISSR-800 vs. SPCG100USA", 
-                       round(regions.issr.psu$v_measure, 4),
-                       round(regions.issr.psu$homogeneity, 4),
-                       round(regions.issr.psu$completeness, 4)
-                       )
-vgms.compare[3,] <- c("ISSR-800 vs. POLARIS", 
-                       round(regions.issr.polaris$v_measure, 4),
-                       round(regions.issr.polaris$homogeneity, 4),
-                       round(regions.issr.polaris$completeness, 4)
-                       )
-vgms.compare[4,] <- c("SG2 va. SPCG100USA", 
+i <- 1
+if (exists("regions.gsm.psu")) {
+  vmeasure.compare[i <- i+1,] <- c("GSM v0.5 vs. SPCG100USA", 
+                            round(regions.gsm.psu$v_measure, 4),
+                            round(regions.gsm.psu$homogeneity, 4),
+                            round(regions.gsm.psu$completeness, 4)
+  )
+}
+if (exists("regions.gsm.polaris")) {
+  vmeasure.compare[i <- i+1,] <- c("GSM v0.5 vs. POLARIS", 
+                            round(regions.gsm.polaris$v_measure, 4),
+                            round(regions.gsm.polaris$homogeneity, 4),
+                            round(regions.gsm.polaris$completeness, 4)
+  )
+}
+if (exists("regions.gsm.psu")) {
+  vmeasure.compare[i <- i+1,] <- c("SG2 va. SPCG100USA", 
                        round(regions.sg.psu$v_measure, 4),
                        round(regions.sg.psu$homogeneity, 4),
                        round(regions.sg.psu$completeness, 4)
                        )
-print(vgms.compare)
+  
+}
+print(vmeasure.compare)
 ```
 
 Save for paper:
@@ -619,21 +796,12 @@ Save for paper:
 ```{r}
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
-x <- xtable(vgms.compare, row.names=FALSE, digits=3)
+x <- xtable(vmeasure.compare, row.names=FALSE, digits=3)
 autoformat(x)
 capture.output(print(x, include.rownames=FALSE), file=
-                 paste0("./tables/ISSR800_compare_vmeasure_",
-                           aoi, "_", voi, ".tex"))
+                 paste0("../LaTeX_tables/compare_vmeasure_",
+                           aoi, "_", voi.depth, ".tex"))
 ```
-
-
-## Interpretation
-
-Areas with value 1 are made up of only one class from the opposite map.
-
-SoilGrids is a simpler map, note the large polygon in the SW (with some inclusion)  and in the north Central.
-
-*** TBC
 
 
 # Landscape metrics (`landscapemetrics` package) {#landscapemetrics}
@@ -649,10 +817,12 @@ Reference: Hesselbarth, M. H. K., Sciaini, M., With, K. A., Wiegand, K., & Nowos
 These packages work with `raster` objects, so convert from `terra` structures.
 
 ```{r}
+r.gsm <- raster(gsm.class)
 r.sg <- raster(sg.class)
-r.issr8 <- raster(issr8.class)
-r.psu <- raster(psu.class)
-r.polaris <- raster(polaris.class)
+if (exists("issr8.class")) r.issr8 <- raster(issr8.class)
+if (exists("psu.class"))r.psu <- raster(psu.class)
+if (exists("polaris.class"))r.polaris <- raster(polaris.class)
+if (exists("landgis.class"))r.landgis <- raster(landgis.class)
 ```
 
 A function to display the landscape with a consistent colour ramp:
@@ -675,12 +845,15 @@ show.landscape <- function(r.map, r.title) {
 }
 ```
 
-```{r show.landscape, fig.width=12, fig.height=12}
-g1 <- show.landscape(r.issr8, "ISSR-800")
-g2 <- show.landscape(r.sg, "SoilGrids250")
-g3 <- show.landscape(r.psu, "SPCG100USA")
-g4 <- show.landscape(r.polaris, "POLARIS")
-grid.arrange(g1, g2, g3, g4, nrow=2)
+Show the landscapes of each product:
+
+```{r show.landscape, fig.width=7, fig.height=5}
+(g1 <- show.landscape(r.gsm, "GSM v0.5"))
+(g2 <- show.landscape(r.sg, "SoilGrids250"))
+if (exists("r.psu")) (g3 <- show.landscape(r.psu, "SPCG100USA"))
+if (exists("r.polaris")) (g4 <- show.landscape(r.polaris, "POLARIS"))
+if (exists("r.landgis")) (g4 <- show.landscape(r.landgis, "LandGIS"))
+if (exists("r.issr8")) (g4 <- show.landscape(r.issr8, "ISSR-800"))
 ```
 
 
@@ -717,22 +890,26 @@ patch.metrics <- calculate_lsm(r.sg, level = "patch")
 
 ## Visualize class and patch metrics
 
-Core areas for each _class_:
+Core areas for each _class_. These are the "typical" areas, used mainly for habitats. Here they show where the class is concentrated.
 
-```{r show.core.areas}
-show_cores(r.issr8)
+```{r show.core.areas, fig.width=12, fig.height=12}
+show_cores(r.gsm)
 show_cores(r.sg)
-show_cores(r.psu)
-show_cores(r.polaris)
+if (exists("r.issr8")) show_cores(r.issr8)
+if (exists("r.psu")) show_cores(r.psu)
+if (exists("r.polaris")) show_cores(r.polaris)
+if (exists("r.landgis")) show_cores(r.landgis)
 ```
 
 Show the landscape with a patch-level metric in each _patch_. For example, the contiguity of each patch:
 
-```{r show.patch.level.metrics}
-show_lsm(r.issr8, what="lsm_p_contig")
+```{r show.patch.level.metrics, fig.width=6, fig.height=6}
+show_lsm(r.gsm, what="lsm_p_contig")
 show_lsm(r.sg, what="lsm_p_contig")
-show_lsm(r.psu, what="lsm_p_contig")
-show_lsm(r.polaris, what="lsm_p_contig")
+if (exists("r.issr8")) show_lsm(r.issr8, what="lsm_p_contig")
+if (exists("r.psu")) show_lsm(r.psu, what="lsm_p_contig")
+if (exists("r.polaris")) show_lsm(r.polaris, what="lsm_p_contig")
+if (exists("r.landgis")) show_lsm(r.landgis, what="lsm_p_contig")
 ```
 
 But we want landscape-level metrics, we are not interested in individual patches.
@@ -740,23 +917,30 @@ But we want landscape-level metrics, we are not interested in individual patches
 Here are the landscape-level metrics we will report:
 
 ```{r}
-lst <-paste0("lsm_l_", c("shdi", "shei", "lsi", "frac_mn"))
-(ls.metrics.issr8 <- calculate_lsm(r.issr8, what=lst))
-(ls.metrics.sg <- calculate_lsm(r.sg, what=lst))
-(ls.metrics.psu <- calculate_lsm(r.psu, what=lst))
-(ls.metrics.polaris <- calculate_lsm(r.polaris, what=lst))  
+lst <- paste0("lsm_l_", c("shdi", "shei", "lsi", "frac_mn"))
+ls.metrics.gsm <- calculate_lsm(r.gsm, what=lst)
+ls.metrics.sg <- calculate_lsm(r.sg, what=lst)
+ls.metrics.issr8 <- ifelse(exists("r.issr8"), calculate_lsm(r.issr8, what=lst),
+                           rep(NA, 4))
+ls.metrics.psu <- ifelse(exists("r.psu"), calculate_lsm(r.psu, what=lst),
+                         rep(NA,4))
+ls.metrics.polaris <- ifelse(exists("r.polaris"), calculate_lsm(r.polaris, what=lst),
+                             rep(NA, 4))
+ls.metrics.landgis <- ifelse(exists("r.landgis"), calculate_lsm(r.landgis, what=lst),
+                             rep(NA,4))  
 ```
 
 Make a table with the metrics for the several products.
 
 ```{r}
-metrics.table <- data.frame(product=c("ISSR8", "SoilGrids", "SPCG100USA", "POLARIS"),
-                            rbind(ls.metrics.issr8$value,
+metrics.table <- data.frame(product=c("GSM", "SoilGrids", "SPCG100USA", "POLARIS", "ISSR8", "LandGIS"),
+                            rbind(ls.metrics.gsm$value,
                                   ls.metrics.sg$value,
                                   ls.metrics.psu$value,
-                                  ls.metrics.polaris$value))
-names(metrics.table)[2:5] <- ls.metrics.issr8$metric
-metrics.table
+                                  ls.metrics.polaris$value,
+                                  ls.metrics.issr8$value,
+                                  ls.metrics.landgis$value))
+names(metrics.table)[2:5] <- ls.metrics.gsm$metric
 ```
 
 
@@ -766,91 +950,182 @@ options(xtable.timestamp = "")
 x <- xtable(metrics.table, row.names=FALSE, digits=3)
 autoformat(x)
 capture.output(print(x, include.rownames=FALSE), file=
-                 paste0("./tables/ISSR800_landscape_metrics_",
-                           aoi, "_", voi, ".tex"))
+                 paste0("../LaTeX_tables/landscape_metrics_",
+                           aoi, "_", voi.depth, ".tex"))
 ```
 
 # Local spatial structure
 
 The variogram (equivalent to correlogram) can be used to characterize the degree of spatial continuity and the "roughness" of a continuous property map. This must be applied to an object of class `sp`.
 
-Compute the variograms at the exact distance of the grid, up to 4 grid cell separation.
+Distances computed by `gstat` for objects with geographic coordinates ar in great-circle km.
+So, the initial range estimate is in km. The initial partial sill is the maximum semivariance of the empirical variogram.
 
-```{r compute.vgm}
-issr8.sp <- as(raster(issr8.crop), "SpatialPointsDataFrame")
-sg.sp <- as(raster(sg.crop), "SpatialPointsDataFrame")
-psu.sp <- as(raster(psu.crop), "SpatialPointsDataFrame")
-polaris.sp <- as(raster(polaris.crop), "SpatialPointsDataFrame")
-short.range <- res(polaris.crop)[1]*c(1, sqrt(2), 2, sqrt(5), 2*sqrt(2), sqrt(10), sqrt(17), 3*sqrt(2), 4*sqrt(2))
-v.issr8 <- variogram(voi ~ 1, loc = issr8.sp, boundaries = short.range)
-v.sg <- variogram(voi ~ 1, loc = sg.sp, boundaries = short.range)
-v.psu <- variogram(voi ~ 1, loc = psu.sp, boundaries = short.range)
-v.polaris <- variogram(voi ~ 1, loc = polaris.sp, boundaries = short.range)
+```{r}
+range.init <- 2
+cutoff.init <- range.init*2.5
 ```
 
-Model the variograms. We use the Spherical model, appropriate to patchiness typical of soil properties.
+Compute the short-range variogram, this reveals the local structure. In these maps the variogram is typically unbounded, but we don't care about the long-range structure.
 
-```{r model.vgm}
-vm.issr8 <- vgm(max(v.issr8$gamma), "Sph", res(issr8.crop)[1]*4*sqrt(2), 0)
-vmf.issr8 <- fit.variogram(v.issr8, model=vm.issr8)
-vm.sg <- vgm(max(v.sg$gamma), "Sph", res(sg.crop)[1]*4*sqrt(2), 0)
-vmf.sg <- fit.variogram(v.sg, model=vm.sg)
-vm.psu <- vgm(max(v.psu$gamma), "Sph", res(psu.crop)[1]*4*sqrt(2), 0)
-vmf.psu <- fit.variogram(v.psu, model=vm.psu)
-vm.polaris <- vgm(max(v.polaris$gamma), "Sph", res(polaris.crop)[1]*4*sqrt(2), 0)
-vmf.polaris <- fit.variogram(v.polaris, model=vm.polaris)
+Model the variograms with the Spherical model, appropriate to patchiness typical of soil properties.
+
+<!-- Compute the variograms at the exact distance of the grid, up to 4 grid cell separation. -->
+
+Use a metric version of the map for variogram analysis. To do this, we need a CRS, and we use the appropriate UTM zone:
+
+```{r find.utm.crs}
+long2UTM <- function(long) {
+    (floor((long + 180)/6) %% 60) + 1
+}
+utm.zone <- long2UTM(tile.lrc[1])
+# EPSG code for WGS84 UTM zones N are 326xx, where xx=UTM zone number
+# from epsg.org
+(utm.epsg <- 32600 + utm.zone)
+crs.utm <- CRS(paste0("+init=epsg:", utm.epsg))
 ```
+
+Initial parameters for empirical variograms and models:
+
+```{r}
+range.init <- 2000
+cutoff.init <- range.init*2.5
+```
+
+Compute and model variograms. Note the estimated sill is the maximum $\gamma$ in the empirical variogram.
+
+```{r compute.variogram, fig.height=6, fig.width=8}
+gsm.sp <- as(raster(gsm.crop), "SpatialPointsDataFrame")
+gsm.sp <- spTransform(gsm.sp, crs.utm)
+v.gsm <- gstat::variogram(voi ~ 1, loc = gsm.sp, cutoff=cutoff.init, width=500)
+vm.gsm <- vgm(max(v.gsm$gamma), "Exp", range.init, 0)
+(vmf.gsm <- fit.variogram(v.gsm, model=vm.gsm))
+# plot(v.gsm, pl=T, model=vmf.gsm)
+#
+sg.sp <- as(raster(sg.adj), "SpatialPointsDataFrame")
+sg.sp <- spTransform(sg.sp, crs.utm)
+v.sg <- variogram(voi ~ 1, loc = sg.sp, cutoff=cutoff.init, width=500)
+vm.sg <- vgm(max(v.sg$gamma), "Exp", range.init, 0)
+(vmf.sg <- fit.variogram(v.sg, model=vm.sg))
+# plot(v.sg, pl=T, model=vmf.sg)
+#
+if (exists("r.issr8")) {
+  issr8.sp <- as(raster(issr8.adj), "SpatialPointsDataFrame")
+  issr8.sp <- spTransform(issr8.sp, crs.utm)
+  v.issr8 <- variogram(voi ~ 1, loc = issr8.sp, cutoff=cutoff.init, width=500)
+  vm.issr8 <- vgm(max(v.issr8$gamma), "Exp", range.init, 0)
+  vmf.issr8 <- fit.variogram(v.issr8, model=vm.issr8)
+#  plot(v.issr8, pl=T, model=vmf.issr8)
+}
+if (exists("r.psu")) {
+  psu.sp <- as(raster(psu.adj), "SpatialPointsDataFrame")
+  psu.sp <- spTransform(psu.sp, crs.utm)
+  v.psu <- variogram(voi ~ 1, loc = psu.sp, cutoff=cutoff.init, width=500)
+  vm.psu <- vgm(max(v.psu$gamma), "Exp", range.init, 0)
+  vmf.psu <- fit.variogram(v.psu, model=vm.psu)
+#  plot(v.psu, pl=T, model=vmf.psu)
+}
+if (exists("r.polaris")) {
+  polaris.sp <- as(raster(polaris.adj), "SpatialPointsDataFrame")
+  polaris.sp <- spTransform(polaris.sp, crs.utm)
+  v.polaris <- variogram(voi ~ 1, loc = polaris.sp, cutoff=cutoff.init, width=500)
+  vm.polaris <- vgm(max(v.polaris$gamma), "Exp", range.init, 0)
+  vmf.polaris <- fit.variogram(v.polaris, model=vm.polaris)
+#  plot(v.polaris, pl=T, model=vmf.polaris)
+}
+if (exists("r.landgis")) {
+  landgis.sp <- as(raster(landgis.adj), "SpatialPointsDataFrame")
+  landgis.sp <- spTransform( landgis.sp, crs.utm)
+  v.landgis <- variogram(voi ~ 1, loc = landgis.sp, cutoff=cutoff.init, width=500)
+  vm.landgis <- vgm(max(v.landgis$gamma), "Exp", range.init, 0)
+  vmf.landgis <- fit.variogram(v.landgis, model=vm.landgis)
+#  plot(v.landgis, pl=T, model=vmf.landgis)
+}
+```
+
 
 Make a table of the variogram parameters:
 
 ```{r table.compare.variograms}
-vgms.compare <- data.frame(PSM_products = "", Range = 0, StructSill = 0, PropNugget = 0)
-vgms.compare[1,] <- c("ISSR-800", 
-                       round(vmf.issr8[2,"range"], 0),
-                       round(vmf.issr8[2,"psill"], 3),
-                       round(vmf.issr8[1,"psill"]/sum(vmf.issr8[,"psill"]), 3)
+vmeasure.compare <- data.frame(PSM_products = "", Range = 0, StructSill = 0, PropNugget = 0)
+vmeasure.compare[1,] <- c("GSM v0.5", 
+                       round(vmf.gsm[2,"range"], 0),
+                       round(vmf.gsm[2,"psill"], 2),
+                       round(vmf.gsm[1,"psill"]/sum(vmf.issr8[,"psill"]), 2)
                        )
-vgms.compare[2,] <- c("SG2", 
+vmeasure.compare[2,] <- c("SG2", 
                        round(vmf.sg[2,"range"], 0),
-                       round(vmf.sg[2,"psill"], 3),
-                       round(vmf.sg[1,"psill"]/sum(vmf.sg[,"psill"]), 3)
+                       round(vmf.sg[2,"psill"], 2),
+                       round(vmf.sg[1,"psill"]/sum(vmf.sg[,"psill"]), 2)
                        )
-vgms.compare[3,] <- c("SPCG100USA", 
+i <- 2
+if(exists("vmf.psu")) {
+  vmeasure.compare[(i <- i+1), ] <-  c("SPCG100USA", 
                        round(vmf.psu[2,"range"], 0),
-                       round(vmf.psu[2,"psill"], 3),
-                       round(vmf.psu[1,"psill"]/sum(vmf.psu[,"psill"]), 3)
-                       )
-vgms.compare[4,] <- c("POLARIS", 
+                       round(vmf.psu[2,"psill"], 2),
+                       round(vmf.psu[1,"psill"]/sum(vmf.psu[,"psill"]), 2))
+}
+if(exists("vmf.polaris")) {
+  vmeasure.compare[(i <- i+1), ] <-  c("POLARIS", 
                        round(vmf.polaris[2,"range"], 0),
-                       round(vmf.polaris[2,"psill"], 3),
-                       round(vmf.polaris[1,"psill"]/sum(vmf.polaris[,"psill"]), 3)
-                       )
-print(vgms.compare)
+                       round(vmf.polaris[2,"psill"], 2),
+                       round(vmf.polaris[1,"psill"]/sum(vmf.polaris[,"psill"]), 2))
+}
+if(exists("vmf.issr8")) {
+  vmeasure.compare[(i <- i+1), ] <- c("ISSR-800", 
+                       round(vmf.issr8[2,"range"], 0),
+                       round(vmf.issr8[2,"psill"], 2),
+                       round(vmf.issr8[1,"psill"]/sum(vmf.issr8[,"psill"]), 2))
+}
+if(exists("vmf.landgis")) {
+  vmeasure.compare[(i <- i+1), ] <-  c("landgis", 
+                       round(vmf.landgis[2,"range"], 0),
+                       round(vmf.landgis[2,"psill"], 2),
+                       round(vmf.landgis[1,"psill"]/sum(vmf.landgis[,"psill"]), 2))
+}
+# multiply all range parameters by 3 to get effective range
+vmeasure.compare[, 2:4] <- apply(vmeasure.compare[, 2:4],  2, as.numeric)
+vmeasure.compare[, "Range"] <- vmeasure.compare[, "Range"]*3
+print(vmeasure.compare)
 ```
 
 
 ```{r write.table.compare.variograms}
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
-x <- xtable(vgms.compare, row.names=FALSE, digits=3)
+x <- xtable(vmeasure.compare, row.names=FALSE, digits=3)
 autoformat(x)
 capture.output(print(x, include.rownames=FALSE), file=
-                 paste0("./tables/ISSR800_compare_variograms_",
-                           aoi, "_", voi, ".tex"))
+                 paste0("../LaTeX_tables/compare_variograms_",
+                           aoi, "_", voi.depth, ".tex"))
 ```
 
 
 Plot the variograms with the fitted models:
 
-```{r plot.vgm, fig.width=9, fig.height=9}
-ylims <- c(0, max(v.issr8$gamma, v.sg$gamma,  v.psu$gamma, v.polaris$gamma)*1.1)
-p1 <- plot(v.issr8, ylim=ylims, model=vmf.issr8, main="ISSR-800", xlab="separation (m)", pch=20)
+```{r plot.vgms, fig.width=12, fig.height=8}
+ylims <- c(0, max(v.issr8$gamma, v.sg$gamma,  
+                  v.psu$gamma, v.polaris$gamma,
+                  v.issr8$gamma, v.landgis$gamma)*1.1)
+p1 <- plot(v.gsm, ylim=ylims, model=vmf.gsm, main="GSM v0.5", xlab="separation (m)", pch=20)
 p2 <- plot(v.sg, ylim=ylims, model=vmf.sg, main="SoilGrids250", xlab="separation (m)", pch=20)
-p3 <- plot(v.psu, ylim=ylims, model=vmf.psu, main="SPCG100USA", xlab="separation (m)", pch=20)
-p4 <- plot(v.polaris, ylim=ylims, model=vmf.polaris, main="POLARIS", xlab="separation (m)", pch=20)
-print(p1, split=c(1,1,2,2), more=T)
-print(p2, split=c(1,2,2,2), more=T)
-print(p3, split=c(2,1,2,2), more=T)
-print(p4, split=c(2,2,2,2), more=T)
+if(exists("vmf.psu")) {
+  p3 <- plot(v.psu, ylim=ylims, model=vmf.psu, main="SPCG100USA", xlab="separation (m)", pch=20)
+} else p3 <- NULL
+if(exists("vmf.polaris")) {
+  p4 <- plot(v.polaris, ylim=ylims, model=vmf.polaris, main="POLARIS", xlab="separation (m)", pch=20)
+} else p4 <- NULL
+if(exists("vmf.issr8")) {
+  p5 <- plot(v.issr8, ylim=ylims, model=vmf.issr8, main="ISSR-800", xlab="separation (m)", pch=20)
+} else p5 <- NULL
+if(exists("vmf.landgis")) {
+  p6 <- plot(v.landgis, ylim=ylims, model=vmf.landgis, main="LandGIS", xlab="separation (m)", pch=20)
+} else p6 <- NULL
+print(p1, split=c(1,1,3,2), more=T)
+print(p4, split=c(1,2,3,2), more=T)
+print(p2, split=c(2,1,3,2), more=T)
+print(p5, split=c(2,2,3,2), more=T)
+print(p6, split=c(3,1,3,2), more=T)
+print(p3, split=c(3,2,3,2), more=F)
 ```
 

@@ -57,11 +57,11 @@ To use this script:
 
 4. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
 
-5. Generated figures will be in directory `./figs/compare_sg/`.
+5. Generated figures will be in directory `./figs/compare_sg/`. These will be specific to the AOI, property and depth slice. So to save them from over-writing by other runs, move them to another directory.
 
-6. Generated tables in \LaTeX format will be in directory `../LaTeX_tables`.
+6. Generated tables in \LaTeX format will be in directory `../LaTeX_tables`. The table names include AOI, property and depth slice and so are not over-written.
 
-7. Generated harmonized maps will be [saved](#save) to directory `PSM_compare` under the base directory
+7. Generated harmonized maps will be [saved](#save) to directory `Compare_PSM` under the base directory, in a subdirectory named for the AOI. The file name includes the PSM method, property and depth slice.
 
 
 # Setup
@@ -135,7 +135,7 @@ voi.list.landgis <- c("clay.wfraction_usda.3a1a1a",
 Select the position in these lists
 
 ```{r}
-voi <- 1
+voi <- 4
 voi.sg <- voi.list.sg[voi]
 voi.issr8 <- voi.list.issr8[voi]
 voi.polaris <- voi.list.polaris[voi]
@@ -161,7 +161,7 @@ depth.list.gsm <- c("000_005", "005_015", "015_030", "030_060", "060_100", "100_
 Select the depth slice:
 
 ```{r}
-depth <- 4
+depth <- 1
 ```
 
 
@@ -175,7 +175,7 @@ Specify the two corners using WGS84 geographic coordinates:
 Specify the lower-right corner:
 
 ```{r lrc}
-tile.lrc <- c(-77, 35)   # lower-right corner
+tile.lrc <- c(-76, 42)   # lower-right corner
 tile.size <- 1
 ```
 
@@ -421,7 +421,6 @@ Resample products into SoilGrids250 WGS84 250m nominal pixels, using cubic inter
 r.gsm.sg <- terra::resample(r.gsm, r.sg, method="cubic")
 if (exists("r.p")) { r.p.sg <- terra::resample(r.p, r.sg, method="cubic") }
 if (exists("r.psu")) { r.psu.sg <- terra::resample(r.psu, r.sg, method="cubic") }
-plot(r.psu.sg)
 ```
 
 For LandGIS and ISSR-800 the CRS must be changed, not just the resolution:
@@ -461,6 +460,7 @@ Check that the maps cover the same area, ignore different stretches for now:
 
 ```{r plot.resampled, fig.width=8, fig.height=12}
 par(mfrow=c(3, 2))
+r.sg
 plot(r.gsm.sg, main="GSM v0.5")
 plot(r.sg, main="SoilGrids250")
 if (exists("r.p.sg")) { plot(r.p.sg, main="POLARIS") }
@@ -502,27 +502,43 @@ if (exists("r.issr8.sg")) {
     
 The property and depth will be given in the caption, if this is used in a publication.
 
+First, compute the maximum density, to have a common y-axis:
+
+```{r hist.densities}
+max.dens <- function(r.map) {  # argument: the raster map
+  h <- hist(r.map,  breaks=24, plot = FALSE)
+  max(h$counts/(diff(h$breaks[1:2]))/sum(h$counts))
+}
+yl <- max(max.dens(r.gsm.sg), max.dens(r.sg))
+if (exists("r.p.sg")) { yl <- max(yl, max.dens(r.p.sg))}
+if (exists("r.psu.sg")) { yl <- max(yl, max.dens(r.psu.sg))}
+if (exists("r.landgis.sg")) { yl <- max(yl, max.dens(r.landgis.sg))}
+if (exists("r.issr8.sg")) { yl <- max(yl, max.dens(r.issr8.sg))}
+```
+
+Use this y-axis to show all the histograms together:
+
 ```{r hist.sg.props, fig.width=14, fig.height=16}
-yl <- c(0, 0.14) # standardize the density axis
+yl <- c(0, yl) # standardize the density axis
 par(mfrow=c(3,2))
-hist(r.gsm.sg, main="GSM v0.5",
+hist(r.gsm.sg, breaks=24, main="GSM v0.5",
      xlim=zlim, xlab="", freq = FALSE, ylim=yl)
-hist(r.sg, main="SoilGrids250",
+hist(r.sg, breaks=24, main="SoilGrids250",
      xlim=zlim, xlab="", freq = FALSE, ylim=yl)
 if (exists("r.p.sg")) {
-  hist(r.p.sg, main="POLARIS",
+  hist(r.p.sg, breaks=24, main="POLARIS",
        xlim=zlim, xlab="", freq = FALSE, ylim=yl)
 }
 if (exists("r.psu.sg")) {
-  hist(r.psu.sg, main="SPCG100",
+  hist(r.psu.sg, breaks=24, main="SPCG100",
        xlim=zlim, xlab="", freq = FALSE, ylim=yl)
 }
 if (exists("r.landgis.sg")) {
-  hist(r.landgis.sg, main="LandGIS",
+  hist(r.landgis.sg, breaks=24, main="LandGIS",
        xlim=zlim, xlab="", freq = FALSE, ylim=yl)
 }
 if (exists("r.issr8.sg")) {
-  hist(r.issr8.sg, main="ISSR-800",
+  hist(r.issr8.sg, breaks=24, main="ISSR-800",
        xlim=zlim, xlab="", freq = FALSE, ylim=yl)
 }
 par(mfrow=c(1,1))
@@ -549,6 +565,31 @@ if (exists("r.issr8.sg")) {
 }
 par(mfrow=c(1,1))
 ```
+
+## Correlations
+
+Pairwise Pearson correlations. Note the distributions are fairly symmetric/quasi-normal so Pearson's correlations are valid.
+
+```{r pairwise}
+v.all <- data.frame(gsm=values(r.gsm.sg),
+                    sg=values(r.sg),
+                    polaris=values(r.p.sg),
+                    psu=values(r.psu.sg),
+                    landgis=values(r.landgis.sg),
+                    issr8=values(r.issr8.sg))
+dim(v.all)
+cor.all <- cor(v.all, use="pairwise.complete.obs")
+cor.upper <- cor.all; cor.upper[lower.tri(cor.upper)] <- NA
+print(round(cor.upper, 3))
+```
+
+Make a nice correlation plot:
+
+```{r corrplot, fig.width=5, fig.height=5}
+library(corrplot)
+corrplot(cor.all, method="circle", type="upper", diag=FALSE)
+```
+
 
 
 # Differences 
@@ -660,27 +701,39 @@ print(zlim)
 
 ## Histograms
 
+First, compute the maximum density, to have a common y-axis:
+
+```{r diff.hist.densities}
+yl <- max(max.dens(diff.gsm.sg))
+if (exists("r.p.sg")) { yl <- max(yl, max.dens(diff.gsm.p))}
+if (exists("r.psu.sg")) { yl <- max(yl, max.dens(diff.gsm.psu))}
+if (exists("r.landgis.sg")) { yl <- max(yl, max.dens(diff.gsm.landgis))}
+if (exists("r.issr8.sg")) { yl <- max(yl, max.dens(diff.gsm.issr8))}
+```
+
+Use this y-axis to show all the histograms together:
+
 
 ```{r hist.diff.sg, fig.width=14, fig.height=16}
-yl <- c(0, 0.14) # Standardize density axis
+yl <- c(0, yl) # Standardize density axis
 par(mfrow=c(3,2))
 hist(diff.gsm.sg, main="GSM v0.5 - SoilGrids250", xlab="",
-     xlim=zlim, freq = FALSE, ylim=yl)
+     xlim=zlim,  breaks=24, freq = FALSE, ylim=yl)
 if (exists("r.p.sg")) {
   hist(diff.gsm.p, main="GSM v0.5 - POLARIS", xlab="",
-     xlim=zlim, freq = FALSE, ylim=yl)
+     xlim=zlim,  breaks=24, freq = FALSE, ylim=yl)
 }
 if (exists("r.psu.sg")) {
   hist(diff.gsm.psu, main="GSM v0.5 - SPCG100USA", xlab="",
-     xlim=zlim, freq = FALSE, ylim=yl)
+     xlim=zlim,  breaks=24, freq = FALSE, ylim=yl)
 }
 if (exists("r.landgis.sg")) {
   hist(diff.gsm.landgis, main="GSM v0.5 - LandGIS", xlab="",
-     xlim=zlim, freq = FALSE, ylim=yl)
+     xlim=zlim,  breaks=24, freq = FALSE, ylim=yl)
 }
 if (exists("r.issr8.sg")) {
   hist(diff.gsm.p, main="GSM v0.5 - ISSR-800", xlab="",
-     xlim=zlim, freq = FALSE, ylim=yl)
+     xlim=zlim,  breaks=24, freq = FALSE, ylim=yl)
 }
 par(mfrow=c(1,1))
 ```
