@@ -1,0 +1,402 @@
+---
+title: "Comparing SoilGrids250 and POLARIS uncertainty"
+author:
+- D G Rossiter
+- d.g.rossiter@cornell.edu
+date: "`r format(Sys.Date(), '%d-%B-%Y')`"
+output:
+  html_document:
+    fig_align: center
+    fig_height: 6
+    fig_width: 6
+    number_section: yes
+    theme: spacelab
+    df_print: paged
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center', fig.path = './figs/uncert_sg_polaris/')
+knitr::opts_chunk$set(cache.extra = R.version.string)
+```
+
+This script follows scripts to import the two PSM products which provide uncertainty estimates:
+
+* SoilGrids250; import script `../scripts_importmaps/SoilGrids250_import.Rmd`
+* POLARIS; import script `../scripts_importmaps/POLARIS_import.Rmd`
+
+Use this import for an AOI, variable of interest, depth slice, and three quantiles:
+
+For SoilGrids250:
+
+* `Q0.05` - 5% quantile from the Quantile Random Forest (QRF);
+* `Q0.5`  - median; 50% quantile from the QRF;
+* `Q0.95` - 95% quantile from the QRF.
+
+These have different names in POLARIS:
+
+* `p5`,`p50`, `p95`
+
+```{r}
+quantile.list <- c("Q0.05", "Q0.5", "Q0.95")
+quantile.list.polaris <- c("p5", "p5", "p95")
+```
+
+Here are the properties that are in both databases:
+
+```{r}
+voi.list <- c("bdod", "clay", "phh2o", "sand", "silt", "soc")
+voi.list.polaris <- c("bd", "clay", "ph", "sand", "silt", "om")
+```
+
+Depth slices:
+
+```{r}
+depth.list <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
+```
+
+Conversion factors from POLARIS units to SoilGrids units:
+
+```{r}
+df <- data.frame(voi.list, 
+                 c("cg/cm3","g/kg","pHx10","g/kg","g/kg","dg/kg"), 
+                 c("g/cm3","%","pH","%","%","log10(%)"),
+                 c(100, 10, 10, 10, 10, "10^,0.58,1000"))
+knitr::kable(
+  df, caption = 'Properties and units of measure',
+  col.names=c("Property","SoilGrids","POLARIS","factor"),
+  booktabs = TRUE)
+```  
+
+
+# Setup
+
+Packages:
+
+```{r}
+library(rgdal)
+library(terra)
+library(sf)
+```
+
+Directories:
+
+Set base directory for the two products, specific to the local file system. This is where downloaded SoilGrids250 and POLARIS GeoTIFF from script `SoilGrids250_POLARIS_compare.Rmd` are located.
+
+SoilGrids250 tiles are in the local file system, POLARIS tiles in an import directory, due to their size.
+
+
+```{r}
+base.dir <- "/Users/rossiter/ds/"
+base.dir.sg <- paste0(base.dir, "SoilGrids250")
+base.dir.polaris <- paste0(base.dir, "POLARIS")
+base.dir.import <- "/Volumes/Pythagoras/ds/"
+base.dir.polaris.import <- paste0(base.dir.import, "POLARIS")
+```
+
+# Define the property and depth
+
+Set the property and depth, names for both products:
+
+```{r}
+voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
+voi.list.polaris <- c("clay", "silt", "sand", "ph", "", "om", "bd", "") 
+voi.n <- 4
+voi <- voi.list.sg[voi.n]   # variable of interest, SoilGrids name
+voi.polaris <- voi.list.polaris[voi.n]
+#
+depth <- "0-5cm" # "0-5cm", "5-15cm", "15-30cm", "30-60cm", "60-100cm", "100-200cm"
+voi_layer_05 <- paste(voi, depth, "Q0.05", sep="_") # layer of interest, 5% 
+voi_layer_50 <- paste(voi, depth, "Q0.5", sep="_") # layer of interest, 50% 
+voi_layer_95 <- paste(voi, depth, "Q0.95", sep="_") # layer of interest, 95% 
+depth.polaris <- gsub( "-", "_", strsplit(depth, "cm")[[1]])
+```
+
+# Define Area of Interest (AOI) {#aoi}
+
+We use a $1 \times 1^\circ$ tile, because that is how POLARIS data is served.
+Specify the lower-right corner, then compute the upper-right corner $1^\circ$ west and north.
+
+Specify the two corners using WGS84 geographic coordinates.
+
+```{r}
+tile.lrc <- c(-76, 42) # lower-right corner
+tile.ulc <- c(tile.lrc[1]-1, tile.lrc[2]+1) # upper-left corner
+m <- matrix(c(tile.ulc[1],tile.lrc[1],  #ulc
+              tile.ulc[2], tile.lrc[2]  #lrc
+              ),
+            nrow=2)
+bb.ll <- st_sfc(st_multipoint(m))
+st_crs(bb.ll) <- 4326
+```
+
+A prefix for directories, to keep AOI results separate.
+
+```{r}
+AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
+                         "_lon", tile.ulc[1], tile.lrc[1])
+```
+
+# Read the imported quantile maps
+
+
+## SoilGrids250
+
+We use the tiles in EPSG:4326 CRS (geographic coordinates, WGS84 datum).
+Note that this covers a larger area than just the $1 \times 1^\circ$ tile; we will mask it with POLARIS, below.
+
+```{r}
+(dest.dir.sg <-  file.path(base.dir.sg,
+                          AOI.dir.prefix,
+                          voi))
+## Q0.05
+(file.sg <- paste0(dest.dir.sg, "/Q0.05/", depth, "/", voi_layer_05, '_4326.tif'))
+if (file.exists(file.sg)) {
+  r.sg.05 <- terra::rast(file.sg)
+} else {
+  print("No SoilGrids250 Q0.05 tile"); stop("Missing input file")
+}
+## Q0.5
+(file.sg <- paste0(dest.dir.sg, "/Q0.5/", depth, "/", voi_layer_50, '_4326.tif'))
+if (file.exists(file.sg)) {
+  r.sg.50 <- terra::rast(file.sg)
+} else {
+  print("No SoilGrids250 Q0.5 tile"); stop("Missing input file")
+}
+## Q0.95
+(file.sg <- paste0(dest.dir.sg, "/Q0.95/", depth, "/", voi_layer_95, '_4326.tif'))
+if (file.exists(file.sg)) {
+  r.sg.95 <- terra::rast(file.sg)
+} else {
+  print("No SoilGrids250 Q0.95 tile"); stop("Missing input file")
+}
+(cbind(summary(r.sg.05), summary(r.sg.50), summary(r.sg.95)))
+```
+
+
+
+## POLARIS
+
+Get the tile (nominal 30m resolution) and aggregate to SoilGrids250 resolution (nominal 250m).
+
+
+
+```{r get.tiles.polaris}
+(file.name <- paste0(base.dir.polaris.import, "/",
+                     AOI.dir.prefix, "/",
+                     voi.polaris, "/p5/",
+                     depth.polaris, "/",
+                     AOI.dir.prefix, ".tif"))
+ if (file.exists(file.name)) {
+  r.p.5 <- terra::rast(file.name)
+  names(r.p.5) <- "p95"
+} else {
+  print("No POLARIS p5 tile"); stop("Missing input file")
+}
+(file.name <- paste0(base.dir.polaris.import, "/",
+                     AOI.dir.prefix, "/",
+                     voi.polaris, "/p50/",
+                     depth.polaris, "/",
+                     AOI.dir.prefix, ".tif"))
+ if (file.exists(file.name)) {
+  r.p.50 <- terra::rast(file.name)
+  names(r.p.50) <- "p50"
+} else {
+  print("No POLARIS p50 tile"); stop("Missing input file")
+}
+(file.name <- paste0(base.dir.polaris.import, "/",
+                     AOI.dir.prefix, "/",
+                     voi.polaris, "/p95/",
+                     depth.polaris, "/",
+                     AOI.dir.prefix, ".tif"))
+ if (file.exists(file.name)) {
+  r.p.95 <- terra::rast(file.name)
+  names(r.p.95) <- "p95"
+} else {
+  print("No POLARIS p95 tile"); stop("Missing input file")
+}
+(cbind(summary(r.p.5), summary(r.p.50), summary(r.p.95)))
+```
+
+Change resolution to match SoilGrids:
+
+```{r}
+(aggregation.factor <- res(r.sg.50)/res(r.p.50))
+r.p.5 <- terra::aggregate(r.p.5, fact=aggregation.factor, fun="mean")
+r.p.50 <- terra::aggregate(r.p.50, fact=aggregation.factor, fun="mean")
+r.p.95 <- terra::aggregate(r.p.95, fact=aggregation.factor, fun="mean")
+```
+
+
+## Trim SoilGrids250 to match POLARIS tile.
+
+This makes a true $1 \times 1^\circ$ tile. Easiest way to do this is to resample into the *upscaled) POLARIS grid. This has the same CRS and resolution as SoilGrids250.
+
+```{r mask.sg}
+r.sg.05 <- terra::resample(r.sg.05, r.p.5, method="near")
+r.sg.50 <- terra::resample(r.sg.50, r.p.5, method="near")
+r.sg.95 <- terra::resample(r.sg.95, r.p.5, method="near")
+```
+
+
+
+
+## Mask POLARIS with SoilGrids NA
+
+POLARIS predicts in lakes and cities, remove these.
+
+```{r}
+r.p.05 <- mask(r.p.5, r.sg.05)
+r.p.50 <- mask(r.p.50, r.sg.50)
+r.p.95 <- mask(r.p.95, r.sg.95)
+```
+
+
+
+
+# Make the units compatible
+
+Depending on the property, data in some coverages need to be converted to the units used in SoilGrids250; we choose this as the base; note these are integers. Here are the units:
+
+```{r show.conversions}
+df <- data.frame(property=voi.list.sg, 
+                 #"clay"  "silt"  "sand"  "phh2o" "cec"   "soc"   "bdod"  "cfvo" 
+                 sg=c("%%","%%","%%","pHx10","mmol(c)/kg","dg/kg","cg/cm3", "cm3/dm3"),  #SG
+                 p=c("%","%", "%","pH","", "log10(%)", "g/cm3", "")  # POLARIS
+                 )
+knitr::kable(
+  df, caption = 'Properties and units of measure',
+  col.names=c("Property", "SoilGrids","POLARIS"),
+  booktabs = TRUE)
+```  
+
+Make a matrix with the conversions to SoilGrids250 units. These factors *multiply* the source, to match SoilGrids250. `NA` values indicate that the property is not included in the source.
+
+Some conversions are given [here](https://www.isric.org/explore/soilgrids/faq-soilgrids#What_do_the_filename_codes_mean).
+
+```{r make.conversion.matrix}
+conversions <- data.frame(property=voi.list.sg, 
+                 # sg=c("%%","%%","%%","pHx10","mmol(c)/kg","dg/kg","cg/cm3", "cm3/dm3"), #SG
+                 p=c(10,  10, 10,  10, NA, NA, 100, NA)  # POLARIS -- SOM is special case
+                 )
+knitr::kable(
+  conversions, caption = 'Conversion factors, multiply by these to match SoilGrids250',
+  col.names=c("Property","POLARIS"),
+  booktabs = TRUE)
+```
+
+Convert units as necessary:
+
+```{r convert}
+factors <- conversions[match(voi, conversions$property),]
+# POLARIS
+fact <- as.numeric(factors[2])
+if (!is.na(fact) && (fact != 1)) { 
+  r.p.05 <- r.p.05*fact 
+  r.p.50 <- r.p.50*fact 
+  r.p.95 <- r.p.95*fact 
+}
+```
+
+Note that SOC for POLARIS is a special case, because of the log10-scale, and because it is SOM, not SOC. Use the conventional conversion factor 0.58 = 1/1.724138.
+
+```{r polaris.soc}
+if (voi=="soc") {
+    r.p.05 <- ((10^r.p.05)*0.58*1000) 
+    r.p.50 <- ((10^r.p.50)*0.58*1000) 
+    r.p.95 <- ((10^r.p.95)*0.58*1000) 
+}
+```
+
+# Display Q5/Q50/Q95 maps
+
+## SoilGrids250
+
+Display the SG250 quantile maps side-by-side:
+
+```{r display.quantiles.sg, fig.width=15, fig.height=5}
+zlim = c(floor(min(values(r.sg.05), na.rm=TRUE)),
+         ceiling(max(values(r.sg.95), na.rm=TRUE)))
+par(mfrow=c(1,3))
+terra::plot(r.sg.05, col=rev(hcl.colors(64)),
+     main=paste0("Q05, SoilGrids250, ",
+                voi, ", ", depth), range=zlim)
+terra::plot(r.sg.50, col=rev(hcl.colors(64)),
+     main=paste0("Q50, SoilGrids250, ",
+                voi, ", ", depth), range=zlim)
+terra::plot(r.sg.95, col=rev(hcl.colors(64)),
+     main=paste0("Q95, SoilGrids250, ",
+                voi, ", ", depth), range=zlim)
+par(mfrow=c(1,1))
+```
+
+## POLARIS
+
+Display the POLARIS quantile maps side-by-side:
+
+```{r display.quantiles.polaris, fig.width=15, fig.height=5}
+zlim = c(floor(min(values(r.p.05), na.rm=TRUE)),
+         ceiling(max(values(r.p.95), na.rm=TRUE)))
+par(mfrow=c(1,3))
+terra::plot(r.p.05, col=rev(hcl.colors(64)),
+     main=paste0("Q05, POLARIS, ",
+                voi, ", ", depth), range=zlim)
+terra::plot(r.p.50, col=rev(hcl.colors(64)),
+     main=paste0("Q50, POLARIS, ",
+                voi, ", ", depth), range=zlim)
+terra::plot(r.p.95, col=rev(hcl.colors(64)),
+     main=paste0("Q95, POLARIS, ",
+                voi, ", ", depth), range=zlim)
+par(mfrow=c(1,1))
+```
+
+
+
+# IQR histograms and maps
+
+```{r iqr}
+r.iqr.sg <- (r.sg.95 - r.sg.05)
+summary(r.iqr.sg)
+r.iqr.p <- (r.p.95 - r.p.05)
+summary(r.iqr.p)
+```
+
+Show the two IQR histograms side-by-side:
+
+```{r iqr.hist, fig.width=10, fig.height=5}
+zlim = c(floor(min(values(r.iqr.sg), values(r.iqr.p), na.rm=TRUE)),
+         ceiling(max(values(r.iqr.sg), values(r.iqr.p), na.rm=TRUE)))
+par(mfrow=c(1,2))
+hist(r.iqr.sg, main="SoilGrids250", xlim=zlim, xlab="IQR 5/95%")
+hist(r.iqr.p, main="POLARIS", xlim=zlim, xlab="IQR 5/95%")
+par(mfrow=c(1,1))
+```
+
+Show the two IQR maps side-by-side:
+
+
+```{r iqr.maps, fig.width=10, fig.height=5}
+par(mfrow=c(1,2))
+terra::plot(r.iqr.sg, col=rev(topo.colors(64)),
+     main="SoilGrids250 IQR 5/95%", range=zlim)
+terra::plot(r.iqr.p, col=rev(topo.colors(64)),
+     main="POLARIS IQR 5/95%", range=zlim)
+par(mfrow=c(1,1))
+```
+
+# IQR difference histogram and map
+
+```{r iqr.diff.hist, fig.width=5, fig.height=5}
+r.iqr.diff <- (r.iqr.sg - r.iqr.p)
+summary(r.iqr.diff)
+hist(r.iqr.diff, main="IQR difference  5/95%, SG250-POLARIS")
+```
+
+```{r iqr.diff.map}
+terra::plot(r.iqr.diff, col=rev(bpy.colors(64)),
+     main="IQR difference  5/95%, SG250-POLARIS")
+```
+

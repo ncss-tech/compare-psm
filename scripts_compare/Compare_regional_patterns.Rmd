@@ -1,5 +1,5 @@
 ---
-title: "Comparing spatial patterns of PSM mapsat regional resolution"
+title: "Comparing spatial patterns of PSM maps at regional resolution"
 author:
 - D G Rossiter
 - d.g.rossiter@cornell.edu
@@ -74,7 +74,7 @@ These names correspond to files stored by script `Compare_regional.Rmd`, which i
 AOI:
 
 ```{r aoi}
-tile.lrc <- c(-76, 42)   # lower-right corner
+tile.lrc <- c(-77, 35)   # lower-right corner
 tile.size <- 1
 tile.ulc <- c(tile.lrc[1]-tile.size, tile.lrc[2]+tile.size) # upper-left corner
 aoi <- paste0("lat", tile.lrc[2], tile.ulc[2],
@@ -86,7 +86,7 @@ Property of interest:
 
 ```{r voi}
 voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
-voi.n <- 4
+voi.n <- 1
 voi.sg <- voi.list.sg[voi.n]
 ```
 
@@ -94,7 +94,7 @@ Depth slice:
 
 ```{r depth}
 depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
-depth.n <- 1
+depth.n <- 4
 ```
 
 
@@ -129,7 +129,7 @@ These are all in WGS84 geographic coordinates, cover the same area, and have the
 
 ## Test area
 
-Test on small part, 40 x 40 km:
+Test on small part, 0.2 x 0.2 degrees:
 
 ```{r crop.test.area}
 test.tile.size <- 0.2  # degrees
@@ -308,7 +308,7 @@ length(values.all)
 summary(values.all)
 values.all.sort <- sort(values.all)
 #
-n <- length(values.all)
+n <- length(values.all) - sum(is.na(values.all))
 (cut.positions <- round(n/n.class))
 (cuts <- values.all.sort[cut.positions * 1:(n.class-1)])
 hist(values.all, breaks=36, main="Histogram equalization")
@@ -569,7 +569,7 @@ Now the topology is correct.
 
 Display the maps. Compute each legend from the classes present in that map.
 
-```{r class_maps, fig.width=7, fig.height=5}
+```{r make_class_maps}
 my.pal <- brewer.pal(n.class, "RdYlGn")
 l.gsm <- range(gsm.sf.v$class, na.rm = TRUE)
 l.sg <- range(sg.sf.v$class, na.rm = TRUE)
@@ -623,8 +623,12 @@ if (exists("landgis.sf")) {
     scale_fill_continuous(low=my.pal[l.landgis[1]], high=my.pal[l.landgis[2]]) +
     theme(legend.position = "bottom", legend.direction = "horizontal")
 }
-# show them separately, because we don't which ones are defined
-# then arrange manually in the paper
+```
+
+Show them separately, because we don't which ones are defined
+then arrange manually in the paper.
+
+```{r class_maps, fig.width=5, fig.height=7}
 print(g0)
 print(g1)
 print(g2)
@@ -691,7 +695,7 @@ attr(regions.gsm.sg, "precision")  # NULL, means a system default
 
 Here we leave it as the default `NULL`.
 
-```{r vmaps.gsm.sg}
+```{r vmaps.gsm.sg, fig.width=5, fig.height=7}
   ## produced maps -- the homogeneity of the regions.gsm.sg
 terra::plot(regions.gsm.sg$map1["rih"], main = "Homogeneity -- SG250 vs. GSM")
 terra::plot(regions.gsm.sg$map2["rih"], main = "Completeness -- SG250 vs. GSM")
@@ -710,7 +714,7 @@ names(regions.gsm.psu$map1)
 ```
 
 
-```{r vmaps.gsm.psu}
+```{r vmaps.gsm.psu, fig.width=5, fig.height=7}
 ## produced maps -- the homogeneity of the regions.gsm.psu
 terra::plot(regions.gsm.psu$map1["rih"], main = "Homogeneity -- SPCG100USA vs. GSM")
 terra::plot(regions.gsm.psu$map2["rih"], main = "Completeness -- SPCG100USA vs. GSM")
@@ -729,7 +733,7 @@ names(regions.gsm.polaris$map1)
 ```
 
 
-```{r vmaps.gsm.polaris}
+```{r vmaps.gsm.polaris, fig.width=5, fig.height=7}
 ## produced maps -- the homogeneity of the regions.gsm.polaris
 terra::plot(regions.gsm.psu$map1["rih"], main = "Homogeneity -- POLARIS vs. GSM")
 terra::plot(regions.gsm.psu$map2["rih"], main = "Completeness -- POLARIS vs. GSM")
@@ -748,7 +752,7 @@ names(regions.sg.psu$map1)
 ```
 
 
-```{r vmaps.sg.psu}
+```{r vmaps.sg.psu, fig.width=5, fig.height=7}
 ## produced maps -- the homogeneity of the regions
 terra::plot(regions.sg.psu$map1["rih"], main = "Homogeneity -- SPCG100USA -- SoilGrids250")
 terra::plot(regions.sg.psu$map2["rih"], main = "Completeness -- SPCG100USA -- SoilGrids250")
@@ -903,7 +907,7 @@ if (exists("r.landgis")) show_cores(r.landgis)
 
 Show the landscape with a patch-level metric in each _patch_. For example, the contiguity of each patch:
 
-```{r show.patch.level.metrics, fig.width=6, fig.height=6}
+```{r show.patch.level.metrics, fig.width=4, fig.height=5}
 show_lsm(r.gsm, what="lsm_p_contig")
 show_lsm(r.sg, what="lsm_p_contig")
 if (exists("r.issr8")) show_lsm(r.issr8, what="lsm_p_contig")
@@ -913,6 +917,8 @@ if (exists("r.landgis")) show_lsm(r.landgis, what="lsm_p_contig")
 ```
 
 But we want landscape-level metrics, we are not interested in individual patches.
+
+## Table of landscape metrics
 
 Here are the landscape-level metrics we will report:
 
@@ -958,13 +964,6 @@ capture.output(print(x, include.rownames=FALSE), file=
 
 The variogram (equivalent to correlogram) can be used to characterize the degree of spatial continuity and the "roughness" of a continuous property map. This must be applied to an object of class `sp`.
 
-Distances computed by `gstat` for objects with geographic coordinates ar in great-circle km.
-So, the initial range estimate is in km. The initial partial sill is the maximum semivariance of the empirical variogram.
-
-```{r}
-range.init <- 2
-cutoff.init <- range.init*2.5
-```
 
 Compute the short-range variogram, this reveals the local structure. In these maps the variogram is typically unbounded, but we don't care about the long-range structure.
 
@@ -1104,7 +1103,7 @@ capture.output(print(x, include.rownames=FALSE), file=
 Plot the variograms with the fitted models:
 
 ```{r plot.vgms, fig.width=12, fig.height=8}
-ylims <- c(0, max(v.issr8$gamma, v.sg$gamma,  
+ylims <- c(0, max(v.gsm$gamma, v.sg$gamma,  
                   v.psu$gamma, v.polaris$gamma,
                   v.issr8$gamma, v.landgis$gamma)*1.1)
 p1 <- plot(v.gsm, ylim=ylims, model=vmf.gsm, main="GSM v0.5", xlab="separation (m)", pch=20)

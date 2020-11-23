@@ -5,8 +5,6 @@ author:
   - "d.g.rossiter@cornell.edu"
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 output:
-  pdf_document:
-    toc: yes
   html_document:
     toc: yes
     toc_float: yes
@@ -14,6 +12,8 @@ output:
     number_section: yes
     fig_height: 4
     fig_width: 4
+  pdf_document:
+    toc: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -116,6 +116,8 @@ Each product has an R Markdown file to import the product, in subdirectory `scri
 To compare products, adjust each of these to the area of interest (AOI), property of interest, and the depth slice of interest, and import the product. To compare uncertainties also specify the quantile of interest, for those products that provide it.
 
 The AOI is typically a $1 \times 1^\circ$ tile in geographic coordinates. This is because POLARIS is provided in these tiles, and also because this is a large enough area to see the regional differences between products.
+
+Two products provide uncertainty estimates: SoilGrids250 and POLARIS. These scripts also allow the choice of a quantile, as well as the mean prediction.
 
 # Step 2: Comparisons
 

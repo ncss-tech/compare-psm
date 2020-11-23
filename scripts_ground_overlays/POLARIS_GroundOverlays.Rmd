@@ -14,7 +14,7 @@ output:
     toc_float: yes
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, purl=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center', fig.path = './figs/groundoverlay_polaris/')
 knitr::opts_chunk$set(cache.extra = R.version.string)
 ```
@@ -111,9 +111,9 @@ Since we are interested in the detailed spatial pattern compared to gSSURGO and 
 So the $1 \times 1^\circ$ tile contains about $60/3 = 20$ subtiles. Specify the lower-right corner of the subtile as an offset in minutes:
 
 ```{r}
-subtile.offset.long <- 0  # minutes offst from lrc, longitude
-subtile.offset.lat <- 15   # minutes offst from lrc, latitude
-subtile.size <- 30  # minutes in long and lat
+subtile.offset.long <- 0  # minutes offset from lrc, longitude
+subtile.offset.lat <- 15   # minutes offset from lrc, latitude
+subtile.size <- 30  # tile size, minutes in long and lat
 ```
 
 Compute the bounding box:
@@ -194,6 +194,8 @@ plot(r.p)
 Note the CRS is already correct for Google Earth.
 
 ## Limit to a sub-tile
+
+Compute the bounding box of the subtile:
 
 
 ```{r}
@@ -449,7 +451,7 @@ Here are some examples.
 A single property, depth, quantile, default subtile:
 
 ```{r eval=FALSE}
-make.ground.overlay("bd", "60_100", "mean", c(-76, 42), c(12, 25), 4)
+make.ground.overlay("silt", "0_5", "mean", c(-76, 42), c(40, 25), 4)
 ```
 
 The 5% and 95% quantiles of two properties at two depth slices, $1 \times 1^\circ$ AOI:

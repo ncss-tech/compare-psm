@@ -1,0 +1,265 @@
+---
+title: "GlobalSoilMap v0.5 USA ground overlays"
+author: "D G Rossiter"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    fig_align: center
+    fig_height: 6
+    fig_width: 6
+    number_section: yes
+    theme: spacelab
+    df_print: paged
+    toc: yes
+    toc_float: yes
+---
+
+
+# Objective
+
+The aim of this script is to facilitate evaluation of [Global Soil Map v0.5](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/research/?cid=nrcseprd1321715), further abbreviated as `GSMv0.5`. This is the USA's contribution to the `GlobalSoilMap.net` project. It is based on the Soil Survey Geographic Database (SSURGO), at nominal 100 m grid resolution. 
+
+This shows the digital version of SSURGO at 90m resolution, visualized on the land cover and terrain.
+
+The overlay can be displayed along with [SoilWeb Apps](https://casoilresource.lawr.ucdavis.edu/soilweb-apps/), including SoilWeb Earth which displays SSURGO (detailed) or NATSGO (generalized) soil map units in Google Earth. The USA has a long-established soil survey, and most of the lower 48 States have been mapped in detail with extensive field investigation and compiled into polygon maps.
+
+# Usage
+
+This script must follow the import of the tile covering the Area of Interest (AOI), property, depth and quantile. The import script is `..scripts_importmaps/GSM_USA_V05_import.Rmd`. The tile is placed by that script at the base directory ([see below](#dir)), in a subdirectory structure using the AOI.
+
+This document  is a step-by-step explanation with a single Area of Interest (AOI) which can be adjusted manually [in this section](#aoi), property, depth and quantile, which can be adjusted manually [in this section](#voi). 
+
+_Usage_: To create one overlay step-by-step, specify an area of interest (AOI) [in this section](#aoi), and s subtile [in this section](#subaoi). Also specify a property, depth and quantile  [in this section](#voi). Then either run directly or knit to HTML. 
+
+The ground overlay (as PNG graphics file) and KML specification will be placed in the directory structure based on the AOI, property, depth and quantile. Open the KML in Google Earth and adjust transparency as desired.
+
+
+# Setup
+
+
+## Local storage {#dir}
+
+Base directories for files saved by the previous import procedure, and for writing the ground overlays (PNG/KML written by this script):
+
+```{r}
+base.dir <- "/Users/rossiter/ds/"
+base.dir.gsm <- paste0(base.dir, "GSM_USA")
+```
+
+## Packages
+
+```{r message=FALSE}
+options("rgdal_show_exportToProj4_warnings"="none") 
+library(XML)            # various XML utilities
+library(terra)          # raster data, replaces `raster`
+library(raster)         # some functions still not in `terra`
+library(rgdal)          # GDAL access from R
+library(gdalUtils)      # wrappers for GDAL utility programs that could be
+                        #  called from the command line
+library(sf)             # spatial data types 
+library(sp)             # older representation of spatial data types
+library(maptools)       # create KML overlays, among others
+```
+
+## Set variable of interest {#voi}
+
+Define the variables for the GSM soil property and layer of interest.
+
+```{r voi.list}
+voi.list.gsm <- c("claytotal_r_g_kg", "silttotal_r_g_kg", "sandtotal_r_g_kg",
+                  "ph1to1h2o_r_ions_pHx10", "ecec_r_cmolc_kg", "soc_r_mr_g_gF", 
+                  "dbthirdbar_lt2mm_r_g_cm3", "gravel_r_vol_ratio_m3_m3")
+```
+
+*Select a property* by its position in the list, and make a full name from it:
+
+```{r voi}
+voi <- 2
+(voi.name <- paste0("mu_", voi.list.gsm[voi], "_"))
+```
+
+## Set depth of interest {#depth}
+
+```{r depth.list}
+depth.list.gsm <- c("000_005", "005_015", "015_030", "030_060", "060_100", "100_200")
+```
+
+*Select a depth slice* by its position in the list, and make a full name from the property of interest and the selected depth slice:
+
+```{r depth}
+depth <- 1
+(voi.depth.name <- paste0(voi.name, depth.list.gsm[depth]))
+```
+
+
+## Define Area of Interest (AOI) {#aoi}
+
+Specify the lower-right corner using WGS84 geographic coordinates and the longitude/latitude extent, in degrees.
+
+```{r tile.1}
+## Lower-right corner, in integer degrees
+#
+tile.lrc <- c(-76, 42) # lower-right corner
+#
+## Tile size, in integer degrees
+# 
+size.long <- 1; size.lat <- 1
+#
+tile.ulc <- c(tile.lrc[1]-size.long, tile.lrc[2]+size.lat) # upper-left corner
+```
+
+Compute the bounding box:
+
+```{r}
+.tile.ulc <- c(tile.lrc[1]-1, tile.lrc[2]+1) # upper-left corner
+.m <- matrix(c(.tile.ulc[1],tile.lrc[1],  #ulc
+              .tile.ulc[2], tile.lrc[2]  #lrc
+              ), nrow=2)
+bb.ll <- st_sfc(st_multipoint(.m))
+st_crs(bb.ll) <- 4326
+```
+
+A prefix for directories, to keep AOI results separate.
+
+```{r}
+AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
+                         "_lon", tile.ulc[1], tile.lrc[1])
+```
+
+## Subtile {#subaoi}
+
+Since we are interested in the detailed spatial pattern compared to gSSURGO and the background land use, we will view the overlay over a small area, about 3' N/S and proportionally more E/W depending on the latitude. For larger areas SoilWeb shows the generalized gNATSGO lines, which are not useful for our purpose.
+
+A $1 \times 1^\circ$ GSM tile contains about $60/3 = 20$ subtiles. Specify the lower-right corner of the subtile as an offset in minutes:
+
+```{r}
+subtile.offset.long <- 45  # minutes offset from lrc, longitude
+subtile.offset.lat <- 19   # minutes offset from lrc, latitude
+subtile.size <- 4  # tile size, minutes in long and lat
+```
+
+
+
+# Get the imported GSM tile
+  
+```{r get.tile}
+src.dir.gsm <-  paste0(base.dir.gsm, "/", AOI.dir.prefix)
+```
+
+The downloaded file can then be read into R. 
+
+## Read into R
+
+We use the `terra` package to read the GeoTIFF.
+
+```{r get-sg}
+file.name <- paste0(src.dir.gsm, "/GSM_", voi.depth.name, ".tif")
+if (file.exists(file.name)) {
+  r.gsm <- terra::rast(file.name)
+  plot(r.gsm)
+} else (stop(paste("No file", file.name)))
+```
+
+## Limit to a sub-tile
+
+Compute the bounding box of the subtile:
+
+```{r}
+subtile.size.dd <- subtile.size/60
+.subtile.offset.long.dd <- subtile.offset.long/60
+.subtile.offset.lat.dd <- subtile.offset.lat/60
+(.subtile.lrc <- c(tile.lrc[1] - .subtile.offset.long.dd, 
+                   tile.lrc[2] + .subtile.offset.lat.dd)) # lower-right corner
+(.subtile.ulc <- c(.subtile.lrc[1]-subtile.size.dd, .subtile.lrc[2]+subtile.size.dd)) # upper-left corner
+.m <- c(.subtile.ulc[1], .subtile.lrc[1], 
+              .subtile.lrc[2], .subtile.ulc[2])
+bb.sub <- ext(.m)
+```
+
+Crop to the subtile:
+
+```{r plot.properties.crop}
+r.gsm <- crop(r.gsm, bb.sub)
+print(r.gsm)
+plot(r.gsm, col=topo.colors(64))
+```
+
+# Creating a ground overlay and KML specification
+
+Google Earth uses [KML](https://developers.google.com/kml/documentation/kml_tut) (``Keyhole Markup Language'') to specify how to display geographic data. This is a tag-based structure with nested elements and attributes and is based on the XML standard, but with tags specific to geographic data. The GSM map already has this CRS.
+
+So to display coverages created in R, there are five steps:
+
+1. Create a map to export;
+2. Assign projection information to the map;
+3. Export as a KML file;
+(4. Open the KML file in Google Earth.)
+
+Here we already have the map to export, with known projection, see previous section.
+
+KML files can be point-based (placemarks), but here we need to produce so-called *ground overlays* in the Portable Network Graphics (PNG) graphics format, with accompanying information to tell Google Earth where in the world to place this.
+
+This task is made possible by methods from the ``maptools` package, in particular the `GESpatialGrid` method to define the size and position of a PNG image overlay in Google Earth, and the `kmlOverlay` method write the KML file including this PNG image overlay.
+
+
+
+## Create a regular grid
+
+The `maptools` package requires an object to be of type `GE_SpatialGrid`.
+
+A `GE_SpatialGrid` has a triple purpose:
+
+1. to contain the graphics file (PNG) to be displayed in Google Earth;
+2. to give information for setting up the PNG graphics device in R, i.e. the number of pixels;
+3. to provide display information for Google Earth, i.e. the geographic location (bounding box) and the aspect ratio.
+
+The function requires a `Spatial*` object from package `sp`. We must first convert the `terra::SpatRaster` to a `raster::RasterLayer` from the older `raster` package (which `terra` is replacing), and then cast to an `sp` object.
+
+```{r create.spdf}
+class(r.gsm)
+tmp <- raster::raster(r.gsm)
+class(tmp)
+r.sp.84 <- as(tmp, "SpatialPixelsDataFrame")
+class(r.sp.84)
+# spplot(r.sp.84, col.regions=heat.colors(256))
+```
+
+Now make the `GE_SpatialGrid`, changing the default pixel size to show each prediction pixel.
+
+```{r warning=FALSE}
+# default maxPixels=600, we want more detail
+GRD <- maptools::GE_SpatialGrid(r.sp.84, maxPixels=4800)
+str(GRD)
+```
+
+## Export to PNG
+
+This is the ground overlay.  We use the same directory from which we obtained the imported tile.
+
+
+```{r}
+(filename.png <- paste0(src.dir.gsm,"/", voi.depth.name, '.png'))
+png(file=filename.png, width=GRD$width, height=GRD$height,
+    bg="transparent")
+par(mar=c(0,0,0,0), xaxs="i", yaxs="i")
+image(r.sp.84, xlim=GRD$xlim, ylim=GRD$ylim, 
+     col=heat.colors(256, alpha=1),  # maximum colour resolution for PNG, opaque
+     setParUsrBB=TRUE)  # use our bounding box
+dev.off()
+```
+
+## Create KML
+
+This specifies the ground overlay to display (a separate file from the KML) and its position. The filename is identical to that for the PNG, but with a different extension.
+
+```{r}
+(filename.kml <- paste0(src.dir.gsm,"/", voi.depth.name, '.kml'))
+maptools::kmlOverlay(GRD, 
+                     kmlfile = filename.kml,
+                     imagefile = filename.png,
+                     name=paste0("GSM", voi.depth.name)
+                     )
+```
+
+
+Now this file can be opened in Google Earth.

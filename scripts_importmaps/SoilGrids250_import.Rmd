@@ -51,7 +51,7 @@ Set base directories, specific to the local file system.
 2. `base.dir`: This is where the processed SoilGrids250 maps are stored.
 
 
-```{r}
+```{r set.dirs}
 base.dir <- "/Users/rossiter/ds/"
 base.dir.sg <- paste0(base.dir, "SoilGrids250/")
 base.dir.import <- "/Volumes/Pythagoras/ds/"
@@ -62,7 +62,7 @@ These are the base of destination directories built [below](#dest)
 
 # Packages
 
-```{r}
+```{r load.pkgs}
 options("rgdal_show_exportToProj4_warnings"="none") 
 library(rgdal)          # GDAL access from R
 library(gdalUtils)      # wrappers for GDAL utility programs that could be
@@ -91,11 +91,11 @@ We want to use geographic coordinates for the tile. But the ISRIC WCS does not s
 This CRS with pseudo-EPSG code 152160 should be added to to the `epsg` file of the PROJ database ^[for example 
 `/Library/Frameworks/PROJ.framework/Versions/6/Resources/proj/epsg`] as a final line, as explained [here](https://www.isric.org/explore/soilgrids/faq-soilgrids#How_can_I_use_the_Homolosine_projection). But for now do not do this, just specify the projection directly.
 
-```{r}
+```{r crs.igh}
 crs.igh <- '+proj=igh +lat_0=0 +lon_0=0 +datum=WGS84 +units=m +no_defs'
 ```
 
-# Variable of interest {#voi}
+# Variable and quantile of interest {#voi}
 
 Define the variables for the soil property and layer of interest. See [here](https://www.isric.org/explore/soilgrids/faq-soilgrids#What_do_the_filename_codes_mean) for the naming conventions
 
@@ -104,13 +104,13 @@ Define the variables for the soil property and layer of interest. See [here](htt
 `mean` - mean of the distribution;
 `Q0.95` - 95% quantile from the QRF.
 
-```{r}
+```{r q.list}
 quantile.list <- c("Q0.05", "Q0.5", "Q0.95", "mean")
 ```
 
 Here are the properties predicted by SoilGrids250:
 
-```{r}
+```{r voi.list}
 voi.list <- c("bdod", "cec", "cfvo", "clay", "nitrogen", "phh2o", "sand", "silt", "soc", "ocd")
 ```
 
@@ -118,19 +118,20 @@ voi.list <- c("bdod", "cec", "cfvo", "clay", "nitrogen", "phh2o", "sand", "silt"
 
 Depth slices:
 
-```{r}
+```{r d.list}
 depth.list <- paste0(c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200"),"cm")
 ```
 
 Set the property, depth and quantile:
 
-```{r}
+```{r select.prop.d.q}
 voi.n <- 4
-voi <- voi.list[voi.n]   # variable of interest, SoilGrids name
+voi <- voi.list[voi.n]  
 depth.n <- 4
 depth <- depth.list[depth.n]
-quantile.sg <- "mean"  # "Q0.05", "Q0.5" [not 0.50 !], "Q0.95", "mean"
-(voi_layer <- paste(voi, depth, quantile.sg, sep="_")) # layer of interest 
+quantile.n <- 2
+quantile.sg <- quantile.list[quantile.n]
+(voi_layer <- paste(voi, depth, quantile.sg, sep="_")) 
 ```
 
 # Area of Interest (AOI) {#aoi}

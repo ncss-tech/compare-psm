@@ -68,7 +68,7 @@ library(terra)  # for raster import and display
 ```
 
 
-# Variable of interest {#voi}
+# Variable and quantile of interest {#voi}
 
 Define the variables for the soil property and layer of interest.
 
@@ -102,7 +102,7 @@ Set the property and quantile:
 
 ```{r}
 voi.polaris <- "clay"   # variable of interest, POLARIS name
-quantile.polaris <- "mean"  # p5, p50, mean, p95
+quantile.polaris <- "p50"  # p5, p50, mean, p95
 ```
 
 

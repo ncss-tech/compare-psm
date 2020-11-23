@@ -135,7 +135,7 @@ voi.list.landgis <- c("clay.wfraction_usda.3a1a1a",
 Select the position in these lists
 
 ```{r}
-voi <- 4
+voi <- 1
 voi.sg <- voi.list.sg[voi]
 voi.issr8 <- voi.list.issr8[voi]
 voi.polaris <- voi.list.polaris[voi]
@@ -161,7 +161,7 @@ depth.list.gsm <- c("000_005", "005_015", "015_030", "030_060", "060_100", "100_
 Select the depth slice:
 
 ```{r}
-depth <- 1
+depth <- 4
 ```
 
 
@@ -175,7 +175,7 @@ Specify the two corners using WGS84 geographic coordinates:
 Specify the lower-right corner:
 
 ```{r lrc}
-tile.lrc <- c(-76, 42)   # lower-right corner
+tile.lrc <- c(-77, 35)   # lower-right corner
 tile.size <- 1
 ```
 
@@ -458,8 +458,8 @@ if (exists("r.landgis.sg")) { r.landgis.sg <- mask(r.landgis.sg, r.gsm.sg) }
 
 Check that the maps cover the same area, ignore different stretches for now:
 
-```{r plot.resampled, fig.width=8, fig.height=12}
-par(mfrow=c(3, 2))
+```{r plot.resampled, fig.width=12, fig.height=8}
+par(mfrow=c(2, 3))
 r.sg
 plot(r.gsm.sg, main="GSM v0.5")
 plot(r.sg, main="SoilGrids250")
@@ -518,9 +518,9 @@ if (exists("r.issr8.sg")) { yl <- max(yl, max.dens(r.issr8.sg))}
 
 Use this y-axis to show all the histograms together:
 
-```{r hist.sg.props, fig.width=14, fig.height=16}
+```{r hist.sg.props, fig.width=15, fig.height=10}
 yl <- c(0, yl) # standardize the density axis
-par(mfrow=c(3,2))
+par(mfrow=c(2,3))
 hist(r.gsm.sg, breaks=24, main="GSM v0.5",
      xlim=zlim, xlab="", freq = FALSE, ylim=yl)
 hist(r.sg, breaks=24, main="SoilGrids250",
@@ -547,8 +547,8 @@ par(mfrow=c(1,1))
 ## Maps
 
 
-```{r map.sg.props, fig.width=12, fig.height=18}
-par(mfrow=c(3,2))
+```{r map.sg.props, fig.width=18, fig.height=12}
+par(mfrow=c(2,3))
 terra::plot(r.gsm.sg, main="GSM v0.5", range=zlim)
 terra::plot(r.sg, main="SoilGrids", range=zlim)
 if (exists("r.p.sg")) {
@@ -714,9 +714,9 @@ if (exists("r.issr8.sg")) { yl <- max(yl, max.dens(diff.gsm.issr8))}
 Use this y-axis to show all the histograms together:
 
 
-```{r hist.diff.sg, fig.width=14, fig.height=16}
+```{r hist.diff.sg, fig.width=15, fig.height=10}
 yl <- c(0, yl) # Standardize density axis
-par(mfrow=c(3,2))
+par(mfrow=c(2,3))
 hist(diff.gsm.sg, main="GSM v0.5 - SoilGrids250", xlab="",
      xlim=zlim,  breaks=24, freq = FALSE, ylim=yl)
 if (exists("r.p.sg")) {
@@ -741,8 +741,8 @@ par(mfrow=c(1,1))
 
 ## Maps
 
-```{r plot.diff.sg, fig.width=12, fig.height=18}
-par(mfrow=c(3,2))
+```{r plot.diff.sg, fig.width=15, fig.height=10}
+par(mfrow=c(2,3))
 terra::plot(diff.gsm.sg, main="Difference GSM v0.5 - SoilGrids250",
             range=zlim, col=bpy.colors(64))
 if (exists("diff.gsm.p")) {
