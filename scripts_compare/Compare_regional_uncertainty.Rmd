@@ -4,6 +4,11 @@ author:
 - D G Rossiter
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
+params:
+   lrc_long: -76
+   lrc_lat: 42 
+   voi.n: 4
+   depth.n: 4
 output:
   html_document:
     fig_align: center
@@ -48,8 +53,8 @@ quantile.list.polaris <- c("p5", "p5", "p95")
 Here are the properties that are in both databases:
 
 ```{r}
-voi.list <- c("bdod", "clay", "phh2o", "sand", "silt", "soc")
-voi.list.polaris <- c("bd", "clay", "ph", "sand", "silt", "om")
+voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
+voi.list.polaris <- c("clay", "silt", "sand", "ph", "", "om", "bd", "") 
 ```
 
 Depth slices:
@@ -57,19 +62,6 @@ Depth slices:
 ```{r}
 depth.list <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
 ```
-
-Conversion factors from POLARIS units to SoilGrids units:
-
-```{r}
-df <- data.frame(voi.list, 
-                 c("cg/cm3","g/kg","pHx10","g/kg","g/kg","dg/kg"), 
-                 c("g/cm3","%","pH","%","%","log10(%)"),
-                 c(100, 10, 10, 10, 10, "10^,0.58,1000"))
-knitr::kable(
-  df, caption = 'Properties and units of measure',
-  col.names=c("Property","SoilGrids","POLARIS","factor"),
-  booktabs = TRUE)
-```  
 
 
 # Setup
@@ -99,16 +91,13 @@ base.dir.polaris.import <- paste0(base.dir.import, "POLARIS")
 
 # Define the property and depth
 
-Set the property and depth, names for both products:
+Set the property and depth names for both products, from the YAML or rendering parameters:
 
 ```{r}
-voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
-voi.list.polaris <- c("clay", "silt", "sand", "ph", "", "om", "bd", "") 
-voi.n <- 4
-voi <- voi.list.sg[voi.n]   # variable of interest, SoilGrids name
-voi.polaris <- voi.list.polaris[voi.n]
+voi <- voi.list.sg[params$voi.n]   # variable of interest, SoilGrids name
+voi.polaris <- voi.list.polaris[params$voi.n]
 #
-depth <- "0-5cm" # "0-5cm", "5-15cm", "15-30cm", "30-60cm", "60-100cm", "100-200cm"
+depth <- depth.list[params$depth.n] # "0-5cm", "5-15cm", "15-30cm", "30-60cm", "60-100cm", "100-200cm"
 voi_layer_05 <- paste(voi, depth, "Q0.05", sep="_") # layer of interest, 5% 
 voi_layer_50 <- paste(voi, depth, "Q0.5", sep="_") # layer of interest, 50% 
 voi_layer_95 <- paste(voi, depth, "Q0.95", sep="_") # layer of interest, 95% 
@@ -118,12 +107,17 @@ depth.polaris <- gsub( "-", "_", strsplit(depth, "cm")[[1]])
 # Define Area of Interest (AOI) {#aoi}
 
 We use a $1 \times 1^\circ$ tile, because that is how POLARIS data is served.
-Specify the lower-right corner, then compute the upper-right corner $1^\circ$ west and north.
 
-Specify the two corners using WGS84 geographic coordinates.
+Specify the _lower-right corner_ and _tile size_ from the YAML or rendering parameters:
+
+```{r lrc}
+tile.lrc <- c(params$lrc_long, params$lrc_lat) # lower-right corner
+size <- params$size                # tile dimensions
+```
+
+Compute the upper-right corner $1^\circ$ west and north:
 
 ```{r}
-tile.lrc <- c(-76, 42) # lower-right corner
 tile.ulc <- c(tile.lrc[1]-1, tile.lrc[2]+1) # upper-left corner
 m <- matrix(c(tile.ulc[1],tile.lrc[1],  #ulc
               tile.ulc[2], tile.lrc[2]  #lrc
@@ -153,21 +147,21 @@ Note that this covers a larger area than just the $1 \times 1^\circ$ tile; we wi
                           AOI.dir.prefix,
                           voi))
 ## Q0.05
-(file.sg <- paste0(dest.dir.sg, "/Q0.05/", depth, "/", voi_layer_05, '_4326.tif'))
+(file.sg <- paste0(dest.dir.sg, "/Q0.05/", depth, "cm/", voi_layer_05, '_4326.tif'))
 if (file.exists(file.sg)) {
   r.sg.05 <- terra::rast(file.sg)
 } else {
   print("No SoilGrids250 Q0.05 tile"); stop("Missing input file")
 }
 ## Q0.5
-(file.sg <- paste0(dest.dir.sg, "/Q0.5/", depth, "/", voi_layer_50, '_4326.tif'))
+(file.sg <- paste0(dest.dir.sg, "/Q0.5/", depth, "/cm", voi_layer_50, '_4326.tif'))
 if (file.exists(file.sg)) {
   r.sg.50 <- terra::rast(file.sg)
 } else {
   print("No SoilGrids250 Q0.5 tile"); stop("Missing input file")
 }
 ## Q0.95
-(file.sg <- paste0(dest.dir.sg, "/Q0.95/", depth, "/", voi_layer_95, '_4326.tif'))
+(file.sg <- paste0(dest.dir.sg, "/Q0.95/", depth, "/cm", voi_layer_95, '_4326.tif'))
 if (file.exists(file.sg)) {
   r.sg.95 <- terra::rast(file.sg)
 } else {

@@ -20,6 +20,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE,
                       warning = FALSE,
+                      purl = FALSE,
                       fig.align = 'center')
 knitr::opts_chunk$set(cache.extra = R.version.string)
 ```
@@ -164,7 +165,7 @@ depth.list.landgis <- c("0", "10", "30", "60", "100", "200")
 Select a slice:
 
 ```{r}
-depth <- 4
+depth <- 1
 depth.sg <- depth.list.sg[depth]
 if (depth == 1) {
   top <- 1; bottom <- 2; weights <- c(2/3, 1/3)  

@@ -22,6 +22,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE,
                       warning = FALSE,
+                      purl=FALSE,
                       fig.align = 'center',
                       fig.path = './figs/compare_sg/')
 knitr::opts_chunk$set(cache.extra = R.version.string)
@@ -161,7 +162,7 @@ depth.list.gsm <- c("000_005", "005_015", "015_030", "030_060", "060_100", "100_
 Select the depth slice:
 
 ```{r}
-depth <- 4
+depth <- 1
 ```
 
 

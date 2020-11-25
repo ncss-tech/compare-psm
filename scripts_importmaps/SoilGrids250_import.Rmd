@@ -4,6 +4,13 @@ author:
   - "D G Rossiter"
   - "d.g.rossiter@cornell.edu"
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
+params:
+   lrc_long: -76
+   lrc_lat: 42 
+   size: 1
+   voi.n: 4
+   depth.n: 4
+   quantile.n: 4 
 output:
    html_document:
      toc: TRUE
@@ -15,7 +22,7 @@ output:
 ---
 
 ```{r setup, include=FALSE, purl=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center')
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, purl=FALSE, fig.align = 'center')
 knitr::opts_chunk$set(cache.extra = R.version.string)
 ```
 
@@ -101,8 +108,8 @@ Define the variables for the soil property and layer of interest. See [here](htt
 
 `Q0.05` - 5% quantile from the Quantile Random Forest (QRF);
 `Q0.5` - median of the distribution from the QRF -- note *not* `Q0.50`;
-`mean` - mean of the distribution;
-`Q0.95` - 95% quantile from the QRF.
+`Q0.95` - 95% quantile from the QRF;
+`mean` - mean of the distribution.
 
 ```{r q.list}
 quantile.list <- c("Q0.05", "Q0.5", "Q0.95", "mean")
@@ -111,7 +118,7 @@ quantile.list <- c("Q0.05", "Q0.5", "Q0.95", "mean")
 Here are the properties predicted by SoilGrids250:
 
 ```{r voi.list}
-voi.list <- c("bdod", "cec", "cfvo", "clay", "nitrogen", "phh2o", "sand", "silt", "soc", "ocd")
+voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo", "nitrogen", "ocd")
 ```
 
 # Depth slice {#depth}
@@ -122,15 +129,12 @@ Depth slices:
 depth.list <- paste0(c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200"),"cm")
 ```
 
-Set the property, depth and quantile:
+Set the property, depth and quantile from the YAML or rendering parameters:
 
 ```{r select.prop.d.q}
-voi.n <- 4
-voi <- voi.list[voi.n]  
-depth.n <- 4
-depth <- depth.list[depth.n]
-quantile.n <- 2
-quantile.sg <- quantile.list[quantile.n]
+voi <- voi.list.sg[params$voi.n]  
+depth <- depth.list[params$depth.n]
+quantile.sg <- quantile.list[params$quantile.n]
 (voi_layer <- paste(voi, depth, quantile.sg, sep="_")) 
 ```
 
@@ -138,11 +142,11 @@ quantile.sg <- quantile.list[quantile.n]
 
 The AOI is a tile using WGS84 geographic coordinates. A $1 \times 1^\circ$ allows comparison with POLARIS, but here other sizes can be specified.
 
-Specify the _lower-right corner_ and _tile size_, then compute the upper-right corner west and north.
+Specify the _lower-right corner_ and _tile size_ from the YAML or rendering parameters:
 
 ```{r lrc}
-tile.lrc <- c(-77, 35) # lower-right corner
-size <- 1                # tile dimensions
+tile.lrc <- c(params$lrc_long, params$lrc_lat) # lower-right corner
+size <- params$size                # tile dimensions
 ```
 
 Compute the four corner and the bounding box. Note because of the projection this is somewhat larger than a 1 \times 1^\circ$  tile.

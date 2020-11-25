@@ -4,6 +4,13 @@ author:
   - "D G Rossiter"
   - "d.g.rossiter@cornell.edu"
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
+params:
+   lrc_long: -76
+   lrc_lat: 42 
+   size: 1
+   voi.n: 4
+   depth.n: 4
+   quantile.n: 3 
 output:
   html_document:
     toc: yes
@@ -17,7 +24,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center')
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, purl=FALSE, fig.align = 'center')
 knitr::opts_chunk$set(cache.extra = R.version.string)
 ```
 
@@ -74,8 +81,8 @@ Define the variables for the soil property and layer of interest.
 
 `p5` - 5% quantile from the machine-learning methods
 `p50` - median of the distribution
-`mean` - mean of the distribution;
 `p95` - 95% quantile
+`mean` - mean of the distribution;
 
 ```{r}
 quantile.list.polaris <- c("p5", "p50", "p95", "mean")
@@ -95,14 +102,14 @@ Relevant here are:
 There are also soil hydrological parameters we do not process.
 
 ```{r}
-voi.list.polaris <- c("clay", "silt", "sand", "ph", "om", "bd") 
+voi.list.polaris <- c("clay", "silt", "sand", "ph", "", "om", "bd", "") 
 ```
 
-Set the property and quantile:
+Set the property and quantile from the YAML or rendering parameters:
 
 ```{r}
-voi.polaris <- "clay"   # variable of interest, POLARIS name
-quantile.polaris <- "p50"  # p5, p50, mean, p95
+voi.polaris <- voi.list.polaris[params$depth.n]
+quantile.polaris <- quantile.list.polaris[params$quantile.n]
 ```
 
 
@@ -114,10 +121,11 @@ Depth slices, in cm:
 depth.list.polaris <- c("0_5", "5_15", "15_30", "30_60", "60_100", "100_200")
 ```
 
-Set the depth, and build a full layer name with the property, depth, and quantile:
+Set the depth from the YAML or rendering parameters.
+Then build a full layer name with the property, depth, and quantile:
 
 ```{r}
-depth.polaris <- "30_60" # "0-5", "5-15", "15-30", "30-60", "60-100", "100-200"
+depth.polaris <- depth.list.polaris[params$depth.n]
 (voi_layer <- paste(voi.polaris, depth.polaris, quantile.polaris, sep="_")) # layer of interest 
 ```
 
@@ -125,10 +133,10 @@ depth.polaris <- "30_60" # "0-5", "5-15", "15-30", "30-60", "60-100", "100-200"
 
 POLARIS data is served in $1 \times 1^\circ$ tiles using WGS84 geographic coordinates. Specify the _lower-right corner_, then compute the upper-right corner $1^\circ$ west and north.
 
-Specify the lower-right corner:
+Specify the lower-right corner from the YAML or rendering parameters:
 
 ```{r lrc}
-tile.lrc <- c(-77, 35) # lower-right corner: central NY
+tile.lrc <- c(params$lrc_long, params$lrc_lat) # lower-right corner
 ```
 
 Compute the upper-left corner:

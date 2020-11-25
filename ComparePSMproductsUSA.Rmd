@@ -123,11 +123,15 @@ Two products provide uncertainty estimates: SoilGrids250 and POLARIS. These scri
 
 A set of scripts in subdirectory `./scripts_compare` take the imported tiles and perform various comparisons.
 
-## Regional (250 m spatial resolution)
+## Regional properties (250 m spatial resolution)
 
 First is the direct comparison of the mapped property, in script `./scripts_compare/Compare_regional.Rmd`.
 
 This exports harmonized regional maps (same CRS, same resolution, same units, same area), which can then be compared for their spatial patterns by script `./scripts_compare/Compare_regional_patterns.Rmd`.
+
+## Regional uncertainty (250 m spatial resolution)
+
+Two products provide prediction quantiles at 5, 50 and 95%, as well as the mean: SoilGrids250 and POLARIS. These can be compared with script `./scripts_compare/Compare_regional_uncertainty.Rmd`.
 
 # Ground overlays
 
@@ -139,7 +143,63 @@ including SoilWeb Earth which displays SSURGO (detailed) or NATSGO (generalized)
 
 There is one R Markdown file for each product, in subdirectory `scripts_ground_overlays`. These all use the native resolution, resampled to CRS EPSG:4326 if necessary, to match Google Earth.
 
+# Parameters
 
+Each import script is parameterized via the YAML header, see [this explanation](https://bookdown.org/yihui/rmarkdown-cookbook/parameterized-reports.html).
+
+In the script, if the parameters are defined either by calling `knitr::render` with parameters, or rendering directly in R Studio, these parameters take precedence over those defined directly in the script.
+
+Here are the lists to which the parameters refer:
+
+# Property of interest {#voi}
+
+Property names the different products. Note that all except GSM v0.5 and SoilGrids250 are missing one or more properties. Such products will be omitted from comparisons for those properties.
+
+Properties that be compared are: clay, silt, sand weight concentrations; pH in 1:1 water; CEC; SOC; bulk density of the fine earth; coarse fragment volume proportion. See the import script for each product for a link to a description of the properties and their units of measure.
+
+```{r}
+voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
+voi.list.gsm <- c("claytotal_r_g_kg", "silttotal_r_g_kg", "sandtotal_r_g_kg", 
+                  "ph1to1h2o_r_ions_pHx10", "ecec_r_cmolc_kg", "soc_r_mr_g_gF",
+                  "dbthirdbar_lt2mm_r_g_cm3", "gravel_r_vol_ratio_m3_m3")
+voi.list.issr8 <- c("clay", "silt","sand","ph", "cec", "", "", "")
+voi.list.polaris <- c("clay", "silt", "sand", "ph", "", "om", "bd", "") 
+voi.list.psu <- c("clay", "", "sand", "ph_h2o", "", "soc", "bd", "")
+voi.list.landgis <- c("clay.wfraction_usda.3a1a1a",
+                      "silt.wfraction_usda.3a1a1a",
+                      "sand.wfraction_usda.3a1a1a",
+                      "ph.h2o_usda.4c1a2a",
+                      "",
+                      "organic.carbon_usda.6a1c",
+                      "bulkdens.fineearth_usda.4a1h",
+                      "coarsefrag.vfraction_usda_3b1")
+```
+
+# Depth of interest {#depth}
+
+Depth slice names in the different products:
+
+```{r}
+depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
+# SPCGUSA100 predicts at points, these were averaged to GSM slices during import
+# --- these have the SG names
+# LandGIS predicts at points, these were averaged to GSM slices during import
+# --- these have the SG names
+depth.list.polaris <- gsub("-", "_", depth.list.sg)
+depth.list.issr8 <- gsub("-", "", depth.list.sg)
+depth.list.gsm <- c("000_005", "005_015", "015_030", "030_060", "060_100", "100_200")
+```
+
+# Area of Interest (AOI) {#aoi}
+
+The usual import is a $1 \times 1^\circ$ tile, because that is how POLARIS data is served.
+Specify the *lower-right corner* using WGS84 geographic coordinates, and a tile size in degrees (by default $1^\circ$).
+These are then used compute the upper-right corner 1 degree west and north.
+
+```{r lrc}
+tile.lrc <- c(-77, 35)   # lower-right corner
+tile.size <- 1
+```
 
 
 

@@ -17,7 +17,7 @@ output:
 ---
 
 ```{r setup, include=FALSE, purl=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center')
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, purl = FALSE, fig.align = 'center')
 knitr::opts_chunk$set(cache.extra = R.version.string)
 ```
 
@@ -115,7 +115,7 @@ depth.list.psu <- c("0", "5", "15", "30", "60", "100", "200")
 Select a slice:
 
 ```{r}
-depth.n <- 4
+depth.n <- 1
 depth.sg <- depth.list.sg[depth.n]
 depth.psu.top <- paste0("sl", depth.n)  # slice at top of layer
 depth.psu.bottom <- paste0("sl", depth.n+1)  # slice at bottom of layer

@@ -15,7 +15,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center')
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, purl = FALSE, fig.align = 'center')
 knitr::opts_chunk$set(cache.extra = R.version.string)
 ```
 
@@ -98,7 +98,7 @@ depth.list.issr8 <- c("05", "025", "2550", "3060")
 Select a depth slice. Note only 0-5 and 30-60 can be directly compared to GSM-standard PSM maps.
 
 ```{r}
-depth.issr8 <- "3060"
+depth.issr8 <- "05"
 ```
 
 # Download

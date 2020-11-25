@@ -5,9 +5,11 @@
 *.pdf
 *.png
 *.Rproj
+*.el
 .Rhistory
 .Rproj.user
 LaTeX_tables/
+auto/
 figs/
 scripts_compare/figs/
 scripts_importmaps/figs/

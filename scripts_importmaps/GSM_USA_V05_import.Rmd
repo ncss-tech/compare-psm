@@ -17,7 +17,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center')
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, purl=FALSE, fig.align = 'center')
 knitr::opts_chunk$set(cache.extra = R.version.string)
 ```
 
@@ -223,7 +223,7 @@ depth.list.gsm <- c("000_005", "005_015", "015_030", "030_060", "060_100", "100_
 *Select a depth slice* by its position in the list, and make a full name from the property of interest and the selected depth slice:
 
 ```{r depth}
-depth <- 4
+depth <- 1
 (voi.depth.name <- paste0(voi.name, depth.list.gsm[depth]))
 ```
 

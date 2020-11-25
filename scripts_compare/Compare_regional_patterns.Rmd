@@ -17,7 +17,7 @@ output:
 ---
 
 ```{r setup, include=FALSE, purl=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, purl = FALSE,
                       fig.align = 'center', fig.path = './figs/cf_maps/')
 knitr::opts_chunk$set(cache.extra = R.version.string)
 ```
@@ -94,7 +94,7 @@ Depth slice:
 
 ```{r depth}
 depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
-depth.n <- 4
+depth.n <- 1
 ```
 
 
@@ -383,8 +383,8 @@ if (exists("landgis.adj")) {
 }
 ```
 
-```{r show.classified, fig.width=12, fig.height=18}
-par(mfrow=c(3,2))
+```{r show.classified, fig.width=18, fig.height=12}
+par(mfrow=c(2,3))
 .l <- range(values(gsm.class), na.rm=TRUE)
 terra::plot(gsm.class,
             col=color.ramp[.l[1]:.l[2]], type="classes",
@@ -998,14 +998,14 @@ gsm.sp <- as(raster(gsm.crop), "SpatialPointsDataFrame")
 gsm.sp <- spTransform(gsm.sp, crs.utm)
 v.gsm <- gstat::variogram(voi ~ 1, loc = gsm.sp, cutoff=cutoff.init, width=500)
 vm.gsm <- vgm(max(v.gsm$gamma), "Exp", range.init, 0)
-(vmf.gsm <- fit.variogram(v.gsm, model=vm.gsm))
+vmf.gsm <- fit.variogram(v.gsm, model=vm.gsm)
 # plot(v.gsm, pl=T, model=vmf.gsm)
 #
 sg.sp <- as(raster(sg.adj), "SpatialPointsDataFrame")
 sg.sp <- spTransform(sg.sp, crs.utm)
 v.sg <- variogram(voi ~ 1, loc = sg.sp, cutoff=cutoff.init, width=500)
 vm.sg <- vgm(max(v.sg$gamma), "Exp", range.init, 0)
-(vmf.sg <- fit.variogram(v.sg, model=vm.sg))
+vmf.sg <- fit.variogram(v.sg, model=vm.sg)
 # plot(v.sg, pl=T, model=vmf.sg)
 #
 if (exists("r.issr8")) {
