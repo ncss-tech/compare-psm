@@ -60,7 +60,7 @@ voi.list.polaris <- c("clay", "silt", "sand", "ph", "", "om", "bd", "")
 Depth slices:
 
 ```{r}
-depth.list <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
+depth.list <- paste0(c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200"),"cm")
 ```
 
 
@@ -147,21 +147,21 @@ Note that this covers a larger area than just the $1 \times 1^\circ$ tile; we wi
                           AOI.dir.prefix,
                           voi))
 ## Q0.05
-(file.sg <- paste0(dest.dir.sg, "/Q0.05/", depth, "cm/", voi_layer_05, '_4326.tif'))
+(file.sg <- paste0(dest.dir.sg, "/Q0.05/", depth, "/", voi_layer_05, '_4326.tif'))
 if (file.exists(file.sg)) {
   r.sg.05 <- terra::rast(file.sg)
 } else {
   print("No SoilGrids250 Q0.05 tile"); stop("Missing input file")
 }
 ## Q0.5
-(file.sg <- paste0(dest.dir.sg, "/Q0.5/", depth, "/cm", voi_layer_50, '_4326.tif'))
+(file.sg <- paste0(dest.dir.sg, "/Q0.5/", depth, "/", voi_layer_50, '_4326.tif'))
 if (file.exists(file.sg)) {
   r.sg.50 <- terra::rast(file.sg)
 } else {
   print("No SoilGrids250 Q0.5 tile"); stop("Missing input file")
 }
 ## Q0.95
-(file.sg <- paste0(dest.dir.sg, "/Q0.95/", depth, "/cm", voi_layer_95, '_4326.tif'))
+(file.sg <- paste0(dest.dir.sg, "/Q0.95/", depth, "/", voi_layer_95, '_4326.tif'))
 if (file.exists(file.sg)) {
   r.sg.95 <- terra::rast(file.sg)
 } else {
