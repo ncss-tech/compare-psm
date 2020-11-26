@@ -102,7 +102,17 @@ This CRS with pseudo-EPSG code 152160 should be added to to the `epsg` file of t
 crs.igh <- '+proj=igh +lat_0=0 +lon_0=0 +datum=WGS84 +units=m +no_defs'
 ```
 
-# Variable and quantile of interest {#voi}
+# Parameters
+
+Parameters for this run:
+
+```{r}
+print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat, "; size:", params$size))
+print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
+print(paste("quantile.n:", params$quantile.n))
+```
+
+## Variable and quantile of interest {#voi}
 
 Define the variables for the soil property and layer of interest. See [here](https://www.isric.org/explore/soilgrids/faq-soilgrids#What_do_the_filename_codes_mean) for the naming conventions
 
@@ -121,7 +131,7 @@ Here are the properties predicted by SoilGrids250:
 voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo", "nitrogen", "ocd")
 ```
 
-# Depth slice {#depth}
+## Depth slice {#depth}
 
 Depth slices:
 
@@ -138,7 +148,7 @@ quantile.sg <- quantile.list[params$quantile.n]
 (voi_layer <- paste(voi, depth, quantile.sg, sep="_")) 
 ```
 
-# Area of Interest (AOI) {#aoi}
+## Area of Interest (AOI) {#aoi}
 
 The AOI is a tile using WGS84 geographic coordinates. A $1 \times 1^\circ$ allows comparison with POLARIS, but here other sizes can be specified.
 

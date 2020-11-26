@@ -89,7 +89,16 @@ base.dir.import <- "/Volumes/Pythagoras/ds/"
 base.dir.polaris.import <- paste0(base.dir.import, "POLARIS")
 ```
 
-# Define the property and depth
+# Parameters
+
+Parameters for this run:
+
+```{r}
+print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat))
+print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
+```
+
+## Define the property and depth
 
 Set the property and depth names for both products, from the YAML or rendering parameters:
 
@@ -104,7 +113,7 @@ voi_layer_95 <- paste(voi, depth, "Q0.95", sep="_") # layer of interest, 95%
 depth.polaris <- gsub( "-", "_", strsplit(depth, "cm")[[1]])
 ```
 
-# Define Area of Interest (AOI) {#aoi}
+## Define Area of Interest (AOI) {#aoi}
 
 We use a $1 \times 1^\circ$ tile, because that is how POLARIS data is served.
 

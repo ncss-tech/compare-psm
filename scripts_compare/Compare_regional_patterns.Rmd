@@ -4,6 +4,12 @@ author:
 - D G Rossiter
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
+params:
+   lrc_long: -76
+   lrc_lat: 42
+   size: 1 
+   voi.n: 4
+   depth.n: 4
 output:
   html_document:
     fig_align: center
@@ -18,15 +24,18 @@ output:
 
 ```{r setup, include=FALSE, purl=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, purl = FALSE,
-                      fig.align = 'center', fig.path = './figs/cf_maps/')
+                      fig.align = 'center', fig.path = './figs/compare_maps/')
 knitr::opts_chunk$set(cache.extra = R.version.string)
 ```
 
-# Objective
+# Introduction
 
-Quantify the *spatial* agreement between soil maps, using several methods: (1) ["V metrics"](#vmetrics) (2) [Landscape metrics](#landscapemetrics) similar to FRAGSTATS, as used in ecology.
+This script compares PSM products at 250 m grid resolution, which is used by SoilGrids250.
+We consider this an appropriate resolution for regional studies.
 
-Here we compare:
+In this script we quantify the *spatial* agreement between soil maps, using several methods: (1) ["V metrics"](#vmetrics) (2) [Landscape metrics](#landscapemetrics) similar to FRAGSTATS, as used in ecology.
+
+Depending on the [property of interest](#voi), the following can be compared:
 
 * [SoiLGrids250](https://www.isric.org/explore/soilgrids)  from ISRIC further abbreviated as _SG2_;
 * [Global Soil Map v0.5 for the USA](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/research/?cid=nrcseprd1321715), further abbreviated as _GSMv05_;
@@ -35,8 +44,21 @@ Here we compare:
 * [Soil Properties and Class 100m Grids USA](https://doi.org/10.18113/S1KW2H), further abbreviated as _SPCG100USA_;
 * [LandGIS](https://opengeohub.org/about-landgis) from the private company [EnvirometriX](http://envirometrix.nl/).
 
+This script must follow script `Compare_regional.Rmd` "Comparing PSM products at regional resolution". That script harmonizes the area of interest and resolution of these sources, and stores the harmonized products for this analysis.
 
-This script must follow script `Compare_regional.Rmd` "Comparing PSM products at regional resolution". That script harmonizes the area of interest and resolution of these sources.
+To use this script:
+
+1. Ajust the [directory structure](#dirs) to your system.
+
+2. [Select a property](#voi) and [select a depth slice](#depth), using the YAML header or by knitting with parameters..
+
+3. [Select an Area of Interest](#aoi), using the YAML header or by knitting with parameters.
+
+4. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
+
+5. Generated figures will be in directory `./figs/compare_maps/`. These will be specific to the AOI, property and depth slice. So to save them from over-writing by other runs, move them to another directory.
+
+6. Generated tables in \LaTeX format will be in directory `../LaTeX_tables`. The table names include AOI, property and depth slice and so are not over-written.
 
 # Packages
 
@@ -58,7 +80,7 @@ library(landscapetools)
 library(gstat)      # variogram modelling
 ```
 
-# Local storage
+# Local storage {#dirs}
 
 Set the directory on the local file system, under which local files were stored by `Compare_regional.Rmd`, and where this script will store its results.
 
@@ -66,40 +88,59 @@ Set the directory on the local file system, under which local files were stored 
 base.dir <- "/Users/rossiter/ds/Compare_PSM/"
 ```
 
-# Area, property and depth to compare
+# Parameters
+
+Parameters for this run:
+
+```{r}
+print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat, "; size:", params$size))
+print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
+```
+
+
+## Area of interest {#aoi}
+
+We use a $1 \times 1^\circ$ tile, because that is how POLARIS data is served.
+
+Specify the _lower-right corner_ and _tile size_ from the YAML or rendering parameters:
+
+```{r lrc}
+tile.lrc <- c(params$lrc_long, params$lrc_lat) # lower-right corner
+tile.size <- params$size                # tile dimensions
+```
+
+Compute the upper-right corner $1^\circ$ west and north:
+
+```{r ulc}
+tile.ulc <- c(tile.lrc[1]-tile.size, tile.lrc[2]+tile.size) # upper-left corner
+```
 
 Set part of a file path using the AOI and property to be compared.
 These names correspond to files stored by script `Compare_regional.Rmd`, which incorporate the AOI `aoi` and the property of interest and depth slice `voi`.
 
-AOI:
+AOI prefix:
 
 ```{r aoi}
-tile.lrc <- c(-77, 35)   # lower-right corner
-tile.size <- 1
-tile.ulc <- c(tile.lrc[1]-tile.size, tile.lrc[2]+tile.size) # upper-left corner
 aoi <- paste0("lat", tile.lrc[2], tile.ulc[2],
                          "_lon", tile.ulc[1], tile.lrc[1])
 ```
 
+## Property of interest {#voi}
 
-Property of interest:
+Set the property of interest from the YAML or rendering parameters:
 
 ```{r voi}
 voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
-voi.n <- 1
-voi.sg <- voi.list.sg[voi.n]
+voi.sg <- voi.list.sg[params$voi.n]
 ```
 
-Depth slice:
+## Depth slice of interest {#depth}
+
+Set the depth slice from the YAML or rendering parameters::
 
 ```{r depth}
 depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
-depth.n <- 1
-```
-
-
-```{r voi.depth.sg}
-voi.depth <- paste0(voi.sg, "_", depth.list.sg[depth.n])
+voi.depth <- paste0(voi.sg, "_", depth.list.sg[params$depth.n])
 ```
 
 # Source rasters

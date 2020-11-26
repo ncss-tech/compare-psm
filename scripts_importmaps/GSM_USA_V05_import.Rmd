@@ -4,6 +4,12 @@ author:
   - "D G Rossiter"
   - "d.g.rossiter@cornell.edu"
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
+params:
+   lrc_long: -76
+   lrc_lat: 42 
+   size: 1
+   voi.n: 4
+   depth.n: 4
 output:
   html_document:
     fig_align: center
@@ -17,7 +23,11 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, purl=FALSE, fig.align = 'center')
+knitr::opts_chunk$set(echo = TRUE, 
+                      message = FALSE, 
+                      warning = FALSE, 
+                      purl=FALSE, 
+                      fig.align = 'center')
 knitr::opts_chunk$set(cache.extra = R.version.string)
 ```
 
@@ -33,9 +43,9 @@ To use this script:
 
 1. Ajust the [directory structure](#dirs) to your system
 
-2. [Select a property](#prop) and [select a depth slice](#depth).
+2. [Select a property](#prop) and [select a depth slice](#depth), using the YAML header or by knitting with parameters.
 
-3. [Select an Area of Interest](#aoi).
+3. [Select an Area of Interest](#aoi), using the YAML header or by knitting with parameters.
 
 4. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
 
@@ -120,8 +130,7 @@ if (!exists("db")) {
 
 ```{r info.db}
 class(db)
-dim(db)
-names(db)[1:13]
+
 table(db$mukind)  # some have no map unit kind!
 head(db$muname)
 head(db$mukey)
@@ -173,8 +182,16 @@ For comparison with PSM predictions we want the `total` representative values, f
 
 SSURGO and STATSGO2 have a "low", "representative", and "high" value for most quantitative attributes in the component horizon (`chorizon`) attribute table. The "representative" values (with `_r` in the attribute name) are the primary attributes intended to characterize soils for most users. Where the "low" (`_l`) and "high" (`_h`) values are given, they are intended to help characterize the uncertainty in the representative values. An additional method of characterizing uncertainty is given by the "low of the low" (`_ll`) and "high of the high" values (`_hh`) where "`_ll`" represents the minimum value of the "low" across all components, and "`_hh`" represents the maximum value of the "high" across all components. 
 
+# Parameters
 
-# Property of interest {#prop}
+Parameters for this run:
+
+```{r}
+print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat, "; size:", params$size))
+print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
+```
+
+## Property of interest {#prop}
 
 The following properties can be compared to SoilGrids250 and other PSM products. We need to specify the long GSM names because of the units of measure.
 
@@ -188,11 +205,10 @@ voi.list.gsm <- c("claytotal_r_g_kg", "silttotal_r_g_kg", "sandtotal_r_g_kg",
 *Select a property* by its position in the list, and make a full name from it:
 
 ```{r voi}
-voi <- 1
-(voi.name <- paste0("mu_", voi.list.gsm[voi], "_"))
+(voi.name <- paste0("mu_", voi.list.gsm[params$voi.n], "_"))
 ```
 
-## Representative values
+### Representative values
 
 Get the representative values for the selected property and _replace NoData values_ used in the database with R `NA`. The NoData values vary by data type. Also include the map unit key, for joining with the grid.
 
@@ -213,36 +229,34 @@ db.attr <- db.attr %>%
 # summary(db.attr)
 ```
 
-# Depth of interest {#depth}
+## Depth of interest {#depth}
 
 ```{r depth.list}
 depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
 depth.list.gsm <- c("000_005", "005_015", "015_030", "030_060", "060_100", "100_200")
 ```
 
-*Select a depth slice* by its position in the list, and make a full name from the property of interest and the selected depth slice:
+*Select a depth slice* by its position in the list, based on the YAML or run-time parameter, and make a full name from the property of interest and the selected depth slice:
 
 ```{r depth}
-depth <- 1
-(voi.depth.name <- paste0(voi.name, depth.list.gsm[depth]))
+depth.gsm <- depth.list.gsm[params$depth.n]
+(voi.depth.name <- paste0(voi.name, depth.gsm))
 ```
 
 
-# Area of Interest (AOI) {#aoi}
+## Area of Interest (AOI) {#aoi}
 
-*Specify the two corners using WGS84 geographic coordinates and the tile size*.
+Specify the lower-right corner from the YAML or rendering parameters:
+
+```{r lrc}
+tile.lrc <- c(params$lrc_long, params$lrc_lat) # lower-right corner
+```
+
+Compute the upper-left corner:
 
 ```{r tile.1}
-## Lower-right corner, in integer degrees
-#
-tile.lrc <- c(-77, 35) # lower-right corner
-#
-## Tile size, in integer degrees
-# 
-size.long <- 1; size.lat <- 1
-```
-
-```{r tile.2}
+# Tile size, in integer degrees
+size.long <- params$size; size.lat <- params$size
 tile.ulc <- c(tile.lrc[1]-size.long, tile.lrc[2]+size.lat) # upper-left corner
 m <- matrix(c(tile.ulc[1],tile.lrc[1],  #ulc
               tile.ulc[2], tile.lrc[2]  #lrc

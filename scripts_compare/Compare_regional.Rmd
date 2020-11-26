@@ -4,6 +4,12 @@ author:
 - D G Rossiter
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
+params:
+   lrc_long: -76
+   lrc_lat: 42
+   size: 1 
+   voi.n: 4
+   depth.n: 4
 output:
   html_document:
     fig_align: center
@@ -50,11 +56,11 @@ This script must follow the import of the various products; these are in directo
 
 To use this script:
 
-1. Ajust the [directory structure](#dirs) to your system
+1. Ajust the [directory structure](#dirs) to your system.
 
-2. [Select a property](#voi) and [select a depth slice](#depth).
+2. [Select a property](#voi) and [select a depth slice](#depth), using the YAML header or by knitting with parameters..
 
-3. [Select an Area of Interest](#aoi).
+3. [Select an Area of Interest](#aoi), using the YAML header or by knitting with parameters.
 
 4. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
 
@@ -96,7 +102,7 @@ base.dir.landgis <- paste0(base.dir, "LandGIS")
 
 2. `base.dir.import`: This is where downloaded large GeoTIFF are located. Because of their size they may be on a separate file system, e.g., removable or networked drive. Files may have been downloaded here by an import script, or by direct download from the data provider.
 
-In this script this location is only used for POLARIS, since they are imported directly as $1 \times 1^\circ$ tiles by script `./scripts_importmaps/POLARIS_import.Rmd`.
+In this script this location is only used for POLARIS, since these large files (15-30Mb) are imported directly as $1 \times 1^\circ$ tiles by script `./scripts_importmaps/POLARIS_import.Rmd`.
 
 ```{r base.dir.import}
 base.dir.import <- "/Volumes/Pythagoras/ds/"
@@ -109,7 +115,16 @@ base.dir.polaris.import <- paste0(base.dir.import, "POLARIS")
 base.dir.export <- paste0(base.dir, "Compare_PSM")
 ```
 
-# Property of interest {#voi}
+# Parameters
+
+Parameters for this run:
+
+```{r}
+print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat, "; size:", params$size))
+print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
+```
+
+## Property of interest {#voi}
 
 Property names in various systems. Note that all except GSM v0.5 and SoilGrids250 are missing one or more properties. Such products will be omitted from comparisons for those properties.
 
@@ -136,15 +151,15 @@ voi.list.landgis <- c("clay.wfraction_usda.3a1a1a",
 Select the position in these lists
 
 ```{r}
-voi <- 1
-voi.sg <- voi.list.sg[voi]
-voi.issr8 <- voi.list.issr8[voi]
-voi.polaris <- voi.list.polaris[voi]
-voi.psu <- voi.list.psu[voi]
-voi.gsm <- voi.list.gsm[voi]
+voi.n <- params$voi.n   # variable of interest, SoilGrids name
+voi.sg <- voi.list.sg[voi.n]
+voi.issr8 <- voi.list.issr8[voi.n]
+voi.polaris <- voi.list.polaris[voi.n]
+voi.psu <- voi.list.psu[voi.n]
+voi.gsm <- voi.list.gsm[voi.n]
 ```
 
-# Depth of interest {#depth}
+## Depth of interest {#depth}
 
 Depth slices:
 
@@ -162,25 +177,22 @@ depth.list.gsm <- c("000_005", "005_015", "015_030", "030_060", "060_100", "100_
 Select the depth slice:
 
 ```{r}
-depth <- 1
+depth <- params$depth.n
 ```
 
 
-# Area of Interest (AOI) {#aoi}
+## Area of Interest (AOI) {#aoi}
 
 We use a $1 \times 1^\circ$ tile, because that is how POLARIS data is served.
-Specify the lower-right corner, then compute the upper-right corner 1 degree west and north.
 
-Specify the two corners using WGS84 geographic coordinates:
-
-Specify the lower-right corner:
+Specify the _lower-right corner_ and _tile size_ from the YAML or rendering parameters:
 
 ```{r lrc}
-tile.lrc <- c(-77, 35)   # lower-right corner
-tile.size <- 1
+tile.lrc <- c(params$lrc_long, params$lrc_lat) # lower-right corner
+tile.size <- params$size                # tile dimensions
 ```
 
-Compute the upper-left coner:
+Compute the upper-right corner $1^\circ$ west and north:
 
 ```{r ulc}
 tile.ulc <- c(tile.lrc[1]-tile.size, tile.lrc[2]+tile.size) # upper-left corner
@@ -279,7 +291,7 @@ if (file.exists(file.name)) {
 # POLARIS -- only the mean prediction in this script
 (file.name <- paste0(base.dir.polaris.import, "/",
                      AOI.dir.prefix, "/",
-                     voi.list.polaris[voi], "/mean/",
+                     voi.list.polaris[params$voi.n], "/mean/",
                      depth.list.polaris[depth], "/",
                      AOI.dir.prefix, ".tif"))
 if (file.exists(file.name)) {
@@ -295,7 +307,7 @@ if (file.exists(file.name)) {
 # LandGIS -- only the mean prediction in this script
 (file.name <- paste0(base.dir.landgis, "/",
                      AOI.dir.prefix, "/",
-                     voi.list.landgis[voi], "_",
+                     voi.list.landgis[voi.n], "_",
                      depth.list.sg[depth],
                      ".tif"))
 if (file.exists(file.name)) {
@@ -311,7 +323,7 @@ if (file.exists(file.name)) {
 ```{r get.tiles.issr8}
 (file.name <- paste0(base.dir.issr8, "/",
                      AOI.dir.prefix, "/",
-                     voi.list.issr8[voi], "_",
+                     voi.list.issr8[voi.n], "_",
                      depth.list.issr8[depth],
                      ".tif"))
 if (file.exists(file.name)) {
@@ -574,11 +586,15 @@ Pairwise Pearson correlations. Note the distributions are fairly symmetric/quasi
 ```{r pairwise}
 v.all <- data.frame(gsm=values(r.gsm.sg),
                     sg=values(r.sg),
-                    polaris=values(r.p.sg),
-                    psu=values(r.psu.sg),
-                    landgis=values(r.landgis.sg),
-                    issr8=values(r.issr8.sg))
-dim(v.all)
+                    polaris=NA,
+                    psu=NA,
+                    landgis=NA,
+                    issr8=NA)
+if (exists("r.p.sg")) { v.all$polaris <- values(r.p.sg) }
+if (exists("r.psu.sg")) { v.all$psu <- values(r.psu.sg) }
+if (exists("r.landgis.sg")) { v.all$landgis <-  values(r.landgis.sg) }
+if (exists("r.issr8.sg")) { v.all$issr8 <- values(r.issr8.sg) }
+summary(v.all)
 cor.all <- cor(v.all, use="pairwise.complete.obs")
 cor.upper <- cor.all; cor.upper[lower.tri(cor.upper)] <- NA
 print(round(cor.upper, 3))

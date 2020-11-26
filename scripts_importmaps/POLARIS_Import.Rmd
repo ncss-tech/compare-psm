@@ -10,7 +10,7 @@ params:
    size: 1
    voi.n: 4
    depth.n: 4
-   quantile.n: 3 
+   quantile.n: 4 
 output:
   html_document:
     toc: yes
@@ -40,9 +40,9 @@ To use this script:
 
 1. Ajust the [directory structure](#dirs) to your system
 
-2. [Select a property](#voi) and [select a depth slice](#depth).
+2. [Select a property and quantile](#voi) and [select a depth slice](#depth), using the YAML header or by knitting with parameters.
 
-3. [Select an Area of Interest](#aoi).
+3. [Select an Area of Interest](#aoi), using the YAML header or by knitting with parameters.
 
 4. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
 
@@ -74,8 +74,18 @@ These are the base of destination directories built [below](#dest)
 library(terra)  # for raster import and display
 ```
 
+# Parameters
 
-# Variable and quantile of interest {#voi}
+Parameters for this run:
+
+```{r}
+print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat, "; size:", params$size))
+print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
+print(paste("quantile.n:", params$quantile.n))
+```
+
+
+## Variable and quantile of interest {#voi}
 
 Define the variables for the soil property and layer of interest.
 
@@ -113,7 +123,7 @@ quantile.polaris <- quantile.list.polaris[params$quantile.n]
 ```
 
 
-# Depth slice {#depth}
+## Depth slice {#depth}
 
 Depth slices, in cm:
 
@@ -129,7 +139,7 @@ depth.polaris <- depth.list.polaris[params$depth.n]
 (voi_layer <- paste(voi.polaris, depth.polaris, quantile.polaris, sep="_")) # layer of interest 
 ```
 
-# Area of Interest (AOI) {#aoi}
+## Area of Interest (AOI) {#aoi}
 
 POLARIS data is served in $1 \times 1^\circ$ tiles using WGS84 geographic coordinates. Specify the _lower-right corner_, then compute the upper-right corner $1^\circ$ west and north.
 

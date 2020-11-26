@@ -4,6 +4,12 @@ author:
   - "D G Rossiter"
   - "d.g.rossiter@cornell.edu"
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
+params:
+   lrc_long: -76
+   lrc_lat: 42 
+   size: 1
+   voi.n: 4
+   depth.n: 4
 output:
   html_document:
     fig_align: center
@@ -30,13 +36,13 @@ It is explained in Ramcharan, A., T. Hengl, T. Nauman, C. Brungard, S. Waltman, 
 
 To use this script:
 
-1. Adjust the [directory structure](#dirs) to your system
+1. Adjust the [directory structure](#dirs) to your system.
 
 2. _Manually_ [Download the all-CONUS maps](#spcgdata) to the import directory for the properties and point depths corresponding to the next two points.
 
-3. [Select a property](#prop) and [select a depth slice](#depth).
+3. [Select a property](#prop) and [select a depth slice](#depth), using the YAML header or by knitting with parameters..
 
-4. [Select an Area of Interest](#aoi), a $1 \times 1^\circ$ tile.
+4. [Select an Area of Interest](#aoi), a $1 \times 1^\circ$ tile, using the YAML header or by knitting with parameters..
 
 5. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
 
@@ -81,8 +87,16 @@ Then the file name must be manually edited to remove the prefix before the prope
 
 There are seven point depth predictions: 0, 5, 15, 30, 60, 100, and 200 cm, labelled as `sl1`, `sl2` ..., `sl7`.
 
+# Parameters
 
-# Variable of interest {#voi}
+Parameters for this run:
+
+```{r}
+print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat, "; size:", params$size))
+print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
+```
+
+## Variable of interest {#voi}
 
 According to the journal paper six properties are predicted by SPCG100USA: percent organic C, total N, bulk density, pH, percent sand, and clay. These have SoilGrids250 equivalents. The database also shows additional properites: EC, K, Mg. The methods for these are not given, and there is no SoilGrids250 equivalent.
 
@@ -91,17 +105,16 @@ According to the journal paper six properties are predicted by SPCG100USA: perce
 Note that silt is not predicted; it could be computed as `(100 - clay - sand)`.
 
 ```{r}
-voi.list.psu <- c("soc", "n", "bd", "sand", "clay", "ph_h2o", "ec", "k", "mg")
+voi.list.psu <- c("clay", "", "sand", "ph_h2o", "", "soc", "bd", "", "n", "k", "mg", "ec")
 ```
 
-Select the position in these lists
+Select the position in these lists, according to the parameter from YAML or dynamic rendering:
 
 ```{r}
-voi.n <- 5
-voi.psu <- voi.list.psu[voi.n]
+voi.psu <- voi.list.psu[params$voi.n]
 ```
 
-# Depth slice {#depth}
+## Depth slice {#depth}
 
 SPCG100USA are point predictions within the profile, conceptually the value of an infinitely thin slice. By contrast, predictions conforming GlobalSoilMap standards refer to a depth slice. To compare these _two adjacent SPCG100USA predictions must be averaged_, as an approximation to the value at the centre of the slice, which approximates the averae over the slice.
 
@@ -115,24 +128,21 @@ depth.list.psu <- c("0", "5", "15", "30", "60", "100", "200")
 Select a slice:
 
 ```{r}
-depth.n <- 1
-depth.sg <- depth.list.sg[depth.n]
-depth.psu.top <- paste0("sl", depth.n)  # slice at top of layer
-depth.psu.bottom <- paste0("sl", depth.n+1)  # slice at bottom of layer
+depth.sg <- depth.list.sg[params$depth.n]
+depth.psu.top <- paste0("sl", params$depth.n)  # slice at top of layer
+depth.psu.bottom <- paste0("sl", params$depth.n+1)  # slice at bottom of layer
 ```
 
-# Area of Interest (AOI) {#aoi}
+## Area of Interest (AOI) {#aoi}
 
-Specify the two corners using WGS84 geographic coordinates, and the size of the tile. If comparing with POLARIS these should be $1 \times 1^\circ$.
-
-Specify the lower-right corner:
+Specify the _lower-right corner_ and _tile size_ from the YAML or rendering parameters:
 
 ```{r lrc}
-tile.lrc <- c(-77, 35)   # lower-right corner
-tile.size <- 1
+tile.lrc <- c(params$lrc_long, params$lrc_lat) # lower-right corner
+tile.size <- params$size                # tile dimensions
 ```
 
-Compute the upper-left coner:
+Compute the upper-right corner $1^\circ$ west and north:
 
 ```{r ulc}
 tile.ulc <- c(tile.lrc[1]-tile.size, tile.lrc[2]+tile.size) # upper-left corner
@@ -169,7 +179,7 @@ Average after cropping, [in the next section](#crop)
 
 Make a `terra` `SpatExtent` object from the bounding box. Note we need all four corners to fully cover the $1 \times 1^\circ$ tile.
 
-```{r plot.properties.crop, fig.width=10, fig.height=5}
+```{r crop.calc}
 m <- matrix(c(tile.ulc[1], tile.lrc[1], tile.lrc[1], tile.ulc[1],  
               tile.ulc[2], tile.ulc[2], tile.lrc[2], tile.lrc[2]),  
             nrow=4)
@@ -190,14 +200,14 @@ r.psu.crop.bottom <- terra::crop(r.psu.bottom, bb.aea.ext)
 
 Plot them side-by-side:
 
-```{r crop.plot}
+```{r crop.plot, fig.width=10, fig.height=5}
 zlim = c(floor(min(values(r.psu.crop.top), values(r.psu.crop.bottom), na.rm=TRUE)),
          ceiling(max(values(r.psu.crop.top), values(r.psu.crop.bottom), na.rm=TRUE)))
 par(mfrow=c(1,2))
 terra::plot(r.psu.crop.top, range=zlim,
-            main=paste0(voi.psu, ", depth ", depth.list.psu[depth.n], " cm"))
+            main=paste0(voi.psu, ", depth ", depth.list.psu[params$depth.n], " cm"))
 terra::plot(r.psu.crop.bottom, range=zlim,
-            main=paste0(voi.psu, ", depth ", depth.list.psu[depth.n+1], " cm"))
+            main=paste0(voi.psu, ", depth ", depth.list.psu[params$depth.n+1], " cm"))
 par(mfrow=c(1,1))
 print(r.psu.crop.top)
 print(r.psu.crop.bottom)

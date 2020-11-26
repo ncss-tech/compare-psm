@@ -2,6 +2,12 @@
 title: "ISSR8 --- Import for PSM comparisons"
 author: "D G Rossiter"
 date: "`r Sys.Date()`"
+params:
+   lrc_long: -76
+   lrc_lat: 42 
+   size: 1
+   voi.n: 4
+   depth.n: 4
 output:
   html_document:
     toc: yes
@@ -34,9 +40,9 @@ To use this script:
 
 1. Ajust the [directory structure](#dirs) to your system
 
-2. [Select a property](#prop) and [select a depth slice](#depth).
+2. [Select a property](#prop) and [select a depth slice](#depth), using the YAML header or by knitting with parameters.
 
-3. [Select an Area of Interest](#aoi), a $1 \times 1^\circ$ tile.
+3. [Select an Area of Interest](#aoi), a $1 \times 1^\circ$ tile, using the YAML header or by knitting with parameters.
 
 4. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
 
@@ -69,36 +75,82 @@ if (!dir.exists(base.dir.issr8.import)) {
 }
 ```
 
-# Property of interest {#prop}
+# Parameters
 
-List of properties:
+Parameters for this run:
 
 ```{r}
-# clay, silt, sand, pH, CEC, SOC, bulk density, coarse fragments
-
-voi.list.issr8 <- c("clay", "silt","sand","ph", "cec", "ec", "rf", "paws", "sar")
+print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat, "; size:", params$size))
+print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
 ```
 
-Note ISSR-800 only has SOM stocks and average bulk density, not by depth slice.
+## Property of interest {#prop}
+
+List of properties, paralleling SoilGrids:
+
+```{r}
+# voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
+voi.list.issr8 <- c("clay", "silt","sand","ph", "cec", "", "", "ec", "rf", "paws", "sar")
+```
+
+ISSR-800 only has SOM stocks and average bulk density, not by depth slice.
 
 Select a property:
 
 ```{r}
-voi.issr8 <- "clay"
+voi.issr8 <- voi.list.issr8[params$voi.n]
+if (voi.issr8=="") { stop(paste0("No ISSR8 property #", params$voi.n)) }
 ```
 
-# Depth of interest {#depth}
+## Depth of interest {#depth}
 
-Depth slices:
+Depth slices, adjusted to GSM standard depths.
 
 ```{r}
-depth.list.issr8 <- c("05", "025", "2550", "3060")
+depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
+depth.list.issr8 <- c("05", "025", "2550", "3060", "", "")
 ```
 
-Select a depth slice. Note only 0-5 and 30-60 can be directly compared to GSM-standard PSM maps.
+Select a depth slice. Note only 0-5 and 30-60 can be directly compared to GSM-standard PSM maps. The GSM 5-15 is roughly equivalent to ISSR8 0-25; the GSM 15-30 is roughly equivalent to ISSR8 25-50.
+The ISSR8 25-50 is roughly equivalent to GSM 30-60, but we ususally have ISSR8 30-60.
 
 ```{r}
-depth.issr8 <- "05"
+depth.issr8 <- depth.list.issr8[params$depth.n]
+if (depth.issr8=="") { stop(paste0("No ISSR8 depth slice #", params$depth.n)) }
+```
+
+## Area of interest {#aoi}
+
+The AOI is a tile using WGS84 geographic coordinates. A $1 \times 1^\circ$ allows comparison with POLARIS, but here other sizes can be specified.
+
+Specify the _lower-right corner_ and _tile size_ from the YAML or rendering parameters:
+
+```{r lrc}
+tile.lrc <- c(params$lrc_long, params$lrc_lat) # lower-right corner
+tile.size <- params$size                # tile dimensions
+```
+
+Compute the upper-right corner $1^\circ$ west and north:
+
+```{r ulc}
+tile.ulc <- c(tile.lrc[1]-tile.size, tile.lrc[2]+tile.size) # upper-left corner
+```
+
+A prefix for directories, to keep AOI results separate.
+
+```{r dir.prefix}
+AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
+                         "_lon", tile.ulc[1], tile.lrc[1])
+```
+
+Set up a directory for the products, separated by AOI:
+
+```{r}
+(dest.dir.issr8 <-  file.path(base.dir.issr8,
+                       AOI.dir.prefix))
+if (!dir.exists(dest.dir.issr8)) {
+   dir.create(dest.dir.issr8,recursive = TRUE)
+}
 ```
 
 # Download
@@ -151,39 +203,6 @@ terra::plot(r.issr8, main=paste("ISSR-800;",  main=voi.issr8))
 
 Note the CRS is defined, a CONUS Albers Equal Area.
 
-# Area of interest {#aoi}
-
-The AOI is a tile using WGS84 geographic coordinates. A $1 \times 1^\circ$ allows comparison with POLARIS, but here other sizes can be specified.
-
-Specify the _lower-right corner_ and _tile size_, then compute the upper-right corner west and north.
-
-```{r lrc}
-tile.lrc <- c(-77, 35) # lower-right corner
-size <- 1                # tile dimensions
-```
-
-Compute the upper-left corner:
-
-```{r ulc}
-tile.ulc <- c(tile.lrc[1]-size, tile.lrc[2]+size) 
-```
-
-A prefix for directories, to keep AOI results separate.
-
-```{r dir.prefix}
-AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
-                         "_lon", tile.ulc[1], tile.lrc[1])
-```
-
-Set up a directory for the products, separated by AOI:
-
-```{r}
-(dest.dir.issr8 <-  file.path(base.dir.issr8,
-                       AOI.dir.prefix))
-if (!dir.exists(dest.dir.issr8)) {
-   dir.create(dest.dir.issr8,recursive = TRUE)
-}
-```
 
 # Crop to AOI
 
