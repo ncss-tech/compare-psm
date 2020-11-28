@@ -9,8 +9,8 @@ params:
    lrc_lat: 42 
    size: 1
    voi.n: 4
-   depth.n: 4
    quantile.n: 4 
+   depth.n: 4
 output:
    html_document:
      toc: TRUE

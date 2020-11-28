@@ -9,8 +9,8 @@ params:
    lrc_lat: 42 
    size: 1
    voi.n: 4
-   depth.n: 4
    quantile.n: 4 
+   depth.n: 4
 output:
   html_document:
     toc: yes
@@ -118,7 +118,7 @@ voi.list.polaris <- c("clay", "silt", "sand", "ph", "", "om", "bd", "")
 Set the property and quantile from the YAML or rendering parameters:
 
 ```{r}
-voi.polaris <- voi.list.polaris[params$depth.n]
+voi.polaris <- voi.list.polaris[params$voi.n]
 quantile.polaris <- quantile.list.polaris[params$quantile.n]
 ```
 

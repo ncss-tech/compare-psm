@@ -175,6 +175,16 @@ voi.list.landgis <- c("clay.wfraction_usda.3a1a1a",
                       "coarsefrag.vfraction_usda_3b1")
 ```
 
+# Quantile
+
+Two products have quantiles as well as the mean prediction: SoilGrids and POLARIS.
+
+
+```{r q.list}
+quantile.list.sg <- c("Q0.05", "Q0.5", "Q0.95", "mean")
+quantile.list.polaris <- c("p5", "p50", "p95", "mean")
+```
+
 # Depth of interest {#depth}
 
 Depth slice names in the different products:

@@ -8,6 +8,7 @@ params:
    lrc_long: -76
    lrc_lat: 42 
    size: 1
+   quantile.n: NA
    voi.n: 4
    depth.n: 4
 output:
