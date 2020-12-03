@@ -113,7 +113,7 @@ Each product has an R Markdown file to import the product, in subdirectory `scri
 * `SPCG100USA_import.Rmd`
 * `LandGIS_import.Rmd`
 
-To compare products, adjust each of these to the area of interest (AOI), property of interest, and the depth slice of interest, and import the product. To compare uncertainties also specify the quantile of interest, for those products that provide it.
+To compare products, adjust each of these to the area of interest (AOI), property of interest, and the depth slice of interest, and import the product. To compare uncertainties also specify the quantile of interest, for those products that provide it. These should be adjusted in the YAML. Also, the script `Import_all.R` can be used to import one or more products, setting the parameters there.
 
 The AOI is typically a $1 \times 1^\circ$ tile in geographic coordinates. This is because POLARIS is provided in these tiles, and also because this is a large enough area to see the regional differences between products.
 

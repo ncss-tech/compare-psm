@@ -7,7 +7,9 @@ date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
    lrc_long: -76
    lrc_lat: 42 
+   size: NA
    voi.n: 4
+   quantile.n: NA
    depth.n: 4
 output:
   html_document:
