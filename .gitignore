@@ -3,7 +3,6 @@
 *.txt
 *.html
 *.pdf
-*.png
 *.Rproj
 *.el
 .Rhistory

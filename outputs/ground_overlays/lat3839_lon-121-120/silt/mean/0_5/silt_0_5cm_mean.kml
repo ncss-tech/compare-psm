@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<kml xmlns='http://earth.google.com/kml/2.0'>
+<GroundOverlay>
+<name>POLARISsilt_0_5cm_mean</name>
+<Icon><href>/Users/rossiter/ds/POLARIS/lat3839_lon-121-120/silt/mean/0_5/silt_0_5cm_mean.png</href><viewBoundScale>0.75</viewBoundScale></Icon>
+<LatLonBox><north>38.050000000009</north><south>38.0000000000094</south><east>-119.999988916365</east><west>-120.050000000009</west></LatLonBox>
+</GroundOverlay></kml>
