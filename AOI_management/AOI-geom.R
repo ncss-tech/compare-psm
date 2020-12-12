@@ -37,7 +37,8 @@ makePoly <- function(i) {
   proj4string(p) <- '+proj=longlat +datum=WGS84'
   
   # promote to SPDF and add ID
-  p <- SpatialPolygonsDataFrame(p, data = data.frame(id = i$id))
+  d <- data.frame(id = i[['id']], name = i[['name']])
+  p <- SpatialPolygonsDataFrame(p, data = d)
   
   return(p)
 }

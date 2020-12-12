@@ -46,7 +46,7 @@ plotRGB(
 
 plot(us_states, border = 'white', lwd = 1, add = TRUE)
 plot(aoi, border = 'green', lwd = 2, add = TRUE, lend = 1)
-text(aoi, labels = 1:nrow(aoi), font = 2, col = 'green', cex = 1)
+text(aoi, labels = aoi$id, font = 2, col = 'green', cex = 1)
 
 dev.off()
 
@@ -74,17 +74,17 @@ plotZoom <- function(i, b = 50000) {
   plot(us_states, border = 'white', lwd = 1, add = TRUE)
   plot(i, border = 'green', lwd = 2, add = TRUE, lend = 1)
   
-  mtext(i[['id']], side = 1, line = -2, col = 'white', font = 2, cex = 1.5)
+  mtext(i[['name']], side = 1, line = -2, col = 'white', font = 2, cex = 1.5)
   
 }
 
 
-for(i in 1:nrow(aoi)){
+for(i in aoi$id){
   f <- sprintf('figures/aoi-%s.png', i)
   
   agg_png(file = f, width = 800, height = 900, res = 90, scaling = 1.5)
   
-  plotZoom(aoi[i, ])
+  plotZoom(aoi[which(aoi$id == i), ])
   
   dev.off()
 }
