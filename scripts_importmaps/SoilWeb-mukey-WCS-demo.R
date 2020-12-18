@@ -1,4 +1,11 @@
 
+
+## DEB: this has all been replaced by recent additions to soilDB
+## https://github.com/ncss-tech/soilDB/blob/master/misc/WCS-demo.R
+
+
+
+
 ##
 ## notes
 ##
