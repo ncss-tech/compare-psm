@@ -5,6 +5,8 @@ author:
   - "d.g.rossiter@cornell.edu"
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 output:
+  pdf_document:
+    toc: yes
   html_document:
     toc: yes
     toc_float: yes
@@ -12,8 +14,6 @@ output:
     number_section: yes
     fig_height: 4
     fig_width: 4
-  pdf_document:
-    toc: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -113,7 +113,76 @@ Each product has an R Markdown file to import the product, in subdirectory `scri
 * `SPCG100USA_import.Rmd`
 * `LandGIS_import.Rmd`
 
-To compare products, adjust each of these to the area of interest (AOI), property of interest, and the depth slice of interest, and import the product. To compare uncertainties also specify the quantile of interest, for those products that provide it. These should be adjusted in the YAML. Also, the script `Import_all.R` can be used to import one or more products, setting the parameters there.
+To compare products, adjust each of these to the area of interest (AOI), property of interest, and the depth slice of interest, and import the product. To compare uncertainties also specify the quantile of interest, for those products that provide it. These should be adjusted in the YAML header.
+
+The YAML headers include the default parameters and look like:
+
+```
+---
+   params:
+   lrc_long: -76
+   lrc_lat: 42 
+   size: 1
+   voi.n: 4
+   quantile.n: NA 
+   depth.n: 4
+---
+```
+
+These can be overridden with the `params` argument in a call to `rmarkdown::render`.
+
+The script `Import_all.R` can be used to import one or more products, setting the parameters there:
+
+```{r import.all, eval=FALSE}
+import.all <- function(lrc_long, lrc_lat, 
+                       size=1, 
+                       voi.n, 
+                       depth.n=1, 
+                       quantile.n=4, 
+                       which=1:6) {
+  library(knitr)
+  psm.list <- c(
+    "GSM_USA_V05",
+    "SoilGrids250",
+    "POLARIS",
+    "SPCG100USA",
+    "LandGIS",
+    "ISSR8")
+  for (psm in psm.list[which]) {
+    print(paste("Importing", psm))
+    param.list <- list(lrc_long=lrc_long,
+                       lrc_lat=lrc_lat,
+                       size=size,
+                       voi.n=voi.n,
+                       depth.n=depth.n,
+                       quantile.n=quantile.n)
+    
+    out.file.name <- paste0(lrc_long, '_', lrc_lat, '_', 
+                             voi.n, '_', quantile.n, '_', 
+                             depth.n, '.html')
+    
+    rmarkdown::render(paste0(psm, "_import.Rmd"),
+                      params = param.list,
+                      output_file = out.file.name,
+                      envir = new.env(parent = globalenv())
+                      )
+  }
+}
+```
+
+This script can be called as follows, for example:
+
+```{r call.import.all, eval=FALSE}
+import.all(lrc_long=-120, 
+           lrc_lat=38, 
+           size=1, 
+           voi.n=2, 
+           depth.n=2, 
+           quantile.n=4, 
+           which=c(3))
+```
+
+And of course the call to `import.all` can be put with a `for` statement to import several properties, depths, AOI at once.
 
 The AOI is typically a $1 \times 1^\circ$ tile in geographic coordinates. This is because POLARIS is provided in these tiles, and also because this is a large enough area to see the regional differences between products.
 

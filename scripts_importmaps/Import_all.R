@@ -40,4 +40,4 @@ import.all <- function(lrc_long, lrc_lat, size=1, voi.n, depth.n=1, quantile.n=4
   }
 }
 
-import.all(lrc_long=-120, lrc_lat=38, size=1, voi.n=2, depth.n=1, quantile.n=4, which=c(3))
+import.all(lrc_long=-120, lrc_lat=38, size=1, voi.n=2, depth.n=2, quantile.n=4, which=c(3))

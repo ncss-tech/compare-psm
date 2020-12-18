@@ -4,6 +4,7 @@
 *.pdf
 *.Rproj
 *.el
+.RData
 .Rhistory
 .Rproj.user
 LaTeX_tables/
