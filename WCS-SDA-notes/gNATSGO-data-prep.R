@@ -1,0 +1,50 @@
+library(aqp)
+library(soilDB)
+library(reshape2)
+
+library(sp)
+library(raster)
+library(rasterVis)
+library(viridis)
+
+source('local-functions.R')
+
+# AOI corners in WGS84 GCS
+# xmin, ymin, xmax, ymax
+
+# tiny BBOX in MT
+a <- c(-114.16, 47.65, -114.08, 47.68)
+
+# # CA example
+# a <- c(-121, 37, -120, 38)
+# 
+# # MO/AR border
+# a <- c(-91, 36, -90, 37)
+# 
+# # NC
+# a <- c(-76, 35, -75, 36)
+
+
+
+# fetch gNATSGO map unit keys at native resolution
+x <- mukey.wcs(var = 'gnatsgo', aoi = a)
+
+clay_0_5 <- linkComponentHorizonTabular(x, vars = c('claytotal_l', 'claytotal_r', 'claytotal_h'), interval = c(0, 5))
+pH_0_5 <- linkComponentHorizonTabular(x, vars = c('ph1to1h2o_l', 'ph1to1h2o_r', 'ph1to1h2o_h'), interval = c(0, 5))
+
+clay_30_60 <- linkComponentHorizonTabular(x, vars = c('claytotal_l', 'claytotal_r', 'claytotal_h'), interval = c(30, 60))
+pH_30_60 <- linkComponentHorizonTabular(x, vars = c('ph1to1h2o_l', 'ph1to1h2o_r', 'ph1to1h2o_h'), interval = c(30, 60))
+
+levelplot(clay_0_5, margin = FALSE, main = '', scales = list(draw = FALSE), maxpixels = 1e6, col.regions = viridis)
+levelplot(pH_0_5, margin = FALSE, main = '', scales = list(draw = FALSE), maxpixels = 1e6, col.regions = viridis)
+
+levelplot(
+  stack(pH_0_5[[2]], pH_30_60[[2]]), 
+  margin = FALSE, main = 'gNATSGO + SDA', 
+  scales = list(draw = FALSE), 
+  maxpixels = 1e6, 
+  col.regions = viridis,
+  names.attr = c('pH 1:1 H2O (0-5cm)', 'pH 1:1 H2O (30-60cm)')
+  )
+
+
