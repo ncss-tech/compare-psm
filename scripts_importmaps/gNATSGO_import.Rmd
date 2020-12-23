@@ -1,0 +1,255 @@
+---
+title: "gNATSGO -- Import for PSM comparisons"
+author:
+  - "D G Rossiter"
+  - "d.g.rossiter@cornell.edu"
+date: "`r format(Sys.Date(), '%d-%B-%Y')`"
+params:
+   lrc_long: -76
+   lrc_lat: 42 
+   size: 1
+   quantile.n: NA
+   voi.n: 4
+   depth.n: 4
+output:
+  html_document:
+    fig_align: center
+    fig_height: 6
+    fig_width: 6
+    number_section: yes
+    theme: spacelab
+    df_print: paged
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      message = FALSE, 
+                      warning = FALSE, 
+                      purl=FALSE, 
+                      fig.align = 'center')
+knitr::opts_chunk$set(cache.extra = R.version.string)
+```
+
+# Introduction
+
+[gNATSGO](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/survey/geo/?cid=nrcseprd1464625) "is a USDA-NRCS Soil & Plant Science Division (SPSD) composite database that provides complete coverage of the best available soils information for all areas of the United States and Island Territories. It was created by combining data from the Soil Survey Geographic Database (SSURGO), State Soil Geographic Database (STATSGO2), and Raster Soil Survey Databases (RSS) offsite link image into a single seamless ESRI file geodatabase."
+
+It is thus the most authoritative digital product, representing many decades of field work and subsequent compilation.
+
+A description (more or less) is [here](https://nrcs.app.box.com/v/soils/file/744008197230). Unfortunately the instructions are for an ArcInfo toolkit "gSSURGO tools", and it applies to the State-wide products, not the CONUS product.
+
+This script creates a tile for a property and depth slice, over a Area of Interest delimited by geographic coordinates, that can then be compared with other PSM products. 
+
+To use this script:
+
+Steps 1--4 refer to the YAML headers, or external calls with `knitr::render`.
+
+1. Ajust the [directory structure](#dirs) to your system
+
+2. [Select a property](#prop) and [select a depth slice](#depth), using the YAML header or by knitting with parameters.
+
+3. [Select an Area of Interest](#aoi), using the YAML header or by knitting with parameters.
+
+4. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
+
+5. The processed tile will be in the directory structure, in a [subdirectory named for the AOI](#save).
+
+# Packages and Drivers
+
+```{r pack}
+library(sf)
+library(rgdal)
+library(terra) 
+library(tidyverse)
+``` 
+
+Check that the system has a driver for OpenFile Geodatabases, and the possible ESRI grid formats.
+
+```{r drive}
+ogr.d <- ogrDrivers()
+ogr.d[ix <- which(ogr.d$name=="OpenFileGDB"), ]
+gdal.d <- gdalDrivers()
+# 
+gdal.d[which(gdal.d$name=="AAIGrid"),]
+gdal.d[which(gdal.d$name=="AIG"),]
+gdal.d[which(gdal.d$name=="EHdr"),]
+gdal.d[which(gdal.d$name=="E00GRID"),]
+```
+
+
+# Directories {#dirs}
+
+One directory is used for the large original files (all-CONUS grid and all-map unit database), and another for the extracted tiles. Set these to areas on your own system.
+
+```{r}
+base.dir.gnatsgo <- "/Users/rossiter/ds/gNATSGO"
+base.dir.gnatsgo.import <- "/Volumes/Pythagoras/ds/gNATSGO"
+```
+
+# Files
+
+Files are stored [here](https://nrcs.app.box.com/v/soils/folder/125622952915), as a set of compressed files, total 7.3 GB. The `.zip` and all `z[0-1][0-9]` must be downloaded and uncompressed with the Winzip program. Uncompressing `gNATSGO_CONUS.zip` with this program should automatically uncompress the other files, into a huge ESRI geodatbase, 69.4 GB.
+
+"The gNATSGO databases contain a raster of the soil map units and 70 related tables of soil properties and interpretations" as an ESRI Open File Geodatabase.
+
+# Attribute database
+
+Information:
+
+```{r find.db}
+gdb.name <- file.path(base.dir.gnatsgo.import, "gNATSGO_CONUS.gdb")
+file.info(gdb.name)[c("size", "mtime")]
+(db.layers <- ogrListLayers(gdb.name))
+```
+
+No access to rasters! See [this](https://gdal.org/drivers/vector/openfilegdb.html): "The OpenFileGDB driver provides read access to vector layers of File Geodatabases (.gdb directories) created by ArcGIS 9 and above."
+
+But "If you have a recent version of ArcMap (>=10.3.1) or ArcGis Pro (1.1) installed, you can use the R package `arcgisbinding` to connect to ESRI proprietary data sources."  Open-source users do not have this.
+
+Possible solution [ArcRasterRescue](https://github.com/r-barnes/ArcRasterRescue), a C++ program to extract the rasters from a geodatabase.
+
+Look at the survey areas vector coverage:
+
+```{r}
+ogrInfo(gdb.name, "SAPOLYGON")
+(crs_aea <- OGRSpatialRef(gdb.name, "SAPOLYGON"))
+s.areas <- st_read(gdb.name, "SAPOLYGON")
+summary(s.areas)
+dim(s.areas)
+head(sort(unique(s.areas$AREASYMBOL)))
+head(sort(unique(s.areas$LKEY)))
+table(s.areas$SOURCE)
+```
+
+There are `length(unique(s.areas$AREASYMBOL))` unique survey areas from three sources, represented by `dim(s.areas)[1]` polygons. This coverage is not per se useful to us, but would be useful to select only the information from selected survey areas.
+
+The CRS is a CONUS Albers Equal Area.
+
+There is no map unit vector coverage, only a 30~m horizontal resolution grid.
+
+```{r}
+ogrInfo(gdb.name, "mapunit")
+```
+
+
+# Parameters
+
+Parameters for this run:
+
+```{r}
+print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat, "; size:", params$size))
+print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
+```
+
+## Property of interest {#prop}
+
+The following properties can be compared to SoilGrids250 and other PSM products. We need to specify the long GSM names because of the units of measure.
+
+```{r voi.list}
+voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
+voi.list.gnatsgo <- c("claytotal_r_g_kg", "silttotal_r_g_kg", "sandtotal_r_g_kg",
+                  "ph1to1h2o_r_ions_pHx10", "ecec_r_cmolc_kg", "soc_r_mr_g_gF", 
+                  "dbthirdbar_lt2mm_r_g_cm3", "gravel_r_vol_ratio_m3_m3")
+```
+
+*Select a property* by its position in the list, and make a full name from it:
+
+```{r voi}
+(voi.name <- paste0("mu_", voi.list.gnatsgo[params$voi.n], "_"))
+```
+
+
+## Depth of interest {#depth}
+
+```{r depth.list}
+depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
+depth.list.gnatsgo <- c("000_005", "005_015", "015_030", "030_060", "060_100", "100_200")
+```
+
+*Select a depth slice* by its position in the list, based on the YAML or run-time parameter, and make a full name from the property of interest and the selected depth slice:
+
+```{r depth}
+depth.gnatsgo <- depth.list.gnatsgo[params$depth.n]
+(voi.depth.name <- paste0(voi.name, depth.gnatsgo))
+```
+
+
+## Area of Interest (AOI) {#aoi}
+
+Specify the lower-right corner from the YAML or rendering parameters:
+
+```{r lrc}
+tile.lrc <- c(params$lrc_long, params$lrc_lat) # lower-right corner
+```
+
+Compute the upper-left corner:
+
+```{r tile.1}
+# Tile size, in integer degrees
+size.long <- params$size; size.lat <- params$size
+tile.ulc <- c(tile.lrc[1]-size.long, tile.lrc[2]+size.lat) # upper-left corner
+m <- matrix(c(tile.ulc[1],tile.lrc[1],  #ulc
+              tile.ulc[2], tile.lrc[2]  #lrc
+              ),
+            nrow=2)
+bb.ll <- st_sfc(st_multipoint(m))
+st_crs(bb.ll) <- 4326
+```
+
+# Import the grid
+
+*** TBC once we figure out how to extract from the geodatabase...
+
+## Clip to the AOI
+
+Clip to the AOI:
+
+```{r clip.grid}
+bb.vect <- as.vector(matrix(st_bbox(bb.ll), nrow=2, byrow=T))
+r.crop <- terra::crop(r, bb.vect)
+dim(r.crop)
+length(unique(r.crop))
+head(r.crop, rows=8, cols=8)
+```
+
+There are `r length(unique(r.crop))` unique map unit IDs in this window. The upper-left corner is shown with the `head` function.
+
+# Link to attribute of interest
+
+For this we need to find the map unit, its components....
+
+
+# Save tile {#save}
+
+Save this map for further processing, e.g., comparing with SoilGrids250 or other PSM products.
+
+A prefix for directories, to keep AOI results separate.
+
+```{r}
+AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
+                         "_lon", tile.ulc[1], tile.lrc[1])
+```
+
+A directory to store the tile:
+
+```{r save}
+dest.dir <-  paste0(base.dir.gnatsgo, AOI.dir.prefix)
+if (!dir.exists(dest.dir)) {
+   dir.create(dest.dir, recursive = TRUE)
+}
+```
+
+Save the tile. Note that the file name includes the property name and depth slice. Specify the integer datatype and a GeoTIFF "world" file.
+
+```{r}
+f <- terra::writeRaster(r.attr, file=paste0(dest.dir, "/GSM_",
+                                              voi.depth.name, ".tif"),
+                        overwrite=TRUE, datatype="INT2U", options=c("TFW=YES"),
+                        filetype="GTIFF")
+print(f)
+```
+
+
+  

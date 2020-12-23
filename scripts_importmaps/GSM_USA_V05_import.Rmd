@@ -16,6 +16,7 @@ output:
     fig_align: center
     fig_height: 6
     fig_width: 6
+    fig_caption: false
     number_section: yes
     theme: spacelab
     df_print: paged
@@ -29,7 +30,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       warning = FALSE, 
                       purl=FALSE, 
                       fig.align = 'center')
-knitr::opts_chunk$set(cache.extra = R.version.string)
+knitr::opts_chunk$set(cache.extra = R.version.string, comment="")
 ```
 
 # Introduction
@@ -321,7 +322,7 @@ There are `r length(unique(r.crop))` unique map unit IDs in this window. The upp
 Link these values with the grid cell, via the map unit key `mu_key` which is the first column in the reduced data table.
 Determine the substitution value column number from the name.
 
-```{r link}
+```{r link, fig.cap="Raster map of selected attribute, GSM v0.5"}
 m.reclass <- data.frame(from=db.attr[,1],
                     to=db.attr[, match(voi.depth.name, names(db.attr))])
 dim(m.reclass)
@@ -362,6 +363,3 @@ f <- terra::writeRaster(r.attr, file=paste0(dest.dir, "/GSM_",
                         filetype="GTIFF")
 print(f)
 ```
-
-
-  

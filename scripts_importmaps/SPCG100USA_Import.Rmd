@@ -16,6 +16,7 @@ output:
     fig_align: center
     fig_height: 6
     fig_width: 6
+    fig_caption: false
     number_section: yes
     theme: spacelab
     df_print: paged
@@ -25,7 +26,7 @@ output:
 
 ```{r setup, include=FALSE, purl=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, purl = FALSE, fig.align = 'center')
-knitr::opts_chunk$set(cache.extra = R.version.string)
+knitr::opts_chunk$set(cache.extra = R.version.string, comment="")
 ```
 
 
@@ -201,7 +202,7 @@ r.psu.crop.bottom <- terra::crop(r.psu.bottom, bb.aea.ext)
 
 Plot them side-by-side:
 
-```{r crop.plot, fig.width=10, fig.height=5}
+```{r crop.plot, fig.width=10, fig.height=5, fig.cap="Top and bottom of slice, side by side"}
 zlim = c(floor(min(values(r.psu.crop.top), values(r.psu.crop.bottom), na.rm=TRUE)),
          ceiling(max(values(r.psu.crop.top), values(r.psu.crop.bottom), na.rm=TRUE)))
 par(mfrow=c(1,2))
@@ -228,7 +229,7 @@ This is somewhat larger than a $1 \times 1^\circ$ tile, because it is square in 
 
 This is an estimate of the average value of the depth slice:
 
-```{r}
+```{r fig.cap="Averaged slice"}
 r.psu.crop <- ((r.psu.crop.bottom + r.psu.crop.top)/2)
 summary(r.psu.crop)
 plot(r.psu.crop)

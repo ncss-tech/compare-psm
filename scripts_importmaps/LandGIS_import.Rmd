@@ -16,6 +16,7 @@ output:
     fig_align: center
     fig_height: 6
     fig_width: 6
+    fig_caption: false
     number_section: yes
     theme: spacelab
     df_print: paged
@@ -29,7 +30,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       warning = FALSE,
                       purl = FALSE,
                       fig.align = 'center')
-knitr::opts_chunk$set(cache.extra = R.version.string)
+knitr::opts_chunk$set(cache.extra = R.version.string, comment="")
 ```
 
 # Introduction
@@ -304,7 +305,7 @@ r.landgis.crop <- r.top.crop*weights[1] + r.bottom.crop*weights[2]
 
 Show the cropped layer:
 
-```{r plot.properties}
+```{r plot.properties, fig.cap="Cropped LandGIS tile"}
 print(r.landgis.crop)
 summary(r.landgis.crop)
 terra::plot(r.landgis.crop,

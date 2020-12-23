@@ -17,13 +17,14 @@ output:
     number_section: yes
     fig_height: 7
     fig_width: 7
+    fig_caption: false
   pdf_document:
     toc: yes
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, purl = FALSE, fig.align = 'center')
-knitr::opts_chunk$set(cache.extra = R.version.string)
+knitr::opts_chunk$set(cache.extra = R.version.string, comment="")
 ```
 
 # Introduction
@@ -196,7 +197,7 @@ if (!file.exists(dest.file)) {
 
 Read into R and plot:
 
-```{r plot.properties.issr8.import}
+```{r plot.properties.issr8.import, fig.cap="ISSR-800 tile, all USA"}
 r.issr8 <- terra::rast(dest.file)
 print(r.issr8)
 terra::plot(r.issr8, main=paste("ISSR-800;",  main=voi.issr8))
@@ -228,7 +229,7 @@ Crop to the bounding box
 
 Make a `terra` `SpatExtent` object from the bounding box and use it to crop.
 
-```{r plot.properties.issr8.crop}
+```{r plot.properties.issr8.crop, fig.cap="ISSR-800 tile, cropped tile"}
 st_bbox(bb.aea)
 bb.vect <- as.vector(matrix(st_bbox(bb.aea), nrow=2, byrow=T))
 bb.aea.ext <- ext(bb.vect)

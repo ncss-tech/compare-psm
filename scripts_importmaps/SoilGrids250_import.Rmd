@@ -19,11 +19,12 @@ output:
      number_section: TRUE
      fig_height: 4
      fig_width: 4
+     fig_caption: false
 ---
 
 ```{r setup, include=FALSE, purl=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, purl=FALSE, fig.align = 'center')
-knitr::opts_chunk$set(cache.extra = R.version.string)
+knitr::opts_chunk$set(cache.extra = R.version.string, comment="")
 ```
 
 # Introduction
@@ -270,7 +271,7 @@ gdal_translate(src_dataset = file.out.vrt,
 
 Check the result by reading into R, summarizing, and plotting.
 
-```{r get.sg.igh, fig.width=8, fig.height=8}
+```{r get.sg.igh, fig.width=8, fig.height=8, fig.cap="SoilGrids IGH tile"}
 r.sg <- terra::rast(file.out)
 print(r.sg)
 summary(r.sg)
@@ -310,7 +311,7 @@ gdal_translate(src_dataset = file.out.vrt.4326,
 
 Check the result by reading into R, summarizing, and plotting.
 
-```{r get.sg.4326, fig.width=8, fig.height=8}
+```{r get.sg.4326, fig.width=8, fig.height=8, fig.cap="SoilGrids tile, in ESPG 4326"}
 r.sg.4326 <- terra::rast(file.out.4326)
 print(r.sg.4326)
 summary(r.sg.4326)

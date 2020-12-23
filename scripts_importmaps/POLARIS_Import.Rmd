@@ -19,13 +19,14 @@ output:
     number_section: yes
     fig_height: 7
     fig_width: 7
+    fig_caption: false
   pdf_document:
     toc: yes
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, purl=FALSE, fig.align = 'center')
-knitr::opts_chunk$set(cache.extra = R.version.string)
+knitr::opts_chunk$set(cache.extra = R.version.string, comment="")
 ```
 
 # Introduction
@@ -211,9 +212,10 @@ They can be deleted after they have been read into R.
 
 Import to R and print/plot, to check:
 
-```{r}
+```{r fig.cap="Checking the imported POLARIS tile"}
 r <- terra::rast(dest.file)
 print(r)
 plot(r)
 ```
+`
 
