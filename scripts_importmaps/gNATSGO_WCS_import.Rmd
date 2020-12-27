@@ -107,13 +107,14 @@ print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
 
 The following properties can be compared to SoilGrids250 and other PSM products.
 
-*** Check the gNATSGO list.
+Note the ``_r` in the name, this means "representative value".
+
 
 ```{r voi.list}
 voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
-voi.list.gnatsgo <- c("clay", "silt", "sand",
-                  "ph", "cec", "soc", 
-                  "", "")
+voi.list.gnatsgo <- c("claytotal_r", "silttotal_r", "sandtotal_r",
+                  "ph1to1h2o_r", "ecec_r", "soc_r", 
+                  "dbthirdbar_lt2mm_r", "gravel_r")
 ```
 
 *Select a property* by its position in the list, and make a full name from it:
@@ -134,7 +135,7 @@ depth.list.gnatsgo <- c("05", "515", "1530", "3060", "60100", "100200")
 
 ```{r depth}
 depth.gnatsgo <- depth.list.gnatsgo[params$depth.n]
-(voi.depth.name <- paste0(voi.name, "_", depth.gnatsgo, "cm"))
+(voi.depth.name <- paste0(voi.name, "_", depth.gnatsgo))  # , "cm"
 ```
 
 
@@ -158,6 +159,7 @@ m <- matrix(c(tile.ulc[1],tile.lrc[1],  #ulc
             nrow=2)
 bb.ll <- st_sfc(st_multipoint(m))
 st_crs(bb.ll) <- 4326
+print(bb.ll)
 ```
 
 AOI in form needed for gNATSGO WCS import:
@@ -168,21 +170,57 @@ a <- c(tile.ulc[1],tile.lrc[2],
        )
 ```
 
+A prefix for directories, to keep AOI results separate.
+
+```{r aoi.dir.prefix}
+AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
+                         "_lon", tile.ulc[1], tile.lrc[1])
+```
+
+A directory to store the map unit tile and its linked database on import:
+
+```{r save.tile}
+(dest.dir.gnatsgo.import <-  paste0(base.dir.gnatsgo.import, "/", 
+                            AOI.dir.prefix))
+if (!dir.exists(dest.dir.gnatsgo.import)) {
+   dir.create(dest.dir.gnatsgo.import, recursive = TRUE)
+}
+```
+
+A directory to save the processed tile:
+
+```{r save.results}
+dest.dir <-  paste0(base.dir.gnatsgo, "/", AOI.dir.prefix)
+if (!dir.exists(dest.dir)) {
+   dir.create(dest.dir, recursive = TRUE)
+}
+```
+
 # WCS access
 
 
-The 30~m product takes about 63Mb per tile. The default EPSG is 6350.
+The 30~m product takes about 63Mb per spc. The default EPSG is 6350.
 
 ```{r get.tile, fig.cap="Map units at 30m"}
-# mukey.wcs(var = "gnatsgo", aoi, res = 30, crs = "EPSG:6350")
-gn.30m <- soilDB::mukey.wcs(var = 'gnatsgo', aoi = a, res = 30)
-names(gn.30m) <- "mukey"
+spc.name <- "mukey"
+(spc.file <-  paste0(dest.dir.gnatsgo.import, "/", spc.name, ".grd"))
+if (file.exists(spc.file)) {
+  gn.30m <- raster(spc.file)
+} else {
+  system.time(
+    gn.30m <- soilDB::mukey.wcs(var = 'gnatsgo', aoi = a, res = 30) # crs = "EPSG:6350"
+  )
+  names(gn.30m) <- "mukey"
+  writeRaster(gn.30m, spc.file, format = "raster")  # extension  is .grd
+}
 crs(gn.30m)
 bbox(gn.30m)
 summary(gn.30m)
 class(gn.30m)
 rasterVis::levelplot(gn.30m, att = 'ID', margin = FALSE, colorkey = FALSE, ask=FALSE)
 ```
+
+The colours are from the map unit ID, they have no other meaning.
 
 Map unit IDs:
 
@@ -201,16 +239,29 @@ SDA from R is explained in [this tutorial](https://ncss-tech.github.io/AQP/soilD
 
 We have the map unit key, so get their information.
 
-Query SDA by `mukey`.
+Query SDA by `mukey` for this tile.
 
 This will bring down most of the interesting site / horizon level attributes from SSURGO/STATSGO
 
 ```{r}
-# Format vector of values into a string suitable for an SQL `IN` statement
-IS <- soilDB::format_SQL_in_statement(ll$ID)
-# query string
-ws <- sprintf("mukey IN %s", IS)
-mu.info <- soilDB::fetchSDA(WHERE = ws, duplicates = TRUE, droplevels = TRUE, stringsAsFactors = FALSE)
+spc.name <- "muinfo"
+(spc.file <-  paste0(dest.dir.gnatsgo.import, "/", spc.name, ".rds"))
+if (file.exists(spc.file)) {
+  mu.info <- readRDS(spc.file)
+} else {
+  # Format vector of values into a string suitable for an SQL `IN` statement
+  IS <- soilDB::format_SQL_in_statement(ll$ID)
+  # query string -- all components
+  ws <- sprintf("mukey IN %s", IS)
+  system.time(
+    mu.info <- suppressMessages(
+      soilDB::fetchSDA(WHERE = ws, duplicates = TRUE, 
+                       droplevels = TRUE, stringsAsFactors = FALSE,
+                       childs = FALSE)
+    )
+  )
+  saveRDS(mu.info, spc.file)
+}
 class(mu.info)
 ```
 
@@ -219,12 +270,111 @@ class(mu.info)
 
 Aggregate at component level for variable and depth interval of interest. For this we use the `aqp::slab()` function, "Aggregate soil properties along user-defined 'slabs', and optionally within groups".
 
-Note that we get an "extra" depth interval of 5-30
+Set up the depths and formula and then call the function:
 
 ```{r}
-x.a <- aqp::slab(mu.info, cokey ~ ph1to1h2o_r + claytotal_r, 
-            slab.structure = c(0, 5, 30, 60), 
+(slab.depths <- as.numeric(strsplit(depth.list.sg[params$depth.n],"-")[[1]]))
+(slab.fm <- formula(paste0("cokey ~ ", voi.name)))
+mu.attr <- aqp::slab(mu.info, slab.fm, 
+            slab.structure = c(slab.depths[1], slab.depths[2]), 
             slab.fun = mean, na.rm = TRUE)
+head(mu.attr)
+warnings()[1]
+```
+
+Some of the map units have incorrect horizination.
+
+
+Make an ID for reshaping; this is the same for all components:
+
+```{r}
+mu.attr$variable.id <- sprintf("%s%s%s", mu.attr$variable, mu.attr$top, mu.attr$bottom)
+```
+
+Long -> wide format as a dataframe with two columns: the component key and the attribute value in the depth slice.
+
+```{r}
+mu.attr.w <- reshape2::dcast(mu.attr, cokey ~ variable.id, value.var = 'value')
+head(mu.attr.w)
+```
+
+Get the components of each map unit from the site information, via `aqp::site`, and then add the map unit key and proportions to the data frame:
+
+```{r}
+mu.site <- aqp::site(mu.info)[, c('mukey', 'cokey', 'comppct_r')]
+mu.site <- base::merge(mu.site, mu.attr.w, by = 'cokey', sort = FALSE)
+head(mu.site)
+```
+
+
+Look at the composition of the first map unit:
+
+```{r}
+head(mu.site)
+mu.site.split <- split(mu.site, mu.site$mukey)
+(tmp <- mu.site.split[[as.character(mu.site[1,"mukey"])]])
+dim(tmp)
+sum(tmp$comppct_r)
+```
+
+This has `dim(tmp)[1]` components; their proportion adds to `round(sum(tmp$comppct_r),1`%.
+
+Now we have two ways to get properties from the map unit: weighted proportion or dominant component.
+
+Function to weight the property by the component proportion.
+
+Arguments:
+
+* `i`: map unit ID
+* `var.name`: the name of variable to weighted
+* `wt.name`: the name of the field containing the component proportions
+
+Implicit argument (in scope):
+
+* `mu.site.split`: a separate data frame for each site
+
+```{r}
+wt.mean.component <- function(i = 1, var.name, wt.name = 'comppct_r') {
+  
+  # test
+  i <- 1
+  mu.i <- as.character(mu.site.split[[i]]$mukey)
+  str(mu.i)
+  mu.i[[1]]
+  var.name <- "ph1to1h2o_r3060"
+  mu.site.split[[i]][,var.name]
+  wt.name = 'comppct_r'
+  mu.site.split[[i]][,wt.name]
+
+  # remove NA in target variable
+  idx <- which(is.na(mu.site.split[[i]][,var.name]) | 
+                 is.na(mu.site.split[[i]][,wt.name]))
+  # length(idx)
+  if(length(idx) > 0) {
+    mu.i <- mu.i[-idx, ] 
+  }
+  
+
+  #### TO HERE! 
+  
+  # list of components
+  tmp <- mu.site.split[[mu.i]]
+
+    # weighted mean
+  wm <- sum(i[[var]] * i[[wt]]) / sum(i[[wt]])
+  
+  # pack results
+  res <- data.frame(
+    mukey = i$mukey[1],
+    var = wm,
+    stringsAsFactors = FALSE
+  )
+  
+  # re-name for convenience later
+  names(res)[2] <- var
+  
+  return(res)
+}
 ```
 
 
@@ -233,26 +383,10 @@ x.a <- aqp::slab(mu.info, cokey ~ ph1to1h2o_r + claytotal_r,
 
 Save this map for further processing, e.g., comparing with SoilGrids250 or other PSM products.
 
-A prefix for directories, to keep AOI results separate.
-
-```{r}
-AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
-                         "_lon", tile.ulc[1], tile.lrc[1])
-```
-
-A directory to store the tile:
-
-```{r save}
-dest.dir <-  paste0(base.dir.gnatsgo, AOI.dir.prefix)
-if (!dir.exists(dest.dir)) {
-   dir.create(dest.dir, recursive = TRUE)
-}
-```
-
 Save the tile. Note that the file name includes the property name and depth slice. Specify the integer datatype and a GeoTIFF "world" file.
 
 ```{r}
-f <- terra::writeRaster(r.attr, file=paste0(dest.dir, "/GSM_",
+f <- terra::writeRaster(r.attr, file=paste0(dest.dir, "/gNATSGO_",
                                               voi.depth.name, ".tif"),
                         overwrite=TRUE, datatype="INT2U", options=c("TFW=YES"),
                         filetype="GTIFF")

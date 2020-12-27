@@ -1,0 +1,58 @@
+---
+title: "gNATSGO_WCS_Import_CutStuff"
+author: "D G Rossiter"
+date: "12/27/2020"
+output: html_document
+---
+
+Material removed from `gNATSGO_WCS_Import.Rmd` because superseded (?), here for possible recovery/later use.
+
+-----------------------------------------
+
+
+Get the list of map units, each as a separate data frame:
+
+```{r}
+ss <- split(s, s$mukey)
+head(ss, 1)
+as.character(ss[[1]]$mukey)
+```
+
+Compute the  mean of the property weighted by component percentage. Apply over the list, then put them together in one data frame:
+
+```{r}
+mu.attr.weighted <- lapply(ss, FUN = wt.mean.component, var = voi.depth.name)
+mu.attr.weighted <- do.call("rbind", mu.attr.weighted) 
+head(mu.attr.weighted)
+```
+
+
+
+# merge all aggregate data into RAT
+rat <- merge(ll, clay05, by.x = 'ID', by.y = 'mukey', sort = FALSE, all.x = TRUE)
+rat <- merge(rat, clay3060, by.x = 'ID', by.y = 'mukey', sort = FALSE, all.x = TRUE)
+rat <- merge(rat, ph05, by.x = 'ID', by.y = 'mukey', sort = FALSE, all.x = TRUE)
+rat <- merge(rat, ph3060, by.x = 'ID', by.y = 'mukey', sort = FALSE, all.x = TRUE)
+
+# NA present?
+# if so, does it matter?
+
+# preservation of mukey?
+nrow(ll) == nrow(rat)
+
+# re-pack RAT
+levels(gn.300m) <- rat
+
+# convert to raster of values via RAT
+gn.300m.pH_05cm <- deratify(gn.300m, att = 'ph1to1h2o_r05')
+gn.300m.pH_3060cm <- deratify(gn.300m, att = 'ph1to1h2o_r3060')
+gn.300m.clay_05cm <- deratify(gn.300m, att = 'claytotal_r05')
+gn.300m.clay_3060cm <- deratify(gn.300m, att = 'claytotal_r3060')
+
+# hey, it worked!
+levelplot(gn.300m.pH_05cm, margin = FALSE, main = 'gNATSGO 1:1 H2O pH 0-5cm')
+levelplot(gn.300m.pH_3060cm, margin = FALSE, main = 'gNATSGO 1:1 H2O pH 30-60cm')
+
+levelplot(gn.300m.clay_05cm, margin = FALSE, main = 'gNATSGO % clay 0-5cm')
+levelplot(gn.300m.clay_3060cm, margin = FALSE, main = 'gNATSGO % clay 30-60cm')
+
