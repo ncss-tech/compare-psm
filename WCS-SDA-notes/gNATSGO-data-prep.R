@@ -24,6 +24,7 @@ a <- c(-114.16, 47.65, -114.08, 47.68)
 # # NC
 # a <- c(-76, 35, -75, 36)
 
+# simplest AOI specification for mukey.wcs
 aoi <- list(
   aoi = a,
   crs = '+init=EPSG:4326'
