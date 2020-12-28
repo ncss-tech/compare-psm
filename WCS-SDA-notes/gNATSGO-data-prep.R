@@ -24,10 +24,14 @@ a <- c(-114.16, 47.65, -114.08, 47.68)
 # # NC
 # a <- c(-76, 35, -75, 36)
 
+aoi <- list(
+  aoi = a,
+  crs = '+init=EPSG:4326'
+)
 
 
 # fetch gNATSGO map unit keys at native resolution
-x <- mukey.wcs(var = 'gnatsgo', aoi = a)
+x <- mukey.wcs(db = 'gnatsgo', aoi = aoi)
 
 clay_0_5 <- linkComponentHorizonTabular(x, vars = c('claytotal_l', 'claytotal_r', 'claytotal_h'), interval = c(0, 5))
 pH_0_5 <- linkComponentHorizonTabular(x, vars = c('ph1to1h2o_l', 'ph1to1h2o_r', 'ph1to1h2o_h'), interval = c(0, 5))
