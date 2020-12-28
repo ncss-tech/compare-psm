@@ -10,7 +10,7 @@ params:
    size: 1
    quantile.n: NA
    voi.n: 4
-   depth.n: 1
+   depth.n: 4
 output:
   html_document:
     fig_align: center
@@ -227,6 +227,7 @@ dim(mu.list)
 ```
 
 There are `r dim(mu.list)[1]` unique map unit IDs in this window.
+This is the basis of the RAT for eventual map reclassification; we will add the attribute values as a second field.
 
 # Attributes database
 
@@ -288,7 +289,10 @@ For some tiles, some of the map units have incorrect horizination.
 Make an ID field for reshaping; this is the same for all components:
 
 ```{r}
-mu.attr$variable.id <- sprintf("%s%s%s%s", mu.attr$variable, "_", mu.attr$top, mu.attr$bottom)
+mu.attr$variable.id <- sprintf("%s%s%s%s", 
+                               mu.attr$variable, "_", 
+                               mu.attr$top, 
+                               mu.attr$bottom)
 ```
 
 Long -> wide format as a dataframe with two columns: the component key and the attribute value in the depth slice.
@@ -307,11 +311,19 @@ mu.site <- base::merge(mu.site, mu.attr.w, by = 'cokey', sort = FALSE)
 
 So now we have the map unit, its components, their percentages of the map unit, and each component's attribute value averaged over the depth slice.
 
+Split this into separate data frames for each map unit:
+
+```{r split.mu.site}
+mu.site.split <- base::split(mu.site, as.factor(mu.site$mukey), 
+                             lex.order = TRUE)
+```
+
+Note that the list of data frames is in lexical order, i.e., the map unit code.
+
 Look at the composition of the first map unit:
 
-```{r}
-mu.site.split <- split(mu.site, mu.site$mukey)
-(tmp <- mu.site.split[[as.character(mu.site[1,"mukey"])]])
+```{r show.first.mu.site}
+(tmp <- mu.site.split[[1]])
 dim(tmp)
 sum(tmp$comppct_r)
 ```
@@ -320,9 +332,14 @@ This has `dim(tmp)[1]` components; their proportion adds to `round(sum(tmp$compp
 
 Now we have two ways to get properties from the map unit: weighted proportion or dominant component.
 
+
 # Functions
 
-## Weight the property by the component proportions
+## Get the property value of the dominant component 
+
+This is not yet implemented.
+
+## Weight the property value by the component proportions
 
 Define a function to weight the property by the component proportions.
 
@@ -339,8 +356,6 @@ Implicit argument (in scope):
 ```{r}
 wt.mean.component <- function(i = 1, var.name, wt.name = 'comppct_r') {
 
-  var.name <- voi.depth.name
-  
   # make a local copy of this map unit's information
   mu.info <- mu.site.split[[i]]
 
@@ -371,14 +386,17 @@ wt.mean.component <- function(i = 1, var.name, wt.name = 'comppct_r') {
 
 # Reclassify raster map
 
-Call the weight function for each map unit and add the result to the dataframe of map unit IDs:
+Call the weight function for each map unit and add the result to the data frame of map unit IDs.
+We have to match the map unit ID of the result with that of the map unit list in the RAT.
 
 ```{r build.weighted.result}
 result.field <- "mean.val.aggr"
 mu.list[ , result.field] <- as.numeric(NA)
 for (i in 1:length(mu.site.split)) {
+  mu.id <- as.character(mu.site.split[[i]][1, "mukey"])
   mean.wt <- wt.mean.component(i, voi.depth.name, "comppct_r")[, voi.depth.name]
-  mu.list[i, result.field] <- mean.wt
+  ix <- which(mu.list$ID == mu.id)
+  mu.list[ix, result.field] <- mean.wt
 }
 head(mu.list)
 ```
@@ -418,4 +436,3 @@ print(f)
 ```
 
 
-  
