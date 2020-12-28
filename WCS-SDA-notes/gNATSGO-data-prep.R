@@ -72,3 +72,9 @@ levelplot(
   )
 
 
+# double-check with mapview
+library(mapview)
+mapview(pH_30_60[[2]], maxpixels = 1e5)
+
+
+
