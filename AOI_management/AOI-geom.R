@@ -4,8 +4,8 @@
 
 ## contents of AOI.csv borrowed from DGR's code:
 
-# tile.lrc <- c(-122, 46) # lower-right corner: Centralia WA
-# tile.lrc <- c(-76, 41) # lower-right corner: central NY
+# tile.lrc <- c(-122, 46)  # lower-right corner: Centralia WA
+# tile.lrc <- c(-76, 41)   # lower-right corner: central NY
 # tile.lrc <- c(-76, 35)   # lower-right corner: coastal plain NC
 # tile.lrc <- c(119, 32)   # lower-right corner: Nanjing area
 # tile.lrc <- c(-76, 42)   # lower-right corner: northern tier PA, southern tier NY
