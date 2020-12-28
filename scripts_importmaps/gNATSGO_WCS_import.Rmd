@@ -156,7 +156,9 @@ print(bb.ll)
 AOI in form needed for gNATSGO WCS import:
 
 ```{r wcs.aoi}
-(wcs.aoi <- c(tile.ulc[1],tile.lrc[2], tile.lrc[1], tile.ulc[2]))
+wcs.aoi <- list(
+  aoi = c(tile.ulc[1],tile.lrc[2], tile.lrc[1], tile.ulc[2]),
+  crs = '+init=EPSG:4326')
 ```
 
 A prefix for directories, to keep AOI results separate.
