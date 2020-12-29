@@ -10,7 +10,7 @@ params:
    size: 1
    quantile.n: NA
    voi.n: 4
-   depth.n: 4
+   depth.n: 1
 output:
   html_document:
     fig_align: center
@@ -104,8 +104,8 @@ Note the ``_r` in the name, this means "representative value".
 ```{r voi.list}
 voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
 voi.list.gnatsgo <- c("claytotal_r", "silttotal_r", "sandtotal_r",
-                  "ph1to1h2o_r", "ecec_r", "soc_r", 
-                  "dbthirdbar_lt2mm_r", "gravel_r")
+                  "ph1to1h2o_r", "cec7_r", "om_r",   # note SOM not SOC
+                  "dbthirdbar_r", "sieveno10_r") # passing 2.0 mm sieve, complement is coarse fragments
 ```
 
 *Select a property* by its position in the list, and make a full name from it:
@@ -430,7 +430,7 @@ Save the tile. Note that the file name includes the property name and depth slic
 ```{r}
 f <- terra::writeRaster(r.attr, file=paste0(dest.dir, "/",
                                               voi.depth.name, ".tif"),
-                        overwrite=TRUE, datatype="INT2U", options=c("TFW=YES"),
+                        overwrite=TRUE, datatype="FLT4S", options=c("TFW=YES"),
                         filetype="GTIFF")
 print(f)
 ```

@@ -1,6 +1,7 @@
 # Extract code from scripts
 library(knitr)
 import.scripts <- paste0(c(
+  "gNATSGO_WCS",
   "GSM_USA_V05",
   "SoilGrids250",
   "POLARIS",
