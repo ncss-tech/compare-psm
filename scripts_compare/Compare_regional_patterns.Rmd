@@ -36,9 +36,15 @@ We consider this an appropriate resolution for regional studies.
 
 In this script we quantify the *spatial* agreement between soil maps, using several methods: (1) ["V metrics"](#vmetrics) (2) [Landscape metrics](#landscapemetrics) similar to FRAGSTATS, as used in ecology.
 
-Depending on the [property of interest](#voi), the following can be compared:
+Depending on the [property of interest](#voi), the following can be compared.
 
+These two are always compared:
+
+* [gNATSGO](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/survey/geo/?cid=nrcseprd1464625);
 * [SoiLGrids250](https://www.isric.org/explore/soilgrids)  from ISRIC further abbreviated as _SG2_;
+
+These can be included:
+
 * [Global Soil Map v0.5 for the USA](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/research/?cid=nrcseprd1321715), further abbreviated as _GSMv05_;
 * [Intermediate-scale gridded soil property and interpretation maps from averaged and aggregated SSURGO and STATSGO data](https://github.com/ncss-tech/ISSR-800), further abbreviated as _ISSR-800_;
 * POLARIS Soil Properties;
@@ -55,13 +61,55 @@ To use this script:
 
 3. [Select an Area of Interest](#aoi), using the YAML header or by knitting with parameters.
 
-4. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
+These three can be adjusted in the YAML header; these include the default parameters and look like:
 
-5. Generated figures will be in directory `./figs/compare_maps/`. These will be specific to the AOI, property and depth slice. So to save them from over-writing by other runs, move them to another directory.
+```
+---
+   params:
+   lrc_long: -76
+   lrc_lat: 42 
+   size: 1
+   voi.n: 4
+   quantile.n: NA 
+   depth.n: 4
+---
+```
 
-6. Generated tables in \LaTeX format will be in directory `../LaTeX_tables`. The table names include AOI, property and depth slice and so are not over-written.
+4. Select the [maps to compare](#which); default (always included) are gNATSGO (the base product from NRCS) and SoilGrids250 (the globally-consistent product from ISRIC).
+Other independent USA products are SPCG100USA, and POLARIS. This is because ISSR-800 is derived from gNATSGO and at coarser resolution, and GSM v0.5 is based on older field data (2015) than gNATSGO (current) at the same resolution ($\approx 90$) m.
 
-# Packages
+5. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
+
+Generated figures will be in directory `./figs/compare_maps/`, in a subdirectory named for the AOI. The file name includes the PSM method, property and depth slice.
+
+Generated tables in \LaTeX format will be in directory `../LaTeX_tables`. The table names include AOI, property and depth slice.
+
+# Setup
+
+## Maps to compare {#which}
+
+This vector names the products, other than gNATSGO and SoilGrids250, to include in the comparison. This string will be checked before importing a product; if the product is either not named here or not imported at all, it will not be included in the analysis.
+
+```{r compare.which}
+products <- c("POLARIS", "SPCG100USA") #, "LandGIS", "ISSR-800", "GSM v0.5"
+```
+
+Based on the number of products, set some variables to be used in formatting figures:
+
+```{r}
+n.products <- 2 + length(products)
+n.figs.row <- ceiling(sqrt(n.products))
+n.figs.col <- ceiling(n.products/n.figs.row)
+map.fig.width <- n.figs.col*5
+map.fig.height <- n.figs.row*5
+# difference maps have one fewer subfigure, put one more per row
+n.figs.row.diff <- n.figs.row-1
+n.figs.col.diff <- n.figs.col+1
+map.fig.width.diff <- n.figs.col.diff*4
+map.fig.height.diff <- n.figs.row.diff*4
+```
+
+## Packages
 
 ```{r}
 library(raster, warn.conflicts=FALSE)      # previous version of raster classes now in `terra`
@@ -146,15 +194,15 @@ voi.depth <- paste0(voi.sg, "_", depth.list.sg[params$depth.n])
 
 # Source rasters
 
-The maps from SG2, SPCG100USA and POLARIS were upscaled to 800 m, to match ISSR800 (reference, considered the most correct)  These were saved in script `ISSR800_compare_all.Rmd`.
-
 Load the rasters and name the data item generically, so it can be used in expressions.
 
 ```{r}
-(gsm <- rast(paste0(base.dir, aoi, "/gsm_tile_250_", voi.depth, ".tif")))
-names(gsm) <- "voi"
+(gnatsgo <- rast(paste0(base.dir, aoi, "/gnatsgo_tile_250_", voi.depth, ".tif")))
+names(gnatsgo) <- "voi"
 (sg <- rast(paste0(base.dir, aoi, "/sg_tile_250_", voi.depth, ".tif")))
-names(sg) <- "voi"
+names(gnatsgo) <- "voi"
+file.name <- paste0(base.dir, aoi, "/gsm_tile_250_", voi.depth, ".tif")
+if (file.exists(file.name)) { (gsm <- rast(file.name)); names(gsm) <- "voi" }
 file.name <- paste0(base.dir, aoi, "/issr8_tile_250_", voi.depth, ".tif")
 if (file.exists(file.name)) { (issr8 <- rast(file.name)); names(issr8) <- "voi" }
 file.name <- paste0(base.dir, aoi, "/psu_tile_250_", voi.depth, ".tif")
@@ -183,8 +231,9 @@ tmp["xmin"] <- tmp["xmax"] - test.tile.size
 tmp["ymin"] <- tmp["ymin"] + test.tile.y.offset
 tmp["ymax"] <- tmp["ymin"] + test.tile.size
 ext(tmp)
+gnatsgo.crop <- crop(gnatsgo, ext(tmp))
 sg.crop <- crop(sg, ext(tmp))
-gsm.crop <- crop(gsm, ext(tmp))
+if (exists("gsm")) { gsm.crop <- crop(gsm, ext(tmp)) }
 if (exists("issr8")) { issr8.crop <- crop(issr8, ext(tmp)) }
 if (exists("psu")) { psu.crop <- crop(psu, ext(tmp)) }
 if (exists("polaris")) { polaris.crop <- crop(polaris, ext(tmp)) }
@@ -195,14 +244,16 @@ Determine the full range of the property across all maps, to one decimal place:
 
 ```{r zlim}
 zlim <- c(floor(min(values(sg.crop)*10,
-                    values(gsm.crop)*10,
+                    values(gnatsgo.crop)*10,
+                    ifelse(exists("gsm"), values(gsm.crop)*10, NA),
                     ifelse(exists("issr8.crop"), values(issr8.crop)*10, NA),
                     ifelse(exists("psu.crop"), values(psu.crop)*10, NA),
                     ifelse(exists("polaris.crop"), values(polaris.crop)*10, NA),
                     ifelse(exists("landgis.crop"), values(landgis.crop)*10, NA),
                     na.rm=TRUE)),
           ceiling(max(values(sg.crop)*10,
-                      values(gsm.crop)*10, 
+                      values(gnatsgo.crop)*10,
+                      ifelse(exists("gsm"), values(gsm.crop)*10, NA),
                       ifelse(exists("issr8.crop"), values(issr8.crop)*10,  NA),
                       ifelse(exists("psu.crop"), values(psu.crop)*10, NA),
                       ifelse(exists("polaris.crop"), values(polaris.crop)*10, NA),
@@ -215,8 +266,9 @@ Now show the maps together:
 
 ```{r side.by.side, fig.width=12, fig.height=18}
 par(mfrow=c(3,2))
-plot(gsm.crop, main="GSM v0.5", range=zlim)
+plot(gnatsgo.crop, main="gNATSGO", range=zlim)
 plot(sg.crop, main="SoilGrids250", range=zlim)
+if (exists("gsm.crop")) { plot(gsm.crop, main="GSM v0.5", range=zlim) }
 if (exists("psu.crop")) plot(psu.crop, main="SPCG100USA", range=zlim)
 if (exists("polaris.crop")) plot(polaris.crop, main="POLARIS", range=zlim)
 if (exists("landgis.crop")) plot(landgis.crop, main="LandGIS", range=zlim)
@@ -244,29 +296,34 @@ rmse.adj <- function(v1, v2) {   # RMSE adjusted for ME (bias)
 ```{r}
 stats.compare <- data.frame(PSM_product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
 stats.compare[1, ] <- c("SoilGrids250",
-                        me(values(gsm.crop),values(sg.crop)),
-                        rmse(values(gsm.crop),values(sg.crop)),
-                        rmse.adj(values(gsm.crop),values(sg.crop))
+                        me(values(gnatsgo.crop),values(sg.crop)),
+                        rmse(values(gnatsgo.crop),values(sg.crop)),
+                        rmse.adj(values(gnatsgo.crop),values(sg.crop))
+                        )
+if (exists("gsm.crop")) stats.compare[2, ] <- c("GSM v0.5",
+                        me(values(gnatsgo.crop),values(gsm.crop)),
+                        rmse(values(gnatsgo.crop),values(gsm.crop)),
+                        rmse.adj(values(gnatsgo.crop),values(gsm.crop))
                         )
 if (exists("psu.crop")) stats.compare[2, ] <- c("SPCG100USA",
-                        me(values(gsm.crop),values(psu.crop)),
-                        rmse(values(gsm.crop),values(psu.crop)),
-                        rmse.adj(values(gsm.crop),values(psu.crop))
+                        me(values(gnatsgo.crop),values(psu.crop)),
+                        rmse(values(gnatsgo.crop),values(psu.crop)),
+                        rmse.adj(values(gnatsgo.crop),values(psu.crop))
                         )
 if (exists("polaris.crop")) stats.compare[3, ] <- c("POLARIS",
-                        me(values(gsm.crop),values(polaris.crop)),
-                        rmse(values(gsm.crop),values(polaris.crop)),
-                        rmse.adj(values(gsm.crop),values(polaris.crop))
+                        me(values(gnatsgo.crop),values(polaris.crop)),
+                        rmse(values(gnatsgo.crop),values(polaris.crop)),
+                        rmse.adj(values(gnatsgo.crop),values(polaris.crop))
                         )
 if (exists("landgis.crop")) stats.compare[4, ] <- c("POLARIS",
-                        me(values(gsm.crop),values(landgis.crop)),
-                        rmse(values(gsm.crop),values(landgis.crop)),
-                        rmse.adj(values(gsm.crop),values(landgis.crop))
+                        me(values(gnatsgo.crop),values(landgis.crop)),
+                        rmse(values(gnatsgo.crop),values(landgis.crop)),
+                        rmse.adj(values(gnatsgo.crop),values(landgis.crop))
                         )
 if (exists("issr8.crop")) stats.compare[5, ] <- c("POLARIS",
-                        me(values(gsm.crop),values(issr8.crop)),
-                        rmse(values(gsm.crop),values(issr8.crop)),
-                        rmse.adj(values(gsm.crop),values(issr8.crop))
+                        me(values(gnatsgo.crop),values(issr8.crop)),
+                        rmse(values(gnatsgo.crop),values(issr8.crop)),
+                        rmse.adj(values(gnatsgo.crop),values(issr8.crop))
                         )
 print(stats.compare)
 ```
@@ -279,29 +336,32 @@ So also make a bias-adjusted version of the PSM products, using GSM as the basis
 
 
 ```{r side.by.side.unbiased, fig.width=12, fig.height=12}
-sg.adj <- sg.crop + me(values(gsm.crop),values(sg.crop))
-if (exists("psu.crop")) psu.adj <- psu.crop + me(values(gsm.crop),values(psu.crop))
-if (exists("polaris.crop")) polaris.adj <- polaris.crop + me(values(gsm.crop),values(polaris.crop))
-if (exists("landgis.crop")) landgis.adj <- landgis.crop + me(values(gsm.crop),values(landgis.crop))
-if (exists("issr8.crop")) issr8.adj <- issr8.crop + me(values(gsm.crop),values(issr8.crop))
+sg.adj <- sg.crop + me(values(gnatsgo.crop),values(sg.crop))
+if (exists("gsm.crop")) gsm.adj <- gsm.crop + me(values(gnatsgo.crop),values(gsm.crop))
+if (exists("psu.crop")) psu.adj <- psu.crop + me(values(gnatsgo.crop),values(psu.crop))
+if (exists("polaris.crop")) polaris.adj <- polaris.crop + me(values(gnatsgo.crop),values(polaris.crop))
+if (exists("landgis.crop")) landgis.adj <- landgis.crop + me(values(gnatsgo.crop),values(landgis.crop))
+if (exists("issr8.crop")) issr8.adj <- issr8.crop + me(values(gnatsgo.crop),values(issr8.crop))
 ```
 
 Recompute limits:
 
 ```{r zlim.adj}
-zlim.adj <- c(floor(min(values(sg.adj)*10,
-                    values(gsm.crop)*10,
-                    ifelse(exists("issr8.adj"), values(issr8.adj)*10, NA),
-                    ifelse(exists("psu.adj"), values(psu.adj)*10, NA),
-                    ifelse(exists("polaris.adj"), values(polaris.adj)*10, NA),
-                    ifelse(exists("landgis.adj"), values(landgis.adj)*10, NA),
+zlim.adj <- c(floor(min(values(sg.crop)*10,
+                    values(gnatsgo.crop)*10,
+                    ifelse(exists("gsm"), values(gsm.crop)*10, NA),
+                    ifelse(exists("issr8.crop"), values(issr8.crop)*10, NA),
+                    ifelse(exists("psu.crop"), values(psu.crop)*10, NA),
+                    ifelse(exists("polaris.crop"), values(polaris.crop)*10, NA),
+                    ifelse(exists("landgis.crop"), values(landgis.crop)*10, NA),
                     na.rm=TRUE)),
-          ceiling(max(values(sg.adj)*10,
-                      values(gsm.crop)*10, 
-                      ifelse(exists("issr8.adj"), values(issr8.adj)*10,  NA),
-                      ifelse(exists("psu.adj"), values(psu.adj)*10, NA),
-                      ifelse(exists("polaris.adj"), values(polaris.adj)*10, NA),
-                      ifelse(exists("landgis.adj"), values(landgis.adj)*10, NA),
+          ceiling(max(values(sg.crop)*10,
+                      values(gnatsgo.crop)*10,
+                      ifelse(exists("gsm"), values(gsm.crop)*10, NA),
+                      ifelse(exists("issr8.crop"), values(issr8.crop)*10,  NA),
+                      ifelse(exists("psu.crop"), values(psu.crop)*10, NA),
+                      ifelse(exists("polaris.crop"), values(polaris.crop)*10, NA),
+                      ifelse(exists("landgis.crop"), values(landgis.crop)*10, NA),
                       na.rm=TRUE)))/10
 print(zlim.adj)
 ```
@@ -313,8 +373,9 @@ Removing bias changes the spatial statistics only slightly, because the cut poin
 So for now, _do not adjust_: here we re-set the "adjusted" to the original:
 
 ```{r reset.adj}
-# gsm was the basis
+# gnatsgo was the basis
 sg.adj <- sg.crop
+if (exists("gsm.crop")) gsm.adj <- gsm.crop
 if (exists("psu.crop")) psu.adj <- psu.crop
 if (exists("polaris.crop")) polaris.adj <- polaris.crop
 if (exists("landgis.crop")) landgis.adj <- landgis.crop
@@ -340,8 +401,9 @@ A better method is histogram equalization, with a user-defined number of classes
 ```{r hist.equal.cuts, fig.width=8, fig.height=4}
 n.class <- 8
 #
-values.all <- c(values(gsm.crop),
+values.all <- c(values(gnatsgo.crop),
                 values(sg.adj), 
+                ifelse(exists("gsm.adj"), values(gsm.adj), NA),
                 ifelse(exists("issr8.adj"), values(issr8.adj), NA),
                 ifelse(exists("psu.adj"), values(psu.adj), NA),
                 ifelse(exists("landgis.adj"), values(landgis.adj), NA),
@@ -367,11 +429,11 @@ We set up a colour ramp that covers the entire range, and then select the colour
 color.ramp <- bpy.colors(n.class)
 #
 (class.limits <- c(zlim.adj[1], cuts, zlim.adj[2]))
-gsm.class <- classify(gsm.crop, rcl=class.limits)
-# gsm.class <- as.factor(gsm.class)
-table(values(gsm.class))
-# .l <- range(values(gsm.class), na.rm=TRUE)
-# terra::plot(gsm.class,
+gnatsgo.class <- classify(gnatsgo.crop, rcl=class.limits)
+# gnatsgo.class <- as.factor(gnatsgo.class)
+table(values(gnatsgo.class))
+# .l <- range(values(gnatsgo.class), na.rm=TRUE)
+# terra::plot(gnatsgo.class,
 #             col=color.ramp[.l[1]:.l[2]], type="classes",
 #             main="SoilGrids250")
 #
@@ -383,6 +445,16 @@ table(values(sg.class))
 #             col=color.ramp[.l[1]:.l[2]], type="classes",
 #             main="SoilGrids250")
 #
+if (exists("gsm.adj")) {
+  gsm.class <- classify(gsm.adj, rcl=class.limits)
+  table(values(gsm.class))
+  # gsm.class <- as.factor(gsm.class)
+  # .l <- range(values(gsm.class), na.rm=TRUE)
+  # terra::plot(gsm.class,
+  #             col=color.ramp[.l[1]:.l[2]], type="classes",
+  #             main="GSM")
+  #
+}
 if (exists("issr8.adj")) {
   issr8.class <- classify(issr8.adj, rcl=class.limits)
   table(values(issr8.class))
@@ -427,14 +499,20 @@ if (exists("landgis.adj")) {
 
 ```{r show.classified, fig.width=18, fig.height=12}
 par(mfrow=c(2,3))
-.l <- range(values(gsm.class), na.rm=TRUE)
-terra::plot(gsm.class,
+.l <- range(values(gnatsgo.class), na.rm=TRUE)
+terra::plot(gnatsgo.class,
             col=color.ramp[.l[1]:.l[2]], type="classes",
-            main="GSM v0.5")
+            main="gNATSGO")
 .l <- range(values(sg.class), na.rm=TRUE)
 terra::plot(sg.class,
             col=color.ramp[.l[1]:.l[2]], type="classes",
             main="SoilGrids250")
+if (exists("gsm.class")) {
+  .l <- range(values(gsm.class), na.rm=TRUE)
+  terra::plot(gsm.class,
+              col=color.ramp[.l[1]:.l[2]], type="classes",
+              main="GSM")
+}
 if (exists("psu.class")) {
   .l <- range(values(psu.class), na.rm=TRUE)
   terra::plot(psu.class,
@@ -464,31 +542,31 @@ par(mfrow=c(1,1))
 
 ## Cross-classification
 
-Cross-classification GSM (rows) vs. SoilGrids250 (columns):
+Cross-classification gNATSGO (rows) vs. SoilGrids250 (columns):
 
 ```{r xclass.1}
-table(as.vector(gsm.class), as.vector(sg.class))
+table(as.vector(gnatsgo.class), as.vector(sg.class))
 ```
 
-Cross-classification GSM (rows) vs. SPCG100USA (columns):
+Cross-classification gNATSGO (rows) vs. SPCG100USA (columns):
 
 ```{r xclass.2}
 if (exists("psu.class")) { 
-  table(as.vector(gsm.class), as.vector(psu.class))
+  table(as.vector(gnatsgo.class), as.vector(psu.class))
 }
 ```
 
-Cross-classification GSM (rows) vs. POLARIS (columns):
+Cross-classification gNATSGO (rows) vs. POLARIS (columns):
 
 ```{r xclass.2a}
 if (exists("polaris.class")) {
-  table(as.vector(gsm.class), as.vector(polaris.class))
+  table(as.vector(gnatsgo.class), as.vector(polaris.class))
 }
 ```
 
 ```{r xclass.2b}
 if (exists("landgis.class")) { 
-  table(as.vector(gsm.class), as.vector(landgis.class))
+  table(as.vector(gnatsgo.class), as.vector(landgis.class))
 }
 ```
 
@@ -511,7 +589,7 @@ The V-metrics require polygon maps, not gridded maps of classes.
 Polygonize them:
 
 ```{r polygonize}
-gsm.poly <- terra::as.polygons(gsm.class, dissolve=TRUE, trunc=FALSE)
+gnatsgo.poly <- terra::as.polygons(gnatsgo.class, dissolve=TRUE, trunc=FALSE)
 sg.poly <- terra::as.polygons(sg.class, dissolve=TRUE, trunc=FALSE)
 if (exists("issr8.class")) issr8.poly <- terra::as.polygons(issr8.class, dissolve=TRUE, trunc=FALSE)
 if (exists("psu.class")) psu.poly <- terra::as.polygons(psu.class, dissolve=TRUE, trunc=FALSE)
@@ -528,14 +606,21 @@ Convert the `terra::SpatVector` objects to Simple Features. As of now (2020-08-2
 ```{r convert.polygons.sf}
 #
 tmpf1 <- tempfile()
-terra::writeVector(gsm.poly, tmpf1, overwrite=TRUE)
-gsm.sf <- st_read(tmpf1); unlink(tmpf1)
-names(gsm.sf)[1] <- "class"
+terra::writeVector(gnatsgo.poly, tmpf1, overwrite=TRUE)
+gnatsgo.sf <- st_read(tmpf1); unlink(tmpf1)
+names(gnatsgo.sf)[1] <- "class"
 #
 tmpf2 <- tempfile()
 terra::writeVector(sg.poly, tmpf2, overwrite=TRUE)
 sg.sf <- st_read(tmpf2); unlink(tmpf2)
 names(sg.sf)[1] <- "class"
+#
+if (exists("gsm.class")) { 
+  tmpf5 <- tempfile()
+  terra::writeVector(gsm.poly, tmpf5, overwrite=TRUE)
+  gsm.sf <- st_read(tmpf5); unlink(tmpf5)
+  colnames(gsm.sf)[1] <- "class"
+}
 #
 if (exists("psu.class")) {
   tmpf3 <- tempfile()
@@ -575,13 +660,18 @@ The topology is not correct, so `vmeasure_calc` throws an error. Clean up the to
 See https://www.r-spatial.org/r/2017/03/19/invalid.html. 
 
 ```{r}
-st_is_valid(gsm.sf, reason=TRUE)
-gsm.sf.v <- sf::st_make_valid(gsm.sf)
-# st_is_valid(gsm.sf.v, reason=TRUE)
+st_is_valid(gnatsgo.sf, reason=TRUE)
+gnatsgo.sf.v <- sf::st_make_valid(gnatsgo.sf)
+# st_is_valid(gnatsgo.sf.v, reason=TRUE)
 #
 st_is_valid(sg.sf, reason=TRUE)
 sg.sf.v <- sf::st_make_valid(sg.sf)
 # st_is_valid(sg.sf.v, reason=TRUE)
+if (exists("gsm.sf")) {
+  st_is_valid(gsm.sf, reason=TRUE)
+  gsm.sf.v <- sf::st_make_valid(gsm.sf)
+  # st_is_valid(gsm.sf.v, reason=TRUE)
+}
 if (exists("issr8.sf")) {
   st_is_valid(issr8.sf, reason=TRUE)
   issr8.sf.v <- sf::st_make_valid(issr8.sf)
@@ -613,19 +703,20 @@ Display the maps. Compute each legend from the classes present in that map.
 
 ```{r make_class_maps}
 my.pal <- brewer.pal(n.class, "RdYlGn")
-l.gsm <- range(gsm.sf.v$class, na.rm = TRUE)
+l.gnatsgo <- range(gnatsgo.sf.v$class, na.rm = TRUE)
 l.sg <- range(sg.sf.v$class, na.rm = TRUE)
+if (exists("gsm.sf")) { l.gsm <- range(gsm.sf.v$class, na.rm = TRUE) }
 if (exists("issr8.sf")) { l.issr8 <- range(issr8.sf.v$class, na.rm = TRUE) }
 if (exists("psu.sf")) { l.psu <- range(psu.sf.v$class, na.rm = TRUE) }
 if (exists("polaris.sf")) { l.polaris <- range(polaris.sf.v$class, na.rm = TRUE) }
 if (exists("landgis.sf")) { l.landgis <- range(landgis.sf.v$class, na.rm = TRUE) }
-g0 <- ggplot(data=gsm.sf.v) +
+g0 <- ggplot(data=gnatsgo.sf.v) +
   geom_sf(aes(fill = class)) +
-  coord_sf(crs = st_crs(gsm.sf)) +
+  coord_sf(crs = st_crs(gnatsgo.sf)) +
 #  guides(fill=FALSE) +   # no legend on the two leftmost
 # no, that distorts the size compared to the one with legend
-   labs(title = "GSV v0.5")  +
-  scale_fill_continuous(low=my.pal[l.gsm[1]], high=my.pal[l.gsm[2]]) +
+   labs(title = "gNATSGO")  +
+  scale_fill_continuous(low=my.pal[l.gnatsgo[1]], high=my.pal[l.gnatsgo[2]]) +
   theme(legend.position = "bottom", legend.direction = "horizontal")
 g1 <- ggplot(data=sg.sf.v) +
   geom_sf(aes(fill = class)) +
@@ -633,8 +724,16 @@ g1 <- ggplot(data=sg.sf.v) +
   labs(title = "SoilGrids250")  +
   scale_fill_continuous(low=my.pal[l.sg[1]], high=my.pal[l.sg[2]]) +
   theme(legend.position = "bottom", legend.direction = "horizontal")
+if (exists("gsm.sf")) { 
+  g2 <- ggplot(data=gsm.sf.v) +
+    geom_sf(aes(fill = class)) +
+    coord_sf(crs = st_crs(sg.sf)) +
+    labs(title = "GSM v0.5")  +
+    scale_fill_continuous(low=my.pal[l.gsm[1]], high=my.pal[l.gsm[2]]) +
+    theme(legend.position = "bottom", legend.direction = "horizontal")
+}
 if (exists("issr8.sf")) { 
-  g2 <- ggplot(data=issr8.sf.v) +
+  g3 <- ggplot(data=issr8.sf.v) +
     geom_sf(aes(fill = class)) +
     coord_sf(crs = st_crs(sg.sf)) +
     labs(title = "ISSR-800")  +
@@ -642,7 +741,7 @@ if (exists("issr8.sf")) {
     theme(legend.position = "bottom", legend.direction = "horizontal")
 }
 if (exists("psu.sf")) { 
-  g3 <- ggplot(data=psu.sf.v) +
+  g4 <- ggplot(data=psu.sf.v) +
     geom_sf(aes(fill = class)) +
     coord_sf(crs = st_crs(sg.sf)) +
     labs(title = "SPCG100USA") +
@@ -650,7 +749,7 @@ if (exists("psu.sf")) {
     theme(legend.position = "bottom", legend.direction = "horizontal")
 }
 if (exists("polaris.sf")) { 
-  g4 <- ggplot(data=polaris.sf.v) +
+  g5 <- ggplot(data=polaris.sf.v) +
     geom_sf(aes(fill = class)) +
     coord_sf(crs = st_crs(sg.sf)) +
     labs(title = "POLARIS") +
@@ -658,7 +757,7 @@ if (exists("polaris.sf")) {
     theme(legend.position = "bottom", legend.direction = "horizontal")
 }
 if (exists("landgis.sf")) { 
-  g5 <- ggplot(data=landgis.sf.v) +
+  g6 <- ggplot(data=landgis.sf.v) +
     geom_sf(aes(fill = class)) +
     coord_sf(crs = st_crs(sg.sf)) +
     labs(title = "LandGIS") +
@@ -673,10 +772,11 @@ then arrange manually in the paper.
 ```{r class_maps, fig.width=5, fig.height=7}
 print(g0)
 print(g1)
-print(g2)
-print(g3)
-print(g4)
-print(g5)
+if (exists("g2")) { print(g2) }
+if (exists("g3")) { print(g3) }
+if (exists("g4")) { print(g4) }
+if (exists("g5")) { print(g5) }
+if (exists("g6")) { print(g6) }
 ```
 
 
@@ -715,16 +815,16 @@ For this function we must specify the names of the columns with the region names
 
 Compute the metrics with the `sabre` package.
 
-### GSM vs. SoilGrids
+### gNATSGO vs. SoilGrids
 
-```{r gsm8.sg}
-regions.gsm.sg <- vmeasure_calc(x = gsm.sf.v, 
+```{r gNATSGO8.sg}
+regions.gnatsgo.sg <- vmeasure_calc(x = gnatsgo.sf.v, 
                                  y = sg.sf.v, 
                                  x_name = class, y_name = class)
-class(regions.gsm.sg) 
-print(regions.gsm.sg)
-names(regions.gsm.sg)
-names(regions.gsm.sg$map1)
+class(regions.gnatsgo.sg) 
+print(regions.gnatsgo.sg)
+names(regions.gnatsgo.sg)
+names(regions.gnatsgo.sg$map1)
 ```
 
 `rih` is the intersection map. Show these:
@@ -732,100 +832,92 @@ names(regions.gsm.sg$map1)
 Geometric precision is set by `st_as_binary`, default is `attr(x, "precision")`. Here we didn't change it and the intersection looks good.
 
 ```{r}
-attr(regions.gsm.sg, "precision")  # NULL, means a system default
+attr(regions.gnatsgo.sg, "precision")  # NULL, means a system default
 ```
 
 Here we leave it as the default `NULL`.
 
-```{r vmaps.gsm.sg, fig.width=5, fig.height=7}
-  ## produced maps -- the homogeneity of the regions.gsm.sg
-terra::plot(regions.gsm.sg$map1["rih"], main = "Homogeneity -- SG250 vs. GSM")
-terra::plot(regions.gsm.sg$map2["rih"], main = "Completeness -- SG250 vs. GSM")
+```{r vmaps.gnatsgo.sg, fig.width=5, fig.height=7}
+  ## produced maps -- the homogeneity of the regions.gnatsgo.sg
+terra::plot(regions.gnatsgo.sg$map1["rih"], main = "Homogeneity -- SG250 vs. gNATSGO")
+terra::plot(regions.gnatsgo.sg$map2["rih"], main = "Completeness -- SG250 vs. gNATSGO")
 ```
 
-### GSM vs. SPCG100USA
+### gNATSGO vs. SPCG100USA
 
-```{r gsm.psu}
-regions.gsm.psu <- vmeasure_calc(x = gsm.sf.v, 
-                                  y = psu.sf.v, 
-                                  x_name = class, y_name = class)
-class(regions.gsm.psu) 
-print(regions.gsm.psu)
-names(regions.gsm.psu)
-names(regions.gsm.psu$map1)
+```{r vmaps.gnatsgo.psu, fig.width=5, fig.height=7}
+if (exists("psu.sf.v")) {
+  regions.gnatsgo.psu <- vmeasure_calc(x = gnatsgo.sf.v, 
+                                       y = psu.sf.v, 
+                                       x_name = class, y_name = class)
+  class(regions.gnatsgo.psu) 
+  print(regions.gnatsgo.psu)
+  names(regions.gnatsgo.psu)
+  names(regions.gnatsgo.psu$map1)
+  ## produced maps -- the homogeneity of the regions.gnatsgo.psu
+  terra::plot(regions.gnatsgo.psu$map1["rih"], main = "Homogeneity -- SPCG100USA vs. gNATSGO")
+  terra::plot(regions.gnatsgo.psu$map2["rih"], main = "Completeness -- SPCG100USA vs. gNATSGO")
+}
 ```
 
 
-```{r vmaps.gsm.psu, fig.width=5, fig.height=7}
-## produced maps -- the homogeneity of the regions.gsm.psu
-terra::plot(regions.gsm.psu$map1["rih"], main = "Homogeneity -- SPCG100USA vs. GSM")
-terra::plot(regions.gsm.psu$map2["rih"], main = "Completeness -- SPCG100USA vs. GSM")
-```
+### gNATSGO vs. POLARIS
 
-### GSM vs. POLARIS
-
-```{r gsm.polaris}
-regions.gsm.polaris <- vmeasure_calc(x = gsm.sf.v, 
+```{r vmaps.gnatsgo.polaris, fig.width=5, fig.height=7}
+regions.gnatsgo.polaris <- vmeasure_calc(x = gnatsgo.sf.v, 
                                       y = polaris.sf.v, 
                                       x_name = class, y_name = class)
-class(regions.gsm.polaris) 
-print(regions.gsm.polaris)
-names(regions.gsm.polaris)
-names(regions.gsm.polaris$map1)
-```
-
-
-```{r vmaps.gsm.polaris, fig.width=5, fig.height=7}
-## produced maps -- the homogeneity of the regions.gsm.polaris
-terra::plot(regions.gsm.psu$map1["rih"], main = "Homogeneity -- POLARIS vs. GSM")
-terra::plot(regions.gsm.psu$map2["rih"], main = "Completeness -- POLARIS vs. GSM")
+class(regions.gnatsgo.polaris) 
+print(regions.gnatsgo.polaris)
+names(regions.gnatsgo.polaris)
+names(regions.gnatsgo.polaris$map1)
+terra::plot(regions.gnatsgo.psu$map1["rih"], main = "Homogeneity -- POLARIS vs. gNATSGO")
+terra::plot(regions.gnatsgo.psu$map2["rih"], main = "Completeness -- POLARIS vs. gNATSGO")
 ```
 
 ### SoilGrids250 vs. SPCG100USA
 
-```{r sg.psu}
-regions.sg.psu <- vmeasure_calc(x = sg.sf.v, 
-                                y = psu.sf.v, 
-                                x_name = class, y_name = class)
-class(regions.sg.psu) 
-print(regions.sg.psu)
-names(regions.sg.psu)
-names(regions.sg.psu$map1)
-```
-
-
 ```{r vmaps.sg.psu, fig.width=5, fig.height=7}
-## produced maps -- the homogeneity of the regions
-terra::plot(regions.sg.psu$map1["rih"], main = "Homogeneity -- SPCG100USA -- SoilGrids250")
-terra::plot(regions.sg.psu$map2["rih"], main = "Completeness -- SPCG100USA -- SoilGrids250")
+if (exists("psu.sf.v")) {
+  regions.sg.psu <- vmeasure_calc(x = sg.sf.v, 
+                                  y = psu.sf.v, 
+                                  x_name = class, y_name = class)
+  class(regions.sg.psu) 
+  print(regions.sg.psu)
+  names(regions.sg.psu)
+  names(regions.sg.psu$map1)
+  ## produced maps -- the homogeneity of the regions
+  terra::plot(regions.sg.psu$map1["rih"], main = "Homogeneity -- SPCG100USA -- SoilGrids250")
+  terra::plot(regions.sg.psu$map2["rih"], main = "Completeness -- SPCG100USA -- SoilGrids250")
+}
 ```
 
 ## Table with `vmeasure` statistics
 
 ```{r}
-str(regions.gsm.sg, max.level = 1)
+str(regions.gnatsgo.sg, max.level = 1)
 vmeasure.compare <- data.frame(PSM_products = "", V_measure = 0, Homogeneity = 0, Completeness = 0)
-vmeasure.compare[1,] <- c("GSM v0.5 vs. SG2", 
-                       round(regions.gsm.sg$v_measure, 4),
-                       round(regions.gsm.sg$homogeneity, 4),
-                       round(regions.gsm.sg$completeness, 4)
+vmeasure.compare[1,] <- c("gNATSGO vs. SG2", 
+                       round(regions.gnatsgo.sg$v_measure, 4),
+                       round(regions.gnatsgo.sg$homogeneity, 4),
+                       round(regions.gnatsgo.sg$completeness, 4)
                        )
 i <- 1
-if (exists("regions.gsm.psu")) {
-  vmeasure.compare[i <- i+1,] <- c("GSM v0.5 vs. SPCG100USA", 
-                            round(regions.gsm.psu$v_measure, 4),
-                            round(regions.gsm.psu$homogeneity, 4),
-                            round(regions.gsm.psu$completeness, 4)
+if (exists("regions.gnatsgo.psu")) {
+  vmeasure.compare[i <- i+1,] <- c("gNATSGO vs. SPCG100USA", 
+                            round(regions.gnatsgo.psu$v_measure, 4),
+                            round(regions.gnatsgo.psu$homogeneity, 4),
+                            round(regions.gnatsgo.psu$completeness, 4)
   )
 }
-if (exists("regions.gsm.polaris")) {
-  vmeasure.compare[i <- i+1,] <- c("GSM v0.5 vs. POLARIS", 
-                            round(regions.gsm.polaris$v_measure, 4),
-                            round(regions.gsm.polaris$homogeneity, 4),
-                            round(regions.gsm.polaris$completeness, 4)
+if (exists("regions.gnatsgo.polaris")) {
+  vmeasure.compare[i <- i+1,] <- c("gNATSGO vs. POLARIS", 
+                            round(regions.gnatsgo.polaris$v_measure, 4),
+                            round(regions.gnatsgo.polaris$homogeneity, 4),
+                            round(regions.gnatsgo.polaris$completeness, 4)
   )
 }
-if (exists("regions.gsm.psu")) {
+if (exists("regions.gnatsgo.psu")) {
   vmeasure.compare[i <- i+1,] <- c("SG2 va. SPCG100USA", 
                        round(regions.sg.psu$v_measure, 4),
                        round(regions.sg.psu$homogeneity, 4),
@@ -863,13 +955,16 @@ Reference: Hesselbarth, M. H. K., Sciaini, M., With, K. A., Wiegand, K., & Nowos
 These packages work with `raster` objects, so convert from `terra` structures.
 
 ```{r}
-r.gsm <- raster(gsm.class)
+r.gnatsgo <- raster(gnatsgo.class)
 r.sg <- raster(sg.class)
+if (exists("gsm.class")) r.gsm <- raster(gsm.class)
 if (exists("issr8.class")) r.issr8 <- raster(issr8.class)
 if (exists("psu.class"))r.psu <- raster(psu.class)
 if (exists("polaris.class"))r.polaris <- raster(polaris.class)
 if (exists("landgis.class"))r.landgis <- raster(landgis.class)
 ```
+
+"The first step of every analysis should be a check if the input raster is suitable for `landscapemetrics` using `check_landscape()`. The function checks if the coordinate reference system is projected, if the cell units are in meters, if the classes are decoded as integer values, and if the number of different values is reasonable (in other words if discrete land‐cover classes are present). In case the input is not or only partially suitable, a corresponding warning is produced. This means that a calculation of metrics is still possible, but some results must be interpreted with caution (e.g. area‐ and distance‐related metrics)."
 
 A function to display the landscape with a consistent colour ramp:
 
@@ -894,14 +989,20 @@ show.landscape <- function(r.map, r.title) {
 Show the landscapes of each product:
 
 ```{r show.landscape, fig.width=7, fig.height=5}
-(g1 <- show.landscape(r.gsm, "GSM v0.5"))
+(g1 <- show.landscape(r.gnatsgo, "gNATSGO"))
 (g2 <- show.landscape(r.sg, "SoilGrids250"))
 if (exists("r.psu")) (g3 <- show.landscape(r.psu, "SPCG100USA"))
 if (exists("r.polaris")) (g4 <- show.landscape(r.polaris, "POLARIS"))
 if (exists("r.landgis")) (g4 <- show.landscape(r.landgis, "LandGIS"))
+if (exists("r.gsm")) (g4 <- show.landscape(r.gsm, "GSM v0.5"))
 if (exists("r.issr8")) (g4 <- show.landscape(r.issr8, "ISSR-800"))
 ```
 
+Check them:
+
+```{r check.landscape}
+check_landscape(r.sg, verbose=TRUE)
+```
 
 ## Metrics list
 
@@ -939,8 +1040,9 @@ patch.metrics <- calculate_lsm(r.sg, level = "patch")
 Core areas for each _class_. These are the "typical" areas, used mainly for habitats. Here they show where the class is concentrated.
 
 ```{r show.core.areas, fig.width=12, fig.height=12}
-show_cores(r.gsm)
+show_cores(r.gnatsgo)
 show_cores(r.sg)
+if (exists("r.gsm")) show_cores(r.gsm)
 if (exists("r.issr8")) show_cores(r.issr8)
 if (exists("r.psu")) show_cores(r.psu)
 if (exists("r.polaris")) show_cores(r.polaris)
@@ -950,8 +1052,9 @@ if (exists("r.landgis")) show_cores(r.landgis)
 Show the landscape with a patch-level metric in each _patch_. For example, the contiguity of each patch:
 
 ```{r show.patch.level.metrics, fig.width=4, fig.height=5}
-show_lsm(r.gsm, what="lsm_p_contig")
+show_lsm(r.gnatsgo, what="lsm_p_contig")
 show_lsm(r.sg, what="lsm_p_contig")
+if (exists("r.gsm")) show_lsm(r.gsm, what="lsm_p_contig")
 if (exists("r.issr8")) show_lsm(r.issr8, what="lsm_p_contig")
 if (exists("r.psu")) show_lsm(r.psu, what="lsm_p_contig")
 if (exists("r.polaris")) show_lsm(r.polaris, what="lsm_p_contig")
@@ -966,14 +1069,16 @@ Here are the landscape-level metrics we will report:
 
 ```{r}
 lst <- paste0("lsm_l_", c("shdi", "shei", "lsi", "frac_mn"))
-ls.metrics.gsm <- calculate_lsm(r.gsm, what=lst)
+ls.metrics.gnatsgo <- calculate_lsm(r.gnatsgo, what=lst)
 ls.metrics.sg <- calculate_lsm(r.sg, what=lst)
-ls.metrics.issr8 <- ifelse(exists("r.issr8"), calculate_lsm(r.issr8, what=lst),
-                           rep(NA, 4))
 ls.metrics.psu <- ifelse(exists("r.psu"), calculate_lsm(r.psu, what=lst),
                          rep(NA,4))
 ls.metrics.polaris <- ifelse(exists("r.polaris"), calculate_lsm(r.polaris, what=lst),
                              rep(NA, 4))
+ls.metrics.gsm <- ifelse(exists("r.gsm"), calculate_lsm(r.gsm, what=lst),
+                           rep(NA, 4))
+ls.metrics.issr8 <- ifelse(exists("r.issr8"), calculate_lsm(r.issr8, what=lst),
+                           rep(NA, 4))
 ls.metrics.landgis <- ifelse(exists("r.landgis"), calculate_lsm(r.landgis, what=lst),
                              rep(NA,4))  
 ```
@@ -981,14 +1086,16 @@ ls.metrics.landgis <- ifelse(exists("r.landgis"), calculate_lsm(r.landgis, what=
 Make a table with the metrics for the several products.
 
 ```{r}
-metrics.table <- data.frame(product=c("GSM", "SoilGrids", "SPCG100USA", "POLARIS", "ISSR8", "LandGIS"),
-                            rbind(ls.metrics.gsm$value,
+metrics.table <- data.frame(product=c("gNATSGO", "SoilGrids", "SPCG100USA", "POLARIS", "GSM v0.5", 
+                                      "ISSR8", "LandGIS"),
+                            rbind(ls.metrics.gnatsgo$value,
                                   ls.metrics.sg$value,
                                   ls.metrics.psu$value,
                                   ls.metrics.polaris$value,
+                                  ls.metrics.gsm$value,
                                   ls.metrics.issr8$value,
                                   ls.metrics.landgis$value))
-names(metrics.table)[2:5] <- ls.metrics.gsm$metric
+names(metrics.table)[2:5] <- ls.metrics.gnatsgo$metric
 ```
 
 
@@ -1036,12 +1143,12 @@ cutoff.init <- range.init*2.5
 Compute and model variograms. Note the estimated sill is the maximum $\gamma$ in the empirical variogram.
 
 ```{r compute.variogram, fig.height=6, fig.width=8}
-gsm.sp <- as(raster(gsm.crop), "SpatialPointsDataFrame")
-gsm.sp <- spTransform(gsm.sp, crs.utm)
-v.gsm <- gstat::variogram(voi ~ 1, loc = gsm.sp, cutoff=cutoff.init, width=500)
-vm.gsm <- vgm(max(v.gsm$gamma), "Exp", range.init, 0)
-vmf.gsm <- fit.variogram(v.gsm, model=vm.gsm)
-# plot(v.gsm, pl=T, model=vmf.gsm)
+gnatsgo.sp <- as(raster(gnatsgo.crop), "SpatialPointsDataFrame")
+gnatsgo.sp <- spTransform(gnatsgo.sp, crs.utm)
+v.gnatsgo <- gstat::variogram(voi ~ 1, loc = gnatsgo.sp, cutoff=cutoff.init, width=500)
+vm.gnatsgo <- vgm(max(v.gnatsgo$gamma), "Exp", range.init, 0)
+vmf.gnatsgo <- fit.variogram(v.gnatsgo, model=vm.gnatsgo)
+# plot(v.gnatsgo, pl=T, model=vmf.gnatsgo)
 #
 sg.sp <- as(raster(sg.adj), "SpatialPointsDataFrame")
 sg.sp <- spTransform(sg.sp, crs.utm)
@@ -1089,10 +1196,10 @@ Make a table of the variogram parameters:
 
 ```{r table.compare.variograms}
 vmeasure.compare <- data.frame(PSM_products = "", Range = 0, StructSill = 0, PropNugget = 0)
-vmeasure.compare[1,] <- c("GSM v0.5", 
-                       round(vmf.gsm[2,"range"], 0),
-                       round(vmf.gsm[2,"psill"], 2),
-                       round(vmf.gsm[1,"psill"]/sum(vmf.issr8[,"psill"]), 2)
+vmeasure.compare[1,] <- c("gNATSGO", 
+                       round(vmf.gnatsgo[2,"range"], 0),
+                       round(vmf.gnatsgo[2,"psill"], 2),
+                       round(vmf.gnatsgo[1,"psill"]/sum(vmf.issr8[,"psill"]), 2)
                        )
 vmeasure.compare[2,] <- c("SG2", 
                        round(vmf.sg[2,"range"], 0),
@@ -1145,10 +1252,10 @@ capture.output(print(x, include.rownames=FALSE), file=
 Plot the variograms with the fitted models:
 
 ```{r plot.vgms, fig.width=12, fig.height=8}
-ylims <- c(0, max(v.gsm$gamma, v.sg$gamma,  
+ylims <- c(0, max(v.gnatsgo$gamma, v.sg$gamma,  
                   v.psu$gamma, v.polaris$gamma,
                   v.issr8$gamma, v.landgis$gamma)*1.1)
-p1 <- plot(v.gsm, ylim=ylims, model=vmf.gsm, main="GSM v0.5", xlab="separation (m)", pch=20)
+p1 <- plot(v.gnatsgo, ylim=ylims, model=vmf.gnatsgo, main="gNATSGO", xlab="separation (m)", pch=20)
 p2 <- plot(v.sg, ylim=ylims, model=vmf.sg, main="SoilGrids250", xlab="separation (m)", pch=20)
 if(exists("vmf.psu")) {
   p3 <- plot(v.psu, ylim=ylims, model=vmf.psu, main="SPCG100USA", xlab="separation (m)", pch=20)
