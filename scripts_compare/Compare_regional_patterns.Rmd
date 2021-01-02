@@ -219,7 +219,9 @@ These are all in WGS84 geographic coordinates, cover the same area, and have the
 
 ## Test area
 
-Test on small part, 0.2 x 0.2 degrees:
+Test on small part, 0.2 x 0.2 degrees
+
+### Crop to test area
 
 ```{r crop.test.area}
 test.tile.size <- 0.2  # degrees
@@ -239,6 +241,36 @@ if (exists("psu")) { psu.crop <- crop(psu, ext(tmp)) }
 if (exists("polaris")) { polaris.crop <- crop(polaris, ext(tmp)) }
 if (exists("landgis")) { landgis.crop <- crop(landgis, ext(tmp)) }
 ```
+
+### Project to metric CRS
+
+For area calculations, we need a metric CRS, not geographic.
+
+Determine the UTM zone and appropriate EPSG code:
+
+```{r get.utm}
+long2UTM <- function(long) { (floor((long + 180)/6) %% 60) + 1 }
+utm.zone <- long2UTM(params$lrc_long+0.5)
+epsg.db <- rgdal::make_EPSG()
+ix <- grep(paste0("WGS 84 / UTM zone ", utm.zone, "N"), epsg.db$note)
+epsg.db[ix,]
+epsg.code <- epsg.db[ix, "code"]
+```
+
+Use this to resample:
+
+```{r}
+crs.utm <- paste0("+init=epsg:", epsg.code)
+gnatsgo.crop <- terra::project(gnatsgo.crop, crs.utm)
+sg.crop <- terra::project(sg.crop, crs.utm)
+if (exists("gsm")) { gsm.crop <- terra::project(gsm.crop, crs.utm) }
+if (exists("issr8")) { issr8.crop <- terra::project(issr8.crop, crs.utm) }
+if (exists("psu")) { psu.crop <- terra::project(psu.crop, crs.utm) }
+if (exists("polaris")) { polaris.crop <- terra::project(polaris.crop, crs.utm) }
+if (exists("landgis")) { landgis.crop <- terra::project(landgis.crop, crs.utm) }
+```
+
+### Determine property range
 
 Determine the full range of the property across all maps, to one decimal place:
 
@@ -262,10 +294,12 @@ zlim <- c(floor(min(values(sg.crop)*10,
 print(zlim)
 ```
 
+## Display maps
+
 Now show the maps together:
 
 ```{r side.by.side, fig.width=12, fig.height=18}
-par(mfrow=c(3,2))
+par(mfrow=c(3,3))
 plot(gnatsgo.crop, main="gNATSGO", range=zlim)
 plot(sg.crop, main="SoilGrids250", range=zlim)
 if (exists("gsm.crop")) { plot(gsm.crop, main="GSM v0.5", range=zlim) }
@@ -498,7 +532,7 @@ if (exists("landgis.adj")) {
 ```
 
 ```{r show.classified, fig.width=18, fig.height=12}
-par(mfrow=c(2,3))
+par(mfrow=c(3,3))
 .l <- range(values(gnatsgo.class), na.rm=TRUE)
 terra::plot(gnatsgo.class,
             col=color.ramp[.l[1]:.l[2]], type="classes",
@@ -959,12 +993,25 @@ r.gnatsgo <- raster(gnatsgo.class)
 r.sg <- raster(sg.class)
 if (exists("gsm.class")) r.gsm <- raster(gsm.class)
 if (exists("issr8.class")) r.issr8 <- raster(issr8.class)
-if (exists("psu.class"))r.psu <- raster(psu.class)
-if (exists("polaris.class"))r.polaris <- raster(polaris.class)
-if (exists("landgis.class"))r.landgis <- raster(landgis.class)
+if (exists("psu.class")) r.psu <- raster(psu.class)
+if (exists("polaris.class")) r.polaris <- raster(polaris.class)
+if (exists("landgis.class")) r.landgis <- raster(landgis.class)
 ```
 
 "The first step of every analysis should be a check if the input raster is suitable for `landscapemetrics` using `check_landscape()`. The function checks if the coordinate reference system is projected, if the cell units are in meters, if the classes are decoded as integer values, and if the number of different values is reasonable (in other words if discrete land‐cover classes are present). In case the input is not or only partially suitable, a corresponding warning is produced. This means that a calculation of metrics is still possible, but some results must be interpreted with caution (e.g. area‐ and distance‐related metrics)."
+
+Check them:
+
+```{r check.landscape}
+check_landscape(r.gnatsgo)
+check_landscape(r.sg)
+if (exists("gsm.class")) check_landscape(r.gsm)
+if (exists("issr8.class")) check_landscape(r.issr8)
+if (exists("psu.class")) check_landscape(r.psu)
+if (exists("polaris.class")) check_landscape(r.polaris)
+if (exists("landgis.class")) check_landscape(r.landgis)
+```
+
 
 A function to display the landscape with a consistent colour ramp:
 
@@ -998,11 +1045,7 @@ if (exists("r.gsm")) (g4 <- show.landscape(r.gsm, "GSM v0.5"))
 if (exists("r.issr8")) (g4 <- show.landscape(r.issr8, "ISSR-800"))
 ```
 
-Check them:
 
-```{r check.landscape}
-check_landscape(r.sg, verbose=TRUE)
-```
 
 ## Metrics list
 
@@ -1071,30 +1114,24 @@ Here are the landscape-level metrics we will report:
 lst <- paste0("lsm_l_", c("shdi", "shei", "lsi", "frac_mn"))
 ls.metrics.gnatsgo <- calculate_lsm(r.gnatsgo, what=lst)
 ls.metrics.sg <- calculate_lsm(r.sg, what=lst)
-ls.metrics.psu <- ifelse(exists("r.psu"), calculate_lsm(r.psu, what=lst),
-                         rep(NA,4))
-ls.metrics.polaris <- ifelse(exists("r.polaris"), calculate_lsm(r.polaris, what=lst),
-                             rep(NA, 4))
-ls.metrics.gsm <- ifelse(exists("r.gsm"), calculate_lsm(r.gsm, what=lst),
-                           rep(NA, 4))
-ls.metrics.issr8 <- ifelse(exists("r.issr8"), calculate_lsm(r.issr8, what=lst),
-                           rep(NA, 4))
-ls.metrics.landgis <- ifelse(exists("r.landgis"), calculate_lsm(r.landgis, what=lst),
-                             rep(NA,4))  
+if(exists("r.psu")) ls.metrics.psu <- calculate_lsm(r.psu, what=lst)
+if(exists("r.polaris")) ls.metrics.polaris <- calculate_lsm(r.polaris, what=lst)
+if(exists("r.gsm")) ls.metrics.gsm <- calculate_lsm(r.gsm, what=lst)
+if(exists("r.issr8")) ls.metrics.issr8 <- calculate_lsm(r.issr8, what=lst)
+if(exists("r.landgis")) ls.metrics.landgis <- calculate_lsm(r.landgis, what=lst)
 ```
 
 Make a table with the metrics for the several products.
 
 ```{r}
-metrics.table <- data.frame(product=c("gNATSGO", "SoilGrids", "SPCG100USA", "POLARIS", "GSM v0.5", 
-                                      "ISSR8", "LandGIS"),
+metrics.table <- data.frame(product=c("gNATSGO", "SoilGrids"),
                             rbind(ls.metrics.gnatsgo$value,
-                                  ls.metrics.sg$value,
-                                  ls.metrics.psu$value,
-                                  ls.metrics.polaris$value,
-                                  ls.metrics.gsm$value,
-                                  ls.metrics.issr8$value,
-                                  ls.metrics.landgis$value))
+                                  ls.metrics.sg$value))
+if (exists("ls.metrics.psu")) { metrics.table <- rbind(metrics.table, c("SPCG100USA", ls.metrics.psu$value)) }  
+if (exists("ls.metrics.polaris")) { metrics.table <- rbind(metrics.table, c("POLARIS", ls.metrics.polaris$value)) }  
+if (exists("ls.metrics.gsm")) { metrics.table <- rbind(metrics.table, c("GSM v0.5", ls.metrics.gsm$value)) }  
+if (exists("ls.metrics.issr8")) { metrics.table <- rbind(metrics.table, c("ISSR-800", ls.metrics.issr8$value)) }  
+if (exists("ls.metrics.landgis")) { metrics.table <- rbind(metrics.table, c("LandGIS", ls.metrics.landgis$value)) }  
 names(metrics.table)[2:5] <- ls.metrics.gnatsgo$metric
 ```
 
@@ -1102,12 +1139,14 @@ names(metrics.table)[2:5] <- ls.metrics.gnatsgo$metric
 ```{r metrics.table}
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
-x <- xtable(metrics.table, row.names=FALSE, digits=3)
+x <- xtable(metrics.table, row.names=FALSE, digits=rep.int(3,6))
 autoformat(x)
 capture.output(print(x, include.rownames=FALSE), file=
                  paste0("../LaTeX_tables/landscape_metrics_",
                            aoi, "_", voi.depth, ".tex"))
 ```
+
+# *** To here ***
 
 # Local spatial structure
 
