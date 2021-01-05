@@ -5,10 +5,10 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -77
-   lrc_lat: 35
+   lrc_long: -76
+   lrc_lat: 42
    size: 1 
-   voi.n: 1
+   voi.n: 4
    quantile.n: NA
    depth.n: 1
 output:
@@ -60,7 +60,7 @@ The PSM products must have been previously imported and restricted to the same a
 
 We use gNATSGO as the reference map, since it is a composite product based directly on field survey (SSURGO and STATSGO). So this script requires, at a minimum, SoilGrids250 and gNATSGO products to have been imported.
 
-This script must follow the import of the various products; these are in directory `../scripts_importmaps`.
+This script must follow the import of the various products; these are in directory `../scripts_im    portmaps`.
 
 To use this script:
 
