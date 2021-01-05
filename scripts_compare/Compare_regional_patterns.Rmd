@@ -10,7 +10,7 @@ params:
    size: 1 
    voi.n: 1
    quantile.n: NA
-   depth.n: 4
+   depth.n: 1
 output:
   html_document:
     fig_align: center
@@ -1258,48 +1258,47 @@ cutoff.init <- range.init*2.5  # m
 
 Compute and model variograms. Note the estimated sill is the maximum $\gamma$ in the empirical variogram.
 
-Model the variograms with the exponential model; the range parameter is 1/3 of the effective range.
+Model the variograms with the exponential model; the range parameter is 1/3 of the effective range. Initial estimate of total sill is 80% of maximum semivariance of the empirical variogram; initial nugget is 0.
 
-<!-- Compute the variograms at the exact distance of the grid, up to 4 grid cell separation. -->
 
 ```{r compute.variogram, fig.height=6, fig.width=8}
 v.gnatsgo <- gstat::variogram(voi ~ 1, loc = gnatsgo.sp, cutoff=cutoff.init, width=500)
-vm.gnatsgo <- vgm(max(v.gnatsgo$gamma), "Exp", range.init, 0)
+vm.gnatsgo <- vgm(0.8*max(v.gnatsgo$gamma), "Exp", range.init, 0)
 vmf.gnatsgo <- fit.variogram(v.gnatsgo, model=vm.gnatsgo)
 # plot(v.gnatsgo, pl=T, model=vmf.gnatsgo)
 #
 v.sg <- variogram(voi ~ 1, loc = sg.sp, cutoff=cutoff.init, width=500)
-vm.sg <- vgm(max(v.sg$gamma), "Exp", range.init, 0)
+vm.sg <- vgm(0.8*max(v.sg$gamma), "Exp", range.init, 0)
 vmf.sg <- fit.variogram(v.sg, model=vm.sg)
 # plot(v.sg, pl=T, model=vmf.sg)
 #
 if (exists("r.issr8")) {
   v.issr8 <- variogram(voi ~ 1, loc = issr8.sp, cutoff=cutoff.init, width=500)
-  vm.issr8 <- vgm(max(v.issr8$gamma), "Exp", range.init, 0)
+  vm.issr8 <- vgm(0.8*max(v.issr8$gamma), "Exp", range.init, 0)
   vmf.issr8 <- fit.variogram(v.issr8, model=vm.issr8)
 #  plot(v.issr8, pl=T, model=vmf.issr8)
 }
 if (exists("r.gsm")) {
   v.gsm <- variogram(voi ~ 1, loc = gsm.sp, cutoff=cutoff.init, width=500)
-  vm.gsm <- vgm(max(v.gsm$gamma), "Exp", range.init, 0)
+  vm.gsm <- vgm(0.8*max(v.gsm$gamma), "Exp", range.init, 0)
   vmf.gsm <- fit.variogram(v.gsm, model=vm.gsm)
 #  plot(v.gsm, pl=T, model=vmf.gsm)
 }
 if (exists("r.psu")) {
   v.psu <- variogram(voi ~ 1, loc = psu.sp, cutoff=cutoff.init, width=500)
-  vm.psu <- vgm(max(v.psu$gamma), "Exp", range.init, 0)
+  vm.psu <- vgm(0.8*max(v.psu$gamma), "Exp", range.init, 0)
   vmf.psu <- fit.variogram(v.psu, model=vm.psu)
 #  plot(v.psu, pl=T, model=vmf.psu)
 }
 if (exists("r.polaris")) {
   v.polaris <- variogram(voi ~ 1, loc = polaris.sp, cutoff=cutoff.init, width=500)
-  vm.polaris <- vgm(max(v.polaris$gamma), "Exp", range.init, 0)
+  vm.polaris <- vgm(0.8*max(v.polaris$gamma), "Exp", range.init, 0)
   vmf.polaris <- fit.variogram(v.polaris, model=vm.polaris)
 #  plot(v.polaris, pl=T, model=vmf.polaris)
 }
 if (exists("r.landgis")) {
   v.landgis <- variogram(voi ~ 1, loc = landgis.sp, cutoff=cutoff.init, width=500)
-  vm.landgis <- vgm(max(v.landgis$gamma), "Exp", range.init, 0)
+  vm.landgis <- vgm(0.8*max(v.landgis$gamma), "Exp", range.init, 0)
   vmf.landgis <- fit.variogram(v.landgis, model=vm.landgis)
 #  plot(v.landgis, pl=T, model=vmf.landgis)
 }
@@ -1360,6 +1359,8 @@ print(vmeasure.compare)
 
 
 ```{r write.table.compare.variograms}
+names(vmeasure.compare) <- c("Product", "Effective range", 
+                             "Structural Sill", "Proportional Nugget")
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 x <- xtable(vmeasure.compare, row.names=FALSE, digits=3)
