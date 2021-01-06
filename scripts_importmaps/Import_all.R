@@ -8,16 +8,17 @@
 # depth.n: 4
 # quantile.n: 4 
 
-## see lists of VOI, depth, quantile in `../ComparePSMproductsUSA.Rmd`
+## see lists of VOI, depth, quantile in `../Compare_regional.Rmd`
 
-import.all <- function(lrc_long, lrc_lat, size=1, voi.n, depth.n=1, quantile.n=4, which=1:6) {
+import.all <- function(lrc_long, lrc_lat, size=1, voi.n, depth.n=1, quantile.n=4, which=1:4) {
   library(knitr)
   psm.list <- c(
-    "GSM_USA_V05",
+    "gNATSGO",
     "SoilGrids250",
     "POLARIS",
     "SPCG100USA",
     "LandGIS",
+    "GSM_USA_V05",
     "ISSR8")
   for (psm in psm.list[which]) {
     print(paste("Importing", psm))

@@ -5,10 +5,10 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -77
-   lrc_lat: 35
+   lrc_long: -76
+   lrc_lat: 42
    size: 1 
-   voi.n: 1
+   voi.n: 4
    quantile.n: NA
    depth.n: 1
 output:
@@ -79,7 +79,6 @@ These three can be adjusted in the YAML header; these include the default parame
 4. [Select a sub-area](#sub_aoi), by default 0.2 x 0.2 degrees, within the 1 x 1 degree tile.
 
 5. Select the [maps to compare](#which); default (always included) are gNATSGO (the base product from NRCS) and SoilGrids250 (the globally-consistent product from ISRIC).
-Other independent USA products are SPCG100USA, and POLARIS. This is because ISSR-800 is derived from gNATSGO and at coarser resolution, and GSM v0.5 is based on older field data (2015) than gNATSGO (current) at the same resolution ($\approx 90$) m.
 
 6. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
 
@@ -307,21 +306,48 @@ if (exists("landgis")) { landgis.crop <- terra::project(landgis.crop, crs.utm) }
 Determine the full range of the property across all maps, to one decimal place:
 
 ```{r zlim}
+values.all <- c(values(gnatsgo.crop),
+                values(sg.crop), 
+                ifelse(exists("gsm.crop"), values(gsm.crop), NA),
+                ifelse(exists("issr8.crop"), values(issr8.crop), NA),
+                ifelse(exists("psu.crop"), values(psu.crop), NA),
+                ifelse(exists("landgis.crop"), values(landgis.crop), NA),
+                ifelse(exists("polaris.crop"), values(polaris.crop), NA))
+length(is.na(values.all))
+
+(zlim <- c(floor(min(values.all*10, na.rm = TRUE)),
+                ceiling(max(values.all*10, na.rm=TRUE)))/10)
+
+(zlim <- c(min(values.all, na.rm = TRUE),
+                max(values.all, na.rm=TRUE)))
+
+*** still not correct!
+  
 zlim <- c(floor(min(values(sg.crop)*10,
                     values(gnatsgo.crop)*10,
-                    ifelse(exists("gsm"), values(gsm.crop)*10, NA),
-                    ifelse(exists("issr8.crop"), values(issr8.crop)*10, NA),
-                    ifelse(exists("psu.crop"), values(psu.crop)*10, NA),
-                    ifelse(exists("polaris.crop"), values(polaris.crop)*10, NA),
-                    ifelse(exists("landgis.crop"), values(landgis.crop)*10, NA),
+                    ifelse(exists("gsm.crop"), 
+                           min(values(gsm.crop))*10, NA),
+                    ifelse(exists("issr8.crop"), 
+                           min(values(issr8.crop))*10, NA),
+                    ifelse(exists("psu.crop"), 
+                           min(values(psu.crop))*10, NA),
+                    ifelse(exists("polaris.crop"),
+                           min(values(polaris.crop))*10, NA),
+                    ifelse(exists("landgis.crop"),
+                           min(values(landgis.crop))*10, NA),
                     na.rm=TRUE)),
           ceiling(max(values(sg.crop)*10,
                       values(gnatsgo.crop)*10,
-                      ifelse(exists("gsm"), values(gsm.crop)*10, NA),
-                      ifelse(exists("issr8.crop"), values(issr8.crop)*10,  NA),
-                      ifelse(exists("psu.crop"), values(psu.crop)*10, NA),
-                      ifelse(exists("polaris.crop"), values(polaris.crop)*10, NA),
-                      ifelse(exists("landgis.crop"), values(landgis.crop)*10, NA),
+                      ifelse(exists("gsm.crop"), 
+                             max(values(gsm.crop))*10, NA),
+                      ifelse(exists("issr8.crop"), 
+                             max(values(issr8.crop))*10,  NA),
+                      ifelse(exists("psu.crop"),
+                             max(values(psu.crop))*10, NA),
+                      ifelse(exists("polaris.crop"), 
+                             max(values(polaris.crop))*10, NA),
+                      ifelse(exists("landgis.crop"),
+                             max(values(landgis.crop))*10, NA),
                       na.rm=TRUE)))/10
 print(zlim)
 ```
@@ -524,13 +550,20 @@ abline(v=cuts, col="blue", lwd=2)
 
 We set up a colour ramp that covers the entire range, and then select the colours out of it that match the actual value range.
 
-
-```{r classify.raster}
-(cut.names <- cut(zlim.adj, breaks=c(zlim.adj[1], cuts, zlim.adj[2]), ordered_result=TRUE))
+```{r classify.setup}
+(cut.names <- cut(zlim.adj, breaks=c(zlim.adj[1], cuts, zlim.adj[2]),
+                  ordered_result=TRUE, include.lowest = TRUE)) 
+# make sure lowest value is included
+#
 # common colour ramp
 color.ramp <- bpy.colors(n.class)
 #
 (class.limits <- c(zlim.adj[1], cuts, zlim.adj[2]))
+```
+
+## Classification
+
+```{r classify.raster}
 gnatsgo.class <- classify(gnatsgo.crop, rcl=class.limits)
 # gnatsgo.class <- as.factor(gnatsgo.class)
 table(values(gnatsgo.class))
@@ -647,14 +680,16 @@ par(mfrow=c(1,1))
 Cross-classification gNATSGO (rows) vs. SoilGrids250 (columns):
 
 ```{r xclass.1}
-table(as.vector(gnatsgo.class), as.vector(sg.class))
+table(as.vector(gnatsgo.class), as.vector(sg.class),
+      useNA = "ifany")
 ```
 
 Cross-classification gNATSGO (rows) vs. SPCG100USA (columns):
 
 ```{r xclass.2}
 if (exists("psu.class")) { 
-  table(as.vector(gnatsgo.class), as.vector(psu.class))
+  table(as.vector(gnatsgo.class), as.vector(psu.class),
+      useNA = "ifany")
 }
 ```
 
@@ -662,13 +697,17 @@ Cross-classification gNATSGO (rows) vs. POLARIS (columns):
 
 ```{r xclass.2a}
 if (exists("polaris.class")) {
-  table(as.vector(gnatsgo.class), as.vector(polaris.class))
+  table(as.vector(gnatsgo.class), as.vector(polaris.class),
+      useNA = "ifany")
 }
 ```
 
+Cross-classification gNATSGO (rows) vs. LandGIS (columns):
+
 ```{r xclass.2b}
 if (exists("landgis.class")) { 
-  table(as.vector(gnatsgo.class), as.vector(landgis.class))
+  table(as.vector(gnatsgo.class), as.vector(landgis.class),
+      useNA = "ifany")
 }
 ```
 
@@ -676,7 +715,8 @@ Cross-classification SoilGrids250 (rows) vs. SPCG100USA (columns):
 
 ```{r xclass.3}
 if (exists("psu.class")) { 
-  table(as.vector(sg.class), as.vector(psu.class))
+  table(as.vector(sg.class), as.vector(psu.class),
+      useNA = "ifany")
 }
 ```
 
@@ -865,8 +905,7 @@ if (exists("landgis.sf")) {
 }
 ```
 
-Show them separately, because we don't which ones are defined,
-then arrange manually in the paper.
+Show the class maps:
 
 ```{r class_maps, fig.width=map.fig.width, fig.height=map.fig.height}
 tmp <- "list(g0, g1"
@@ -1040,7 +1079,7 @@ Save for paper:
 ```{r}
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
-x <- xtable(vmeasure.compare, row.names=FALSE, digits=3)
+x <- xtable(vmeasure.compare, row.names=FALSE, digits=2)
 autoformat(x)
 capture.output(print(x, include.rownames=FALSE), file=
                  paste0("../LaTeX_tables/compare_vmeasure_",
@@ -1363,7 +1402,7 @@ names(vmeasure.compare) <- c("Product", "Effective range",
                              "Structural Sill", "Proportional Nugget")
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
-x <- xtable(vmeasure.compare, row.names=FALSE, digits=3)
+x <- xtable(vmeasure.compare, row.names=FALSE, digits=2)
 autoformat(x)
 capture.output(print(x, include.rownames=FALSE), file=
                  paste0("../LaTeX_tables/compare_variograms_",
@@ -1387,11 +1426,11 @@ Plot:
 
 ```{r plot.vgms, fig.width=map.fig.width, fig.height=map.fig.height}
 ylims <- c(0, max(v.gnatsgo$gamma, v.sg$gamma, 
-                  ifelse(exists("v.gsm"), v.gsm$gamma, 0),
-                  ifelse(exists("v.psu"), v.psu$gamma, 0),
-                  ifelse(exists("v.polaris"), v.polaris$gamma, 0),
-                  ifelse(exists("v.issr8"), v.issr8$gamma, 0),
-                  ifelse(exists("v.landgis"), v.landgis$gamma, 0))*1.1)
+                  ifelse(exists("v.gsm"), max(v.gsm$gamma), 0),
+                  ifelse(exists("v.psu"), max(v.psu$gamma), 0),
+                  ifelse(exists("v.polaris"), max(v.polaris$gamma), 0),
+                  ifelse(exists("v.issr8"), max(v.issr8$gamma), 0),
+                  ifelse(exists("v.landgis"), max(v.landgis$gamma), 0))*1.1)
 p0 <- plot(v.gnatsgo, ylim=ylims, model=vmf.gnatsgo, main="gNATSGO", xlab="separation (m)", pch=20)
 p1 <- plot(v.sg, ylim=ylims, model=vmf.sg, main="SoilGrids250", xlab="separation (m)", pch=20)
 print(p0, split=c(1, 1, n.figs.col, n.figs.row), more=T) 
