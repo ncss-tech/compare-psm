@@ -13,7 +13,7 @@
 import.all <- function(lrc_long, lrc_lat, size=1, voi.n, depth.n=1, quantile.n=4, which=1:4) {
   library(knitr)
   psm.list <- c(
-    "gNATSGO",
+    "gNATSGO_WCS",
     "SoilGrids250",
     "POLARIS",
     "SPCG100USA",
@@ -41,4 +41,6 @@ import.all <- function(lrc_long, lrc_lat, size=1, voi.n, depth.n=1, quantile.n=4
   }
 }
 
-import.all(lrc_long=-120, lrc_lat=38, size=1, voi.n=2, depth.n=2, quantile.n=4, which=c(3))
+for (d in c(1,4)) {
+  import.all(lrc_long=-77, lrc_lat=35, size=1, voi.n=1, depth.n=d, quantile.n=4, which=1:4)
+}

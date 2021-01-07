@@ -10,7 +10,7 @@ params:
    size: 1 
    voi.n: 4
    quantile.n: NA
-   depth.n: 1
+   depth.n: 4
 output:
   html_document:
     fig_align: center
@@ -307,49 +307,18 @@ Determine the full range of the property across all maps, to one decimal place:
 
 ```{r zlim}
 values.all <- c(values(gnatsgo.crop),
-                values(sg.crop), 
-                ifelse(exists("gsm.crop"), values(gsm.crop), NA),
-                ifelse(exists("issr8.crop"), values(issr8.crop), NA),
-                ifelse(exists("psu.crop"), values(psu.crop), NA),
-                ifelse(exists("landgis.crop"), values(landgis.crop), NA),
-                ifelse(exists("polaris.crop"), values(polaris.crop), NA))
-length(is.na(values.all))
+                values(sg.crop))
+if (exists("psu.crop")) values.all <- c(values.all, values(psu.crop))
+if (exists("polaris.crop")) values.all <- c(values.all, values(polaris.crop))
+if (exists("gsm.crop")) values.all <- c(values.all, values(gsm.crop))
+if (exists("issr8.crop")) values.all <- c(values.all, values(issr8.crop))
+if (exists("landgis.crop")) values.all <- c(values.all, values(landgis.crop))
 
-(zlim <- c(floor(min(values.all*10, na.rm = TRUE)),
-                ceiling(max(values.all*10, na.rm=TRUE)))/10)
+# (zlim <- c(floor(min(values.all*10, na.rm = TRUE)),
+#                ceiling(max(values.all*10, na.rm=TRUE)))/10)
 
 (zlim <- c(min(values.all, na.rm = TRUE),
                 max(values.all, na.rm=TRUE)))
-
-*** still not correct!
-  
-zlim <- c(floor(min(values(sg.crop)*10,
-                    values(gnatsgo.crop)*10,
-                    ifelse(exists("gsm.crop"), 
-                           min(values(gsm.crop))*10, NA),
-                    ifelse(exists("issr8.crop"), 
-                           min(values(issr8.crop))*10, NA),
-                    ifelse(exists("psu.crop"), 
-                           min(values(psu.crop))*10, NA),
-                    ifelse(exists("polaris.crop"),
-                           min(values(polaris.crop))*10, NA),
-                    ifelse(exists("landgis.crop"),
-                           min(values(landgis.crop))*10, NA),
-                    na.rm=TRUE)),
-          ceiling(max(values(sg.crop)*10,
-                      values(gnatsgo.crop)*10,
-                      ifelse(exists("gsm.crop"), 
-                             max(values(gsm.crop))*10, NA),
-                      ifelse(exists("issr8.crop"), 
-                             max(values(issr8.crop))*10,  NA),
-                      ifelse(exists("psu.crop"),
-                             max(values(psu.crop))*10, NA),
-                      ifelse(exists("polaris.crop"), 
-                             max(values(polaris.crop))*10, NA),
-                      ifelse(exists("landgis.crop"),
-                             max(values(landgis.crop))*10, NA),
-                      na.rm=TRUE)))/10
-print(zlim)
 ```
 
 ## Display maps
@@ -439,23 +408,19 @@ if (exists("issr8.crop")) issr8.adj <- issr8.crop + me(values(gnatsgo.crop),valu
 Recompute limits:
 
 ```{r zlim.adj}
-zlim.adj <- c(floor(min(values(sg.adj)*10,
-                    values(gnatsgo.crop)*10,
-                    ifelse(exists("gsm"), values(gsm.adj)*10, NA),
-                    ifelse(exists("issr8.adj"), values(issr8.adj)*10, NA),
-                    ifelse(exists("psu.adj"), values(psu.adj)*10, NA),
-                    ifelse(exists("polaris.adj"), values(polaris.adj)*10, NA),
-                    ifelse(exists("landgis.adj"), values(landgis.adj)*10, NA),
-                    na.rm=TRUE)),
-          ceiling(max(values(sg.adj)*10,
-                      values(gnatsgo.crop)*10,
-                      ifelse(exists("gsm"), values(gsm.adj)*10, NA),
-                      ifelse(exists("issr8.adj"), values(issr8.adj)*10,  NA),
-                      ifelse(exists("psu.adj"), values(psu.adj)*10, NA),
-                      ifelse(exists("polaris.adj"), values(polaris.adj)*10, NA),
-                      ifelse(exists("landgis.adj"), values(landgis.adj)*10, NA),
-                      na.rm=TRUE)))/10
-print(zlim.adj)
+values.all.adj <- c(values(gnatsgo.crop),
+                values(sg.adj))
+if (exists("psu.adj")) values.all.adj <- c(values.all.adj, values(psu.adj))
+if (exists("polaris.adj")) values.all.adj <- c(values.all.adj, values(polaris.adj))
+if (exists("gsm.adj")) values.all.adj <- c(values.all.adj, values(gsm.adj))
+if (exists("issr8.adj")) values.all.adj <- c(values.all.adj, values(issr8.adj))
+if (exists("landgis.adj")) values.all.adj <- c(values.all.adj, values(landgis.adj))
+
+# (zlim <- c(floor(min(values.all.adj*10, na.rm = TRUE)),
+#                ceiling(max(values.all.adj*10, na.rm=TRUE)))/10)
+
+(zlim.adj <- c(min(values.all.adj, na.rm = TRUE),
+                max(values.all.adj, na.rm=TRUE)))
 ```
 
 These are now similar in their ranges, but not in their patterns. Compare the statistics:
@@ -497,18 +462,7 @@ print(stats.compare)
 
 Removing bias changes the spatial statistics only slightly, because the cut points in classification are the same so some pixels change classes.
 
-So for now, _do not adjust_: here we re-set the "adjusted" to the original:
-
-```{r reset.adj}
-# gnatsgo was the basis
-sg.adj <- sg.crop
-if (exists("gsm.crop")) gsm.adj <- gsm.crop
-if (exists("psu.crop")) psu.adj <- psu.crop
-if (exists("polaris.crop")) polaris.adj <- polaris.crop
-if (exists("landgis.crop")) landgis.adj <- landgis.crop
-if (exists("issr8.crop")) issr8.adj <- issr8.crop
-zlim.adj <- zlim
-```
+So for now, _do not adjust_, use the original cropped images.
 
 
 # Classify
@@ -529,15 +483,7 @@ A better method is histogram equalization, with a user-defined number of classes
 ```{r hist.equal.cuts, fig.width=8, fig.height=4}
 n.class <- 8
 #
-values.all <- c(values(gnatsgo.crop),
-                values(sg.adj), 
-                ifelse(exists("gsm.adj"), values(gsm.adj), NA),
-                ifelse(exists("issr8.adj"), values(issr8.adj), NA),
-                ifelse(exists("psu.adj"), values(psu.adj), NA),
-                ifelse(exists("landgis.adj"), values(landgis.adj), NA),
-                ifelse(exists("polaris.adj"), values(polaris.adj), NA))
-length(values.all)
-summary(values.all)
+# values.all computed above
 values.all.sort <- sort(values.all)
 #
 n <- length(values.all) - sum(is.na(values.all))
@@ -551,14 +497,14 @@ abline(v=cuts, col="blue", lwd=2)
 We set up a colour ramp that covers the entire range, and then select the colours out of it that match the actual value range.
 
 ```{r classify.setup}
-(cut.names <- cut(zlim.adj, breaks=c(zlim.adj[1], cuts, zlim.adj[2]),
+(cut.names <- cut(zlim, breaks=c(zlim[1], cuts, zlim[2]),
                   ordered_result=TRUE, include.lowest = TRUE)) 
 # make sure lowest value is included
 #
 # common colour ramp
 color.ramp <- bpy.colors(n.class)
 #
-(class.limits <- c(zlim.adj[1], cuts, zlim.adj[2]))
+(class.limits <- c(zlim[1], cuts, zlim[2]))
 ```
 
 ## Classification
@@ -572,7 +518,7 @@ table(values(gnatsgo.class))
 #             col=color.ramp[.l[1]:.l[2]], type="classes",
 #             main="SoilGrids250")
 #
-sg.class <- classify(sg.adj, rcl=class.limits)
+sg.class <- classify(sg.crop, rcl=class.limits)
 # sg.class <- as.factor(sg.class)
 table(values(sg.class))
 # .l <- range(values(sg.class), na.rm=TRUE)
@@ -580,8 +526,8 @@ table(values(sg.class))
 #             col=color.ramp[.l[1]:.l[2]], type="classes",
 #             main="SoilGrids250")
 #
-if (exists("gsm.adj")) {
-  gsm.class <- classify(gsm.adj, rcl=class.limits)
+if (exists("gsm.crop")) {
+  gsm.class <- classify(gsm.crop, rcl=class.limits)
   table(values(gsm.class))
   # gsm.class <- as.factor(gsm.class)
   # .l <- range(values(gsm.class), na.rm=TRUE)
@@ -590,8 +536,8 @@ if (exists("gsm.adj")) {
   #             main="GSM")
   #
 }
-if (exists("issr8.adj")) {
-  issr8.class <- classify(issr8.adj, rcl=class.limits)
+if (exists("issr8.crop")) {
+  issr8.class <- classify(issr8.crop, rcl=class.limits)
   table(values(issr8.class))
   # issr8.class <- as.factor(issr8.class)
   # .l <- range(values(issr8.class), na.rm=TRUE)
@@ -600,8 +546,8 @@ if (exists("issr8.adj")) {
   #             main="ISSR-800")
   #
 }
-if (exists("psu.adj")) {
-  psu.class <- classify(psu.adj, rcl=class.limits)
+if (exists("psu.crop")) {
+  psu.class <- classify(psu.crop, rcl=class.limits)
   # psu.class <- as.factor(psu.class)
   table(values(psu.class))
   # .l <- range(values(psu.class), na.rm=TRUE)
@@ -610,8 +556,8 @@ if (exists("psu.adj")) {
   #             main="SPCG100USA")
   #
 }
-if (exists("polaris.adj")) {
-  polaris.class <- classify(polaris.adj, rcl=class.limits)
+if (exists("polaris.crop")) {
+  polaris.class <- classify(polaris.crop, rcl=class.limits)
   # psu.class <- as.factor(psu.class)
   table(values(polaris.class))
   # .l <- range(values(polaris.class), na.rm=TRUE)
@@ -620,8 +566,8 @@ if (exists("polaris.adj")) {
   #             main="POLARIS")
   #
 }
-if (exists("landgis.adj")) {
-  landgis.class <- classify(landgis.adj, rcl=class.limits)
+if (exists("landgis.crop")) {
+  landgis.class <- classify(landgis.crop, rcl=class.limits)
   # psu.class <- as.factor(psu.class)
   table(values(landgis.class))
   # .l <- range(values(landgis.class), na.rm=TRUE)
@@ -1147,13 +1093,13 @@ show.landscape <- function(r.map, r.title) {
 Show the landscapes of each product:
 
 ```{r show.landscape, fig.width=7, fig.height=5}
-(g1 <- show.landscape(r.gnatsgo, "gNATSGO"))
-(g2 <- show.landscape(r.sg, "SoilGrids250"))
-if (exists("r.psu")) (g3 <- show.landscape(r.psu, "SPCG100USA"))
-if (exists("r.polaris")) (g4 <- show.landscape(r.polaris, "POLARIS"))
-if (exists("r.landgis")) (g4 <- show.landscape(r.landgis, "LandGIS"))
-if (exists("r.gsm")) (g4 <- show.landscape(r.gsm, "GSM v0.5"))
-if (exists("r.issr8")) (g4 <- show.landscape(r.issr8, "ISSR-800"))
+(g <- show.landscape(r.gnatsgo, "gNATSGO"))
+(g <- show.landscape(r.sg, "SoilGrids250"))
+if (exists("r.psu")) (g <- show.landscape(r.psu, "SPCG100USA"))
+if (exists("r.polaris")) (g <- show.landscape(r.polaris, "POLARIS"))
+if (exists("r.landgis")) (g <- show.landscape(r.landgis, "LandGIS"))
+if (exists("r.gsm")) (g <- show.landscape(r.gsm, "GSM v0.5"))
+if (exists("r.issr8")) (g <- show.landscape(r.issr8, "ISSR-800"))
 ```
 
 
@@ -1273,17 +1219,17 @@ Convert the `terra::SpatRaster` objects to `raster::raster` and then to `sp:Spat
 
 ```{r make.sp}
 gnatsgo.sp <- as(raster(gnatsgo.crop), "SpatialPointsDataFrame")
-sg.sp <- as(raster(sg.adj), "SpatialPointsDataFrame")
+sg.sp <- as(raster(sg.crop), "SpatialPointsDataFrame")
 if (exists("r.gsm")) {
-  gsm.sp <- as(raster(gsm.adj), "SpatialPointsDataFrame") }
+  gsm.sp <- as(raster(gsm.crop), "SpatialPointsDataFrame") }
 if (exists("r.psu")) {
-  psu.sp <- as(raster(psu.adj), "SpatialPointsDataFrame") }
+  psu.sp <- as(raster(psu.crop), "SpatialPointsDataFrame") }
 if (exists("r.issr8")) {
-  issr8.sp <- as(raster(issr8.adj), "SpatialPointsDataFrame") }
+  issr8.sp <- as(raster(issr8.crop), "SpatialPointsDataFrame") }
 if (exists("r.polaris")) {
-  polaris.sp <- as(raster(polaris.adj), "SpatialPointsDataFrame") }
+  polaris.sp <- as(raster(polaris.crop), "SpatialPointsDataFrame") }
 if (exists("r.landgis")) {
-  landgis.sp <- as(raster(landgis.adj), "SpatialPointsDataFrame") }
+  landgis.sp <- as(raster(landgis.crop), "SpatialPointsDataFrame") }
 ```
 
 ## Compute and model empirical variograms
