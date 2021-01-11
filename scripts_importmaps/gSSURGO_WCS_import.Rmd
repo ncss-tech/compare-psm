@@ -1,16 +1,16 @@
 ---
-title: "gNATSGO -- Import via WCS for PSM comparisons"
+title: "gSSURGO -- Import via WCS for PSM comparisons"
 author:
   - "D G Rossiter"
   - "d.g.rossiter@cornell.edu"
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -91
-   lrc_lat: 36 
+   lrc_long: -77
+   lrc_lat: 35
    size: 1
    quantile.n: NA
    voi.n: 1
-   depth.n: 4
+   depth.n: 1 
 output:
   html_document:
     fig_align: center
@@ -36,11 +36,11 @@ knitr::opts_chunk$set(cache.extra = R.version.string, comment="")
 
 # Introduction
 
-[gNATSGO](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/survey/geo/?cid=nrcseprd1464625) "is a USDA-NRCS Soil & Plant Science Division (SPSD) composite database that provides complete coverage of the best available soils information for all areas of the United States and Island Territories. It was created by combining data from the Soil Survey Geographic Database (SSURGO), State Soil Geographic Database (STATSGO2), and Raster Soil Survey Databases (RSS) offsite link image into a single seamless ESRI file geodatabase."
+[gSSURGO](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/survey/geo/?cid=nrcs142p2_053628) is a set of ESRI file geodatabases, one per State or equivalent administrative unit, based on the USDA-NRCS Soil Survey Geographic (SSURGO) Database.
 
-It is thus the most authoritative digital product, representing many decades of field work and subsequent compilation.
+"[It] has the most detailed level of soil geographic data developed by the National Cooperative Soil Survey (NCSS) in accordance with NCSS mapping standards.
 
-A description (more or less) is [here](https://nrcs.app.box.com/v/soils/file/744008197230). Unfortunately the instructions are for an ArcInfo toolkit "gSSURGO tools", and it applies to the State-wide products, not the CONUS product.
+This script creates a tile for a property and depth slice, over a Area of Interest (AOI) delimited by geographic coordinates, that can then be compared with other PSM products. 
 
 Web Coverage Service (WCS) access is now provided by NRCS; we use that in this script.
 
@@ -72,6 +72,7 @@ library(tidyverse)
 # library(terra) 
 library(raster) 
 library(rasterVis)
+library(viridis)
 ``` 
 
 
@@ -80,8 +81,8 @@ library(rasterVis)
 One directory is used for the large original files (all-CONUS grid and all-map unit database), and another for the extracted tiles. Set these to areas on your own system.
 
 ```{r}
-base.dir.gnatsgo <- "/Users/rossiter/ds/gNATSGO"
-base.dir.gnatsgo.import <- "/Volumes/Pythagoras/ds/gNATSGO"
+base.dir.gssurgo <- "/Users/rossiter/ds/gSSURGO"
+base.dir.gssurgo.import <- "/Volumes/Pythagoras/ds/gSSURGO"
 ```
 
 
@@ -104,7 +105,7 @@ Note the ``_r` in the name, this means "representative value".
 
 ```{r voi.list}
 voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
-voi.list.gnatsgo <- c("claytotal_r", "silttotal_r", "sandtotal_r",
+voi.list.gssurgo <- c("claytotal_r", "silttotal_r", "sandtotal_r",
                   "ph1to1h2o_r", "cec7_r", "om_r",   # note SOM not SOC
                   "dbthirdbar_r", "sieveno10_r") # passing 2.0 mm sieve, complement is coarse fragments
 ```
@@ -112,7 +113,7 @@ voi.list.gnatsgo <- c("claytotal_r", "silttotal_r", "sandtotal_r",
 *Select a property* by its position in the list, and make a full name from it:
 
 ```{r voi}
-(voi.name <- voi.list.gnatsgo[params$voi.n])
+(voi.name <- voi.list.gssurgo[params$voi.n])
 ```
 
 
@@ -120,14 +121,14 @@ voi.list.gnatsgo <- c("claytotal_r", "silttotal_r", "sandtotal_r",
 
 ```{r depth.list}
 depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
-depth.list.gnatsgo <- c("05", "515", "1530", "3060", "60100", "100200")
+depth.list.gssurgo <- c("05", "515", "1530", "3060", "60100", "100200")
 ```
 
 *Select a depth slice* by its position in the list, based on the YAML or run-time parameter, and make a full name from the property of interest and the selected depth slice:
 
 ```{r depth}
-depth.gnatsgo <- depth.list.gnatsgo[params$depth.n]
-(voi.depth.name <- paste0(voi.name, "_", depth.gnatsgo))  # , "cm"
+depth.gssurgo <- depth.list.gssurgo[params$depth.n]
+(voi.depth.name <- paste0(voi.name, "_", depth.gssurgo))  # , "cm"
 ```
 
 
@@ -154,7 +155,7 @@ st_crs(bb.ll) <- 4326
 print(bb.ll)
 ```
 
-AOI in form needed for gNATSGO WCS import:
+AOI in form needed for gSSURGO WCS import:
 
 ```{r wcs.aoi}
 wcs.aoi <- list(
@@ -172,17 +173,17 @@ AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
 A directory to store the map unit tile and its linked database on import:
 
 ```{r save.tile}
-(dest.dir.gnatsgo.import <-  paste0(base.dir.gnatsgo.import, "/", 
+(dest.dir.gssurgo.import <-  paste0(base.dir.gssurgo.import, "/", 
                             AOI.dir.prefix))
-if (!dir.exists(dest.dir.gnatsgo.import)) {
-   dir.create(dest.dir.gnatsgo.import, recursive = TRUE)
+if (!dir.exists(dest.dir.gssurgo.import)) {
+   dir.create(dest.dir.gssurgo.import, recursive = TRUE)
 }
 ```
 
 A directory to save the processed tile:
 
 ```{r save.results}
-dest.dir <-  paste0(base.dir.gnatsgo, "/", AOI.dir.prefix)
+dest.dir <-  paste0(base.dir.gssurgo, "/", AOI.dir.prefix)
 if (!dir.exists(dest.dir)) {
    dir.create(dest.dir, recursive = TRUE)
 }
@@ -193,29 +194,33 @@ if (!dir.exists(dest.dir)) {
 
 The 30~m product takes about 63Mb per tile. The default EPSG code is 6350. This CRS is an Albers Equal Area with parameters suitable for the CONUS.
 
+See [this tutorial](https://ncss-tech.github.io/AQP/soilDB/WCS-demonstration-01.html). This also shows how to extract the map unit polygons, which we don't do here, because they are not used in the subsequent analysis.
+
 Do not repeat the WCS call if we already have the tile; if you want to make sure to have the most recent, delete any stored tile before calling.
 
 
 ```{r get.tile, fig.cap="Map units at 30m"}
 spc.name <- "mukey"
-(spc.file <-  paste0(dest.dir.gnatsgo.import, "/", spc.name, ".grd"))
+(spc.file <-  paste0(dest.dir.gssurgo.import, "/", spc.name, ".grd"))
 if (file.exists(spc.file)) {
-  gn.30m <- raster(spc.file)
+  gs.30m <- raster(spc.file)
 } else {
   system.time(
-    gn.30m <- soilDB::mukey.wcs(db = 'gnatsgo', aoi = wcs.aoi, res = 30) # crs = "EPSG:6350"
+    gs.30m <- soilDB::mukey.wcs(db = 'gssurgo', aoi = wcs.aoi, res = 30) # crs = "EPSG:6350"
   )
-  names(gn.30m) <- "mukey"
-  writeRaster(gn.30m, spc.file, format = "raster")  # extension  is .grd
+  names(gs.30m) <- "mukey"
+  writeRaster(gs.30m, spc.file, format = "raster")  # extension  is .grd
 }
 ```
 
 ```{r show.tile}
-crs(gn.30m)
-bbox(gn.30m)
-summary(gn.30m)
-class(gn.30m)
-rasterVis::levelplot(gn.30m, att = 'ID', margin = FALSE, colorkey = FALSE, ask=FALSE)
+class(gs.30m)
+crs(gs.30m)
+bbox(gs.30m)
+res(gs.30m)
+summary(gs.30m)
+rasterVis::levelplot(gs.30m, att = 'ID', main = "gSSURGO map unit keys",
+                     margin = FALSE, colorkey = FALSE, ask=FALSE)
 ```
 
 The colours are from the map unit ID, they have no other meaning.
@@ -223,8 +228,9 @@ The colours are from the map unit ID, they have no other meaning.
 Map unit IDs:
 
 ```{r}
-mu.list <- levels(gn.30m)[[1]]
+mu.list <- levels(gs.30m)[[1]]
 dim(mu.list)
+head(mu.list)
 ```
 
 There are `r dim(mu.list)[1]` unique map unit IDs in this window.
@@ -245,7 +251,7 @@ Do not repeat the `fetchSDA` call if we already have the attributes for this til
 
 ```{r}
 spc.name <- "muinfo"
-(spc.file <-  paste0(dest.dir.gnatsgo.import, "/", spc.name, ".rds"))
+(spc.file <-  paste0(dest.dir.gssurgo.import, "/", spc.name, ".rds"))
 if (file.exists(spc.file)) {
   mu.info <- readRDS(spc.file)
 } else {
@@ -407,9 +413,9 @@ This is now a RAT (Raster Attribute Table).
 Match each grid cell map unit ID with its value, using the RAT:
 
 ```{r deratify}
-levels(gn.30m) <- mu.list
-str(gn.30m@data@attributes)
-r.attr <- deratify(gn.30m, result.field)
+levels(gs.30m) <- mu.list
+str(gs.30m@data@attributes)
+r.attr <- deratify(gs.30m, result.field)
 summary(r.attr)
 ```
 
@@ -426,7 +432,7 @@ Interesting.
 
 Save this map for further processing, e.g., comparing with SoilGrids250 or other PSM products.
 
-Save the tile. Note that the file name includes the property name and depth slice. Specify the float-4 bit datatype and a GeoTIFF "world" file.  Each tile is about 12 Mb.
+Save the tile. Note that the file name includes the property name and depth slice. Specify the float datatype and a GeoTIFF "world" file. The tile is about 12 Mb.
 
 ```{r}
 f <- terra::writeRaster(r.attr, file=paste0(dest.dir, "/",
@@ -435,5 +441,4 @@ f <- terra::writeRaster(r.attr, file=paste0(dest.dir, "/",
                         filetype="GTIFF")
 print(f)
 ```
-
 
