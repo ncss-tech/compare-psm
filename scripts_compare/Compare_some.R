@@ -46,6 +46,6 @@ compare.one <- function(lrc_long, lrc_lat, voi.n, depth.n) {
 }
 
 ## ad-hoc calls to this
-for (d.n in 1:4) {
-  compare.one(lrc_long=-76, lrc_lat=42, voi.n=4, depth.n=d.n)
+for (d.n in c(1,4)) {
+  compare.one(lrc_long=-77, lrc_lat=35, voi.n=1, depth.n=d.n)
 }

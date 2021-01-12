@@ -5,8 +5,8 @@ author:
   - "d.g.rossiter@cornell.edu"
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -91
-   lrc_lat: 36 
+   lrc_long: -77
+   lrc_lat: 35
    size: 1
    quantile.n: NA
    voi.n: 1
@@ -356,19 +356,22 @@ Implicit argument (in scope):
 
 ```{r}
 wt.mean.component <- function(i = 1, var.name, wt.name = 'comppct_r') {
-
   # make a local copy of this map unit's information
-  mu.info <- mu.site.split[[i]]
+  mu.info.one <- mu.site.split[[i]]
 
   # get map unit ID, the list of component values and their weights
-  mu.id <- as.character(mu.info[1, "mukey"])
-  vals <- mu.info[,var.name]
-  wts <- mu.info[,wt.name]
+  mu.id <- as.character(mu.info.one[1, "mukey"])
+  vals <- mu.info.one[,var.name]
+  wts <- mu.info.one[,wt.name]
 
   # remove any list entries with NA in the values list or component proportions
   idx <- which(is.na(vals) | is.na(wts))
-  if(length(idx) > 0) { mu.info <- mu.info[-idx, ] }
-  
+  if(length(idx) > 0) { mu.info.one <- mu.info.one[-idx, ] }
+
+  # rebuild values and weights list w/o the components with missing values
+  vals <- mu.info.one[,var.name]
+  wts <- mu.info.one[,wt.name]
+
   # weighted mean -- note wts should sum to 100 but we don't assume that, because of possibl NA's
   mean.w <- sum(vals * wts) / sum(wts)
   
@@ -384,6 +387,7 @@ wt.mean.component <- function(i = 1, var.name, wt.name = 'comppct_r') {
   return(result)
 }
 ```
+
 
 # Reclassify raster map
 

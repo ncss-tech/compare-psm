@@ -10,7 +10,7 @@ params:
    size: 1
    quantile.n: NA
    voi.n: 1
-   depth.n: 1 
+   depth.n: 1
 output:
   html_document:
     fig_align: center
@@ -272,6 +272,7 @@ class(mu.info)
 head(mu.info)
 ```
 
+Notice the `majcompflag` field, this could be used to make maps based only on the dominant component.
 
 # Link to attribute of interest
 
@@ -279,7 +280,7 @@ Aggregate at component level for variable and depth interval of interest. For th
 
 Set up the depths and formula and then call the function:
 
-```{r}
+```{r get.slab.val}
 (slab.depths <- as.numeric(strsplit(depth.list.sg[params$depth.n],"-")[[1]]))
 (slab.fm <- formula(paste0("cokey ~ ", voi.name)))
 mu.attr <- aqp::slab(mu.info, slab.fm, 
@@ -291,7 +292,17 @@ warnings()[1]
 
 This is a list of components, each with its attribute value for the depth slice.
 
-For some tiles, some of the map units have incorrect horizination.
+Any missing values?
+
+```{r check.slab.miss}
+length(ix <- which(is.na(mu.attr$value))) # components with NA values for this property/depth slice
+head(mu.attr.na.cokeys <- mu.attr[ix, "cokey"])   # their component IDs
+head(mu.info.cokeys <- mu.info@site$cokey)                          # component keys in the site information
+length(iy <- which(mu.info.cokeys %in% mu.attr.na.cokeys)) # find the location of these components in the site info
+head(mu.info@site[iy, c("mukey", "compname")], 16)
+```
+
+Most of these are organic soils, for pH.  Some are rock outcrops. Just a few are mineral soil series with missing values.
 
 Make an ID field for reshaping; this is the same for all components:
 
@@ -306,7 +317,6 @@ Long -> wide format as a dataframe with two columns: the component key and the a
 
 ```{r}
 mu.attr.w <- reshape2::dcast(mu.attr, cokey ~ variable.id, value.var = 'value')
-head(mu.attr.w)
 ```
 
 Get the components of each map unit from the site information, via `aqp::site`, and then add the map unit key and proportions to the data frame:
@@ -314,7 +324,12 @@ Get the components of each map unit from the site information, via `aqp::site`, 
 ```{r}
 mu.site <- aqp::site(mu.info)[, c('mukey', 'cokey', 'comppct_r')]
 mu.site <- base::merge(mu.site, mu.attr.w, by = 'cokey', sort = FALSE)
+head(mu.site)
+length(ix <- which(is.na(mu.site[, voi.depth.name]))) # components with NA values for this property/depth slice
+head(mu.site[ix, c("mukey", "comppct_r")], 12)                    # proportion of map unit
 ```
+
+Various proportions of the map unit, from very minor to all of it.
 
 So now we have the map unit, its components, their percentages of the map unit, and each component's attribute value averaged over the depth slice.
 
@@ -362,19 +377,22 @@ Implicit argument (in scope):
 
 ```{r}
 wt.mean.component <- function(i = 1, var.name, wt.name = 'comppct_r') {
-
   # make a local copy of this map unit's information
-  mu.info <- mu.site.split[[i]]
+  mu.info.one <- mu.site.split[[i]]
 
   # get map unit ID, the list of component values and their weights
-  mu.id <- as.character(mu.info[1, "mukey"])
-  vals <- mu.info[,var.name]
-  wts <- mu.info[,wt.name]
+  mu.id <- as.character(mu.info.one[1, "mukey"])
+  vals <- mu.info.one[,var.name]
+  wts <- mu.info.one[,wt.name]
 
   # remove any list entries with NA in the values list or component proportions
   idx <- which(is.na(vals) | is.na(wts))
-  if(length(idx) > 0) { mu.info <- mu.info[-idx, ] }
-  
+  if(length(idx) > 0) { mu.info.one <- mu.info.one[-idx, ] }
+
+  # rebuild values and weights list w/o the components with missing values
+  vals <- mu.info.one[,var.name]
+  wts <- mu.info.one[,wt.name]
+
   # weighted mean -- note wts should sum to 100 but we don't assume that, because of possibl NA's
   mean.w <- sum(vals * wts) / sum(wts)
   
@@ -407,6 +425,14 @@ for (i in 1:length(mu.site.split)) {
 }
 head(mu.list)
 ```
+
+Which map units have no value?
+
+```{r which.na.result}
+length(ix <- which(is.na(mu.list$mean.val.aggr)))
+head(mu.list[ix,])
+```
+
 
 This is now a RAT (Raster Attribute Table).
 
