@@ -5,10 +5,10 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -76
-   lrc_lat: 42
+   lrc_long: -77
+   lrc_lat: 35
    size: 1 
-   voi.n: 4
+   voi.n: 1
    quantile.n: NA
    depth.n: 1
 output:
@@ -47,7 +47,7 @@ These two are  compared:
 
 And this is added as a representative global product, downscaled to the local resolution:
 
-* [SoiLGrids250](https://www.isric.org/explore/soilgrids)  from ISRIC further abbreviated as _SG2_;
+* [SoiLGrids250](https://www.isric.org/explore/soilgrids)  from ISRIC further abbreviated as _SG2_.
 
 The PSM products must have been previously imported and restricted to the same area of interest (AOI), a $1 \times 1^\circ$, to the locations indicated in the directory list. These can be somewhat larger, in this script the CRS are made compatible (WGS84 geographic) and cropped to exactly a 1 degree tile.
 
@@ -142,8 +142,10 @@ base.dir.polaris.import <- paste0(base.dir.import, "POLARIS")
 
 3. `base.dir.export`: This is where generated harmonized maps will be saved for further processing, e.g., comparing patterns.
 
+These are quite large files, about 50Mb for a 1-degree tile, so store on the external storage.
+
 ```{r base.dir.export}
-base.dir.export <- paste0(base.dir, "Compare_30m")
+base.dir.export <- paste0(base.dir.import, "Compare_PSM_local")
 ```
 
 # Parameters
@@ -277,7 +279,7 @@ if (file.exists(file.name)) {
 
 ## SoilGrids250
 
-This is required; all the properties to compare are mapped by SoilGrids250.
+This is the globally-consistent product.
 
 ```{r get.tiles.sg}
 # SoilGrids250 -- only the mean prediction in this script
@@ -403,28 +405,23 @@ gSSURGO is in a CONUS Albers Equal Area on the GRS80 ellipsoid, the basis of the
 rgdal::showP4(crs(r.gssurgo))
 ```
 
-Resample products into POLARIS WGS84 30m nominal pixels, using cubic interpolation.
+Resample SoilGrids nominal 250m into POLARIS WGS84 30m nominal pixels, using cubic interpolation -- this will only have effect near the edges of the large pixel being downscaled.
 
 ```{r crs.resample}
 r.sg.p <- terra::resample(r.sg, r.p, method="cubic")
+# plot(r.sg.p)
 ```
 
 For gSSURGO the CRS must be changed, not just the resolution:
 
 ```{r crs.project}
 r.gssurgo.p <- terra::project(r.gssurgo, r.p, method="cubic") 
-plot(r.gssurgo.p)
+# plot(r.gssurgo.p)
 ```
 
 
 # Make all maps cover the same area
 
-POLARIS predicts in the lakes, the USA products predict in built-up areas. Mask these out with SoilGrids250, which does not.
-
-```{r mask.lakes}
-r.gssurgo.p <- mask(r.gssurgo.p, r.sg.p)
-r.p <- mask(r.p, r.sg.p)
-```
 
 Make a true 1 degree tile raster and use it to mask the other coverages, to get consistent coverage.
 SoilGrids is larger and so are the two originally in AEA projection.
@@ -450,6 +447,21 @@ r.p <- crop(r.p, bb.poly)
 r.sg.p <- crop(r.sg.p, bb.poly)
 ```
 
+POLARIS predicts in the lakes, gNATSGO predict in some built-up areas. Mask these out with SoilGrids250, which does not.
+
+```{r mask.with.polaris}
+r.gssurgo.p <- mask(r.gssurgo.p, r.sg.p)
+r.p <- mask(r.p, r.sg.p)
+```
+
+There are some areas not surveyed by gSSURGO, e.g., Indian reservations. Also their unsurveyed urban areas may differ. So mask the other products with gSSURGO.
+
+```{r mask.with.gssurgo}
+r.p <- mask(r.p, r.gssurgo.p)
+r.sg.p <- mask(r.sg.p, r.gssurgo.p)
+```
+
+
 Check that the maps cover the same area and have the same units, ignore different stretches for now:
 
 ```{r plot.resampled, fig.width=map.fig.width, fig.height=map.fig.height}
@@ -460,8 +472,6 @@ plot(r.sg.p, main="SoilGrids250")
 par(mfrow=c(1, 1))
 ```
 
-## ** To here
-
 # Compare
 
 ## Compute common range for all products
@@ -471,26 +481,9 @@ zlim <- c(min(values(r.sg)*10, na.rm = TRUE),
           max(values(r.sg)*10, na.rm = TRUE))/10
 zlim <- c(floor(min(zlim[1]*10, values(r.gssurgo.p)*10, na.rm=TRUE)),
           ceiling(max(zlim[2]*10, values(r.gssurgo.p)*10, na.rm=TRUE)))/10
-if (exists("r.gsm.sg")) {
-  zlim <- c(floor(min(zlim[1]*10, values(r.gsm.sg)*10, na.rm=TRUE)),
-          ceiling(max(zlim[2]*10, values(r.gsm.sg)*10, na.rm=TRUE)))/10
-}
-if (exists("r.p.sg")) {
-  zlim <- c(floor(min(zlim[1]*10, values(r.p.sg)*10, na.rm=TRUE)),
-            ceiling(max(zlim[2]*10, values(r.p.sg)*10, na.rm=TRUE)))/10
-}
-if (exists("r.psu.sg")) {
-  zlim <- c(floor(min(zlim[1]*10, values(r.psu.sg)*10, na.rm=TRUE)),
-            ceiling(max(zlim[2]*10, values(r.psu.sg)*10, na.rm=TRUE)))/10
-}
-if (exists("r.landgis.sg")) {
-  zlim <- c(floor(min(zlim[1]*10, values(r.landgis.sg)*10, na.rm=TRUE)),
-            ceiling(max(zlim[2]*10, values(r.landgis.sg)*10, na.rm=TRUE)))/10
-}
-if (exists("r.issr8.sg")) {
-  zlim <- c(floor(min(zlim[1]*10, values(r.issr8.sg)*10, na.rm=TRUE)),
-            ceiling(max(zlim[2]*10, values(r.issr8.sg)*10, na.rm=TRUE)))/10
-}
+zlim <- c(floor(min(zlim[1]*10, values(r.p)*10, na.rm=TRUE)),
+          ceiling(max(zlim[2]*10, values(r.p)*10, na.rm=TRUE)))/10
+print(zlim)
 ```
 
 ## Histograms
@@ -504,43 +497,19 @@ max.dens <- function(r.map) {  # argument: the raster map
   h <- hist(r.map,  breaks=24, plot = FALSE)
   max(h$counts/(diff(h$breaks[1:2]))/sum(h$counts))
 }
-yl <- max(max.dens(r.gssurgo.p), max.dens(r.sg))
-if (exists("r.gsm.sg")) { yl <- max(yl, max.dens(r.sg)) }
-if (exists("r.p.sg")) { yl <- max(yl, max.dens(r.p.sg))}
-if (exists("r.psu.sg")) { yl <- max(yl, max.dens(r.psu.sg))}
-if (exists("r.landgis.sg")) { yl <- max(yl, max.dens(r.landgis.sg))}
-if (exists("r.issr8.sg")) { yl <- max(yl, max.dens(r.issr8.sg))}
-yl <- c(0, yl) # standardize the density axis
+yl <- c(0, max(max.dens(r.gssurgo.p), max.dens(r.sg.p), max.dens(r.p)))
 ```
 
 Use this y-axis to show all the histograms together:
 
 ```{r hist.sg.props, fig.width=map.fig.width, fig.height=map.fig.height}
 par(mfrow=c(n.figs.row, n.figs.col))
-hist(r.sg, breaks=24, main="SoilGrids25O",
-     xlim=zlim, xlab="", freq = FALSE, ylim=yl)
 hist(r.gssurgo.p, breaks=24, main="gSSURGO",
      xlim=zlim, xlab="", freq = FALSE, ylim=yl)
-if (exists("r.gsm.sg")) {
-  hist(r.gsm.sg, breaks=24, main="GSM v0.5",
-       xlim=zlim, xlab="", freq = FALSE, ylim=yl) 
-}
-if (exists("r.p.sg")) {
-  hist(r.p.sg, breaks=24, main="POLARIS",
-       xlim=zlim, xlab="", freq = FALSE, ylim=yl)
-}
-if (exists("r.psu.sg")) {
-  hist(r.psu.sg, breaks=24, main="SPCG100",
-       xlim=zlim, xlab="", freq = FALSE, ylim=yl)
-}
-if (exists("r.landgis.sg")) {
-  hist(r.landgis.sg, breaks=24, main="LandGIS",
-       xlim=zlim, xlab="", freq = FALSE, ylim=yl)
-}
-if (exists("r.issr8.sg")) {
-  hist(r.issr8.sg, breaks=24, main="ISSR-800",
-       xlim=zlim, xlab="", freq = FALSE, ylim=yl)
-}
+hist(r.p, breaks=24, main="POLARIS",
+     xlim=zlim, xlab="", freq = FALSE, ylim=yl)
+hist(r.sg, breaks=24, main="SoilGrids25O",
+     xlim=zlim, xlab="", freq = FALSE, ylim=yl)
 par(mfrow=c(1,1))
 ```
 
@@ -550,22 +519,8 @@ par(mfrow=c(1,1))
 ```{r map.sg.props, fig.width=map.fig.width, fig.height=map.fig.height}
 par(mfrow=c(n.figs.row, n.figs.col))
 terra::plot(r.gssurgo.p, main="gSSURGO", range=zlim)
-terra::plot(r.sg, main="SoilGrids", range=zlim)
-if (exists("r.gsm.sg")) {
-  terra::plot(r.gsm.sg, main="GSM v0.5", range=zlim)
-}
-if (exists("r.p.sg")) {
-  terra::plot(r.p.sg, main="POLARIS", range=zlim)
-}
-if (exists("r.psu.sg")) {
-  terra::plot(r.psu.sg, main="SPCG100", range=zlim)
-}
-if (exists("r.landgis.sg")) {
-  terra::plot(r.landgis.sg, main="LandGIS", range=zlim)
-}
-if (exists("r.issr8.sg")) {
-  terra::plot(r.issr8.sg, main="ISSR-800", range=zlim)
-}
+terra::plot(r.p, main="POLARIS", range=zlim)
+terra::plot(r.sg.p, main="SoilGrids", range=zlim)
 par(mfrow=c(1,1))
 ```
 
@@ -575,23 +530,8 @@ Pairwise Pearson correlations. Note the distributions are fairly symmetric/quasi
 
 ```{r pairwise}
 v.all <- data.frame(gssurgo=values(r.gssurgo.p),
-                    sg=values(r.sg),
-                    gsm=NA,
-                    polaris=NA,
-                    spcg100=NA,
-                    landgis=NA,
-                    issr8=NA)
-# remove any fields w/o data, so correlation only shows the products we want to compare
-if (exists("r.gsm.sg")) { v.all$gsm <- values(r.gsm.sg) } else 
-  { v.all["gsm"] <- list(NULL) }
-if (exists("r.p.sg")) { v.all$polaris <- values(r.p.sg) } else 
-  { v.all["polaris"] <- list(NULL) }
-if (exists("r.psu.sg")) { v.all$spcg100 <- values(r.psu.sg) } else
-  { v.all["spcg100"] <- list(NULL) }
-if (exists("r.landgis.sg")) { v.all$landgis <-  values(r.landgis.sg) } else 
-  { v.all["landgis"] <- list(NULL) }
-if (exists("r.issr8.sg")) { v.all$issr8 <- values(r.issr8.sg) } else
-  { v.all["issr8"] <- list(NULL) }
+                    sg=values(r.sg.p),
+                    polaris=values(r.p))
 summary(v.all)
 cor.all <- cor(v.all, use="pairwise.complete.obs")
 cor.upper <- cor.all; cor.upper[lower.tri(cor.upper)] <- NA
@@ -600,11 +540,10 @@ print(round(cor.upper, 3))
 
 Make a nice correlation plot:
 
-```{r corrplot, fig.width=(n.figs.col*2), fig.height=n.figs.col*2}
+```{r corrplot, fig.width=(n.figs.col*1.5), fig.height=n.figs.col*1.5}
 library(corrplot)
 corrplot(cor.all, method="circle", type="upper", diag=FALSE)
 ```
-
 
 
 # Differences 
@@ -614,12 +553,8 @@ corrplot(cor.all, method="circle", type="upper", diag=FALSE)
 Relative to gSSURGO, as the base product closest to the field soil survey.
 
 ```{r}
-diff.gssurgo.p <- r.gssurgo.p - r.sg
-if (exists("r.gsm.sg")) { diff.gssurgo.gsm <- r.gssurgo.p - r.gsm.sg }
-if (exists("r.p.sg")) {  diff.gssurgo.p <-  r.gssurgo.p - r.p.sg }
-if (exists("r.psu.sg")) {  diff.gssurgo.psu <-  r.gssurgo.p - r.psu.sg }
-if (exists("r.landgis.sg")) {  diff.gssurgo.landgis <-  r.gssurgo.p - r.landgis.sg }
-if (exists("r.issr8.sg")) { diff.gssurgo.issr8 <-  r.gssurgo.p - r.issr8.sg }
+diff.gssurgo.sg <- r.gssurgo.p - r.sg.p
+diff.gssurgo.p <-  r.gssurgo.p - r.p
 ```
 
 ## Statistics
@@ -640,45 +575,15 @@ rmse.adj <- function(v1, v2) {   # RMSE adjusted for ME (bias)
   round(sqrt(mean((v1-v2.adj)^2, na.rm=TRUE)),3)
 }
 stats.compare[1, ] <- c("SoilGrids250",
-                        me(values(r.gssurgo.p),values(r.sg)),
-                        rmse(values(r.gssurgo.p),values(r.sg)),
-                        rmse.adj(values(r.gssurgo.p),values(r.sg))
-); i <- 2
-if (exists("r.gsm.sg")) {
-  stats.compare[i, ] <- c("GSM v0.5",
-                        me(values(r.gssurgo.p),values(r.gsm.sg)),
-                        rmse(values(r.gssurgo.p),values(r.gsm.sg)),
-                        rmse.adj(values(r.gssurgo.p),values(r.gsm.sg))
-                        ); i <- i + 1
-}
-if (exists("r.p.sg")) {
-  stats.compare[i, ] <- c("POLARIS",
-                        me(values(r.gssurgo.p),values(r.p.sg)),
-                        rmse(values(r.gssurgo.p),values(r.p.sg)),
-                        rmse.adj(values(r.gssurgo.p),values(r.p.sg))
-                        ); i <- i + 1
-}
-if (exists("r.psu.sg")) {
-  stats.compare[i, ] <- c("SPCG100",
-                        me(values(r.gssurgo.p),values(r.psu.sg)),
-                        rmse(values(r.gssurgo.p),values(r.psu.sg)),
-                        rmse.adj(values(r.gssurgo.p),values(r.psu.sg))
-                        ); i <- i + 1
-}
-if (exists("r.landgis.sg")) {
-  stats.compare[i, ] <- c("LandGIS",
-                        me(values(r.gssurgo.p),values(r.landgis.sg)),
-                        rmse(values(r.gssurgo.p),values(r.landgis.sg)),
-                        rmse.adj(values(r.gssurgo.p),values(r.landgis.sg))
-                        ); i <- i + 1
-}
-if (exists("r.issr8.sg")) {
-  stats.compare[i, ] <- c("ISSR-800",
-                        me(values(r.gssurgo.p),values(r.issr8.sg)),
-                        rmse(values(r.gssurgo.p),values(r.issr8.sg)),
-                        rmse.adj(values(r.gssurgo.p),values(r.issr8.sg))
-                        )
-}
+                        me(values(r.gssurgo.p),values(r.sg.p)),
+                        rmse(values(r.gssurgo.p),values(r.sg.p)),
+                        rmse.adj(values(r.gssurgo.p),values(r.sg.p))
+)
+stats.compare[2, ] <- c("POLARIS",
+                        me(values(r.gssurgo.p),values(r.p)),
+                        rmse(values(r.gssurgo.p),values(r.p)),
+                        rmse.adj(values(r.gssurgo.p),values(r.p))
+)
 ```
 
 Save this table for incorporation in a LaTeX document:
@@ -689,7 +594,7 @@ options(xtable.timestamp = "")
 x <- xtable(stats.compare, row.names=FALSE, digits=3)
 autoformat(x)
 capture.output(print(x, include.rownames=FALSE), 
-               file=paste0("../LaTeX_tables/SoilGrids250_compare_statistics_",
+               file=paste0("../LaTeX_tables/gSSURGO_compare_statistics_",
                            AOI.dir.prefix, "_", voi.sg, "_", depth.list.sg[depth], ".tex"))
 ```
 
@@ -697,28 +602,11 @@ capture.output(print(x, include.rownames=FALSE),
 
 ```{r zlim.diff.sg}
 zlim <- c(NA, NA)
+zlim <- c(floor(min(zlim[1]*10, values(diff.gssurgo.sg)*10, na.rm=TRUE)),
+          ceiling(max(zlim[2]*10, values(diff.gssurgo.sg)*10, na.rm=TRUE)))/10
 zlim <- c(floor(min(zlim[1]*10, values(diff.gssurgo.p)*10, na.rm=TRUE)),
           ceiling(max(zlim[2]*10, values(diff.gssurgo.p)*10, na.rm=TRUE)))/10
-if (exists("diff.gssurgo.gsm")) {
-  zlim <- c(floor(min(zlim[1]*10, values(diff.gssurgo.gsm)*10, na.rm=TRUE)),
-            ceiling(max(zlim[2]*10, values(diff.gssurgo.gsm)*10, na.rm=TRUE)))/10
-}
-if (exists("diff.gssurgo.p")) {
-  zlim <- c(floor(min(zlim[1]*10, values(diff.gssurgo.p)*10, na.rm=TRUE)),
-            ceiling(max(zlim[2]*10, values(diff.gssurgo.p)*10, na.rm=TRUE)))/10
-}
-if (exists("diff.gssurgo.psu")) {
-  zlim <- c(floor(min(zlim[1]*10, values(diff.gssurgo.psu)*10, na.rm=TRUE)),
-            ceiling(max(zlim[2]*10, values(diff.gssurgo.psu)*10, na.rm=TRUE)))/10
-}
-if (exists("diff.gssurgo.landgis")) {
-  zlim <- c(floor(min(zlim[1]*10, values(diff.gssurgo.landgis)*10, na.rm=TRUE)),
-            ceiling(max(zlim[2]*10, values(diff.gssurgo.landgis)*10, na.rm=TRUE)))/10
-}
-if (exists("diff.gssurgo.issr8")) {
-  zlim <- c(floor(min(zlim[1]*10, values(diff.gssurgo.issr8)*10, na.rm=TRUE)),
-            ceiling(max(zlim[2]*10, values(diff.gssurgo.issr8)*10, na.rm=TRUE)))/10
-}
+print(zlim)
 ```
 
 ## Histograms
@@ -726,42 +614,18 @@ if (exists("diff.gssurgo.issr8")) {
 First, compute the maximum density, to have a common y-axis:
 
 ```{r diff.hist.densities}
-yl <- max(max.dens(diff.gssurgo.p))
-if (exists("r.gsm.sg")) { yl <- max(yl, max.dens(diff.gssurgo.gsm))}
-if (exists("r.p.sg")) { yl <- max(yl, max.dens(diff.gssurgo.p))}
-if (exists("r.psu.sg")) { yl <- max(yl, max.dens(diff.gssurgo.psu))}
-if (exists("r.landgis.sg")) { yl <- max(yl, max.dens(diff.gssurgo.landgis))}
-if (exists("r.issr8.sg")) { yl <- max(yl, max.dens(diff.gssurgo.issr8))}
+yl <- c(0, max(max.dens(diff.gssurgo.p), max.dens(diff.gssurgo.sg)))
 ```
 
 Use this y-axis to show all the histograms together:
 
 
 ```{r hist.diff.sg, fig.width=map.fig.width.diff, fig.height=map.fig.height.diff}
-yl <- c(0, yl) # Standardize density axis
 par(mfrow=c(n.figs.row.diff, n.figs.col.diff))
-hist(diff.gssurgo.p, main="gSSURGO - SoilGrids250", xlab="",
+hist(diff.gssurgo.p, main="gSSURGO - POLARIS", xlab="",
      xlim=zlim,  breaks=24, freq = FALSE, ylim=yl)
-if (exists("r.gsm.sg")) { 
-  hist(diff.gssurgo.gsm, main="gSSURGO - GSM v0.5", xlab="",
+hist(diff.gssurgo.sg, main="gSSURGO - SoilGrids250", xlab="",
      xlim=zlim,  breaks=24, freq = FALSE, ylim=yl)
-}
-if (exists("r.p.sg")) {
-  hist(diff.gssurgo.p, main="gSSURGO - POLARIS", xlab="",
-     xlim=zlim,  breaks=24, freq = FALSE, ylim=yl)
-}
-if (exists("r.psu.sg")) {
-  hist(diff.gssurgo.psu, main="gSSURGO - SPCG100USA", xlab="",
-     xlim=zlim,  breaks=24, freq = FALSE, ylim=yl)
-}
-if (exists("r.landgis.sg")) {
-  hist(diff.gssurgo.landgis, main="gSSURGO - LandGIS", xlab="",
-     xlim=zlim,  breaks=24, freq = FALSE, ylim=yl)
-}
-if (exists("r.issr8.sg")) {
-  hist(diff.gssurgo.p, main="gSSURGO - ISSR-800", xlab="",
-     xlim=zlim,  breaks=24, freq = FALSE, ylim=yl)
-}
 par(mfrow=c(1,1))
 ```
 
@@ -770,28 +634,10 @@ par(mfrow=c(1,1))
 
 ```{r plot.diff.sg, fig.width=map.fig.width.diff, fig.height=map.fig.height.diff}
 par(mfrow=c(n.figs.row.diff, n.figs.col.diff))
-  terra::plot(diff.gssurgo.p, main="Difference gSSURGO - SoilGrids250",
+terra::plot(diff.gssurgo.p, main="Difference gSSURGO - POLARIS",
             range=zlim, col=bpy.colors(64))
-if (exists("r.gsm.sg")) { 
-  terra::plot(diff.gssurgo.gsm, main="Difference gSSURGO - GSM v0.5",
+terra::plot(diff.gssurgo.sg, main="Difference gSSURGO - SoilGrids250",
             range=zlim, col=bpy.colors(64))
-}
-if (exists("diff.gssurgo.p")) {
-  terra::plot(diff.gssurgo.p, main="Difference gSSURGO - POLARIS",
-            range=zlim, col=bpy.colors(64))
-}
-if (exists("diff.gssurgo.psu")) {
-  terra::plot(diff.gssurgo.psu, main="Difference gSSURGO - SPCG100USA",
-            range=zlim, col=bpy.colors(64))
-}
-if (exists("diff.gssurgo.landgis")) {
-  terra::plot(diff.gssurgo.landgis, main="Difference gSSURGO - LandGIS",
-            range=zlim, col=bpy.colors(64))
-}
-if (exists("diff.gssurgo.issr8")) {
-  terra::plot(diff.gssurgo.issr8, main="Difference gSSURGO - ISSR-800",
-            range=zlim, col=bpy.colors(64))
-}
 par(mfrow=c(1,1))
 ```
 
@@ -812,69 +658,27 @@ Same AOI, CRS, resolution, units of measure:
 ```{r save.tiles}
 # gSSURGO
 voi.depth.sg <- paste0(voi.sg, "_", depth.list.sg[depth])
-dest.name <- paste0(dest.dir.save,"/gssurgo_tile_250_",  voi.depth.sg, ".tif")
+dest.name <- paste0(dest.dir.save,"/gssurgo_tile_30_",  voi.depth.sg, ".tif")
 f <- terra::writeRaster(r.gssurgo.p, file=dest.name,
                         overwrite=TRUE,
                         wopt=list(gdal=c("TFW=YES"), datatype="FLT4S"),
                         filetype="GTiff")
 # GDALinfo(dest.name)
 print(paste("Wrote ", dest.name))
+# POLARIS
+dest.name <- paste0(dest.dir.save,"/polaris_tile_30_",  voi.depth.sg, ".tif")
+f <- terra::writeRaster(r.p, file=dest.name,
+                        overwrite=TRUE,
+                        wopt=list(gdal=c("TFW=YES"), datatype="FLT4S"),
+                        filetype="GTiff")
+#  GDALinfo(dest.name)
+print(paste("Wrote ", dest.name))
 # SoilGrids250
-dest.name <- paste0(dest.dir.save,"/sg_tile_250_",  voi.depth.sg, ".tif")
-f <- terra::writeRaster(r.sg, file=dest.name,
+dest.name <- paste0(dest.dir.save,"/sg_tile_30_",  voi.depth.sg, ".tif")
+f <- terra::writeRaster(r.sg.p, file=dest.name,
                         overwrite=TRUE,
                         wopt=list(gdal=c("TFW=YES"), datatype="FLT4S"),
                         filetype="GTiff")
 # GDALinfo(dest.name)
 print(paste("Wrote ", dest.name))
-# GSM v0.5
-if (exists("r.gsm.sg")) { 
-  dest.name <- paste0(dest.dir.save,"/gsm_tile_250_",  voi.depth.sg, ".tif")
-  f <- terra::writeRaster(r.gssurgo.p, file=dest.name,
-                          overwrite=TRUE,
-                          wopt=list(gdal=c("TFW=YES"), datatype="FLT4S"),
-                          filetype="GTiff")
-  #  GDALinfo(dest.name)
-  print(paste("Wrote ", dest.name))
-}
-# SPCG100USA
-if (exists("r.psu.sg")) {
-  dest.name <- paste0(dest.dir.save,"/psu_tile_250_",  voi.depth.sg, ".tif")
-  f <- terra::writeRaster(r.psu.sg, file=dest.name,
-                          overwrite=TRUE, 
-                          wopt=list(gdal=c("TFW=YES"), datatype="FLT4S"),
-                          filetype="GTiff")
-  #  GDALinfo(dest.name)
-  print(paste("Wrote ", dest.name))
-}
-# POLARIS
-if (exists("r.p.sg")) {
-  dest.name <- paste0(dest.dir.save,"/polaris_tile_250_",  voi.depth.sg, ".tif")
-  f <- terra::writeRaster(r.p.sg, file=dest.name,
-            overwrite=TRUE,
-            wopt=list(gdal=c("TFW=YES"), datatype="FLT4S"),
-            filetype="GTiff")
-  #  GDALinfo(dest.name)
-  print(paste("Wrote ", dest.name))
-}
-# LandGIS
-if (exists("r.landgis.sg")) {
-  dest.name <- paste0(dest.dir.save,"/landgis_tile_250_",  voi.depth.sg, ".tif")
-  f <- terra::writeRaster(r.landgis.sg, file=dest.name,
-            overwrite=TRUE, 
-            wopt=list(gdal=c("TFW=YES"), datatype="FLT4S"),
-            filetype="GTiff")
-  #  GDALinfo(dest.name)
-  print(paste("Wrote ", dest.name))
-}
-# ISSR-800
-if (exists("r.issr8.sg")) {
-  dest.name <- paste0(dest.dir.save,"/issr8_tile_250_",  voi.depth.sg, ".tif")
-  f <- terra::writeRaster(r.issr8.sg, file=dest.name,
-            overwrite=TRUE,
-            wopt=list(gdal=c("TFW=YES"), datatype="FLT4S"),
-            filetype="GTiff")
-  #  GDALinfo(dest.name)
-  print(paste("Wrote ", dest.name))
-}
 ```

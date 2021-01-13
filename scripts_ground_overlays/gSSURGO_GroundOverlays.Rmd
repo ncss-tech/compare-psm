@@ -1,5 +1,5 @@
 ---
-title: "gNATSGO ground overlays"
+title: "gSSURGO ground overlays"
 author: "D G Rossiter"
 date: "`r Sys.Date()`"
 params:
@@ -25,8 +25,7 @@ output:
 
 # Objective
 
-The aim of this script is to facilitate evaluation of [gNATSGO](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/survey/geo/?cid=nrcseprd1464625).
-"is a USDA-NRCS Soil & Plant Science Division (SPSD) composite database that provides complete coverage of the best available soils information for all areas of the United States and Island Territories. It was created by combining data from the Soil Survey Geographic Database (SSURGO), State Soil Geographic Database (STATSGO2), and Raster Soil Survey Databases (RSS) offsite link image into a single seamless ESRI file geodatabase."
+The aim of this script is to facilitate evaluation of [gSSURGO](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/survey/geo/?cid=nrcs142p2_053628) is a set of ESRI file geodatabases, one per State or equivalent administrative unit, based on the USDA-NRCS Soil Survey Geographic (SSURGO) Database.
 
 It is thus the most authoritative digital product, representing many decades of field work and subsequent compilation.
 
@@ -34,7 +33,7 @@ The overlay can be displayed along with [SoilWeb Apps](https://casoilresource.la
 
 # Usage
 
-This script must follow the import of the tile covering the Area of Interest (AOI), property, depth and quantile. The import script is `..scripts_importmaps/gNATSGO_WCS_import.Rmd`. The tile is placed by that script at the base directory ([see below](#dir)), in a subdirectory structure using the AOI.
+This script must follow the import of the tile covering the Area of Interest (AOI), property, depth and quantile. The import script is `..scripts_importmaps/gSSURGO_WCS_import.Rmd`. The tile is placed by that script at the base directory ([see below](#dir)), in a subdirectory structure using the AOI.
 
 Steps 1--4 refer to the YAML headers, or external calls with `knitr::render`.
 
@@ -56,7 +55,7 @@ Base directories for files saved by the previous import procedure, and for writi
 
 ```{r}
 base.dir <- "/Users/rossiter/ds/"
-base.dir.gnatsgo <- paste0(base.dir, "gNATSGO")
+base.dir.gssurgo <- paste0(base.dir, "gSSURGO")
 ```
 
 ## Packages
@@ -88,18 +87,18 @@ print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
 Define the variables for the soil property and layer of interest.
 
 ```{r voi.list}
-voi.list.gnatsgo <- c("claytotal_r", "silttotal_r", "sandtotal_r",
+voi.list.gssurgo <- c("claytotal_r", "silttotal_r", "sandtotal_r",
                   "ph1to1h2o_r", "cec7_r", "om_r",   # note SOM not SOC
                   "dbthirdbar_r", "sieveno10_r") # passing 2.0 mm sieve, complement is coarse fragments
-(voi.name <- voi.list.gnatsgo[params$voi.n])
+(voi.name <- voi.list.gssurgo[params$voi.n])
 ```
 
 
 ## Depth of interest {#depth}
 
 ```{r depth.list}
-depth.list.gnatsgo <- c("05", "515", "1530", "3060", "60100", "100200")
-(voi.depth.name <- paste0(voi.name, "_", depth.list.gnatsgo[params$depth.n]))
+depth.list.gssurgo <- c("05", "515", "1530", "3060", "60100", "100200")
+(voi.depth.name <- paste0(voi.name, "_", depth.list.gssurgo[params$depth.n]))
 ```
 
 
@@ -134,22 +133,22 @@ AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
 
 ## Subtile {#subaoi}
 
-Since we are interested in the detailed spatial pattern compared to gSSURGO and the background land use, we will view the overlay over a small area, about 3' N/S and proportionally more E/W depending on the latitude. For larger areas SoilWeb shows the generalized gNATSGO lines, which are not useful for our purpose.
+Since we are interested in the detailed spatial pattern compared to gSSURGO and the background land use, we will view the overlay over a small area, about 3' N/S and proportionally more E/W depending on the latitude. For larger areas SoilWeb shows the generalized gSSURGO lines, which are not useful for our purpose.
 
 A $1 \times 1^\circ$ GSM tile contains about $60/3 = 20$ subtiles. Specify the lower-right corner of the subtile as an offset in minutes:
 
 ```{r}
-subtile.offset.long <- 45  # minutes offset from lrc, longitude
-subtile.offset.lat <- 19   # minutes offset from lrc, latitude
-subtile.size <- 4  # tile size, minutes in long and lat
+subtile.offset.long <- 36  # minutes offset from lrc, longitude
+subtile.offset.lat <- 18   # minutes offset from lrc, latitude
+subtile.size <- 5  # tile size, minutes in long and lat
 ```
 
 
 
-# Get the imported gNATSGO tile
+# Get the imported gSSURGO tile
   
 ```{r get.tile}
-src.dir.gnatsgo <-  paste0(base.dir.gnatsgo, "/", AOI.dir.prefix)
+src.dir.gssurgo <-  paste0(base.dir.gssurgo, "/", AOI.dir.prefix)
 ```
 
 The downloaded file can then be read into R. 
@@ -159,24 +158,26 @@ The downloaded file can then be read into R.
 We use the `terra` package to read the GeoTIFF.
 
 ```{r get-sg}
-file.name <- paste0(src.dir.gnatsgo, "/", voi.depth.name, ".tif")
+file.name <- paste0(src.dir.gssurgo, "/", voi.depth.name, ".tif")
 if (file.exists(file.name)) {
-  r.gnatsgo <- terra::rast(file.name)
-  plot(r.gnatsgo)
+  r.gssurgo <- terra::rast(file.name)
+  res(r.gssurgo)
+  ext(r.gssurgo)
+  plot(r.gssurgo)
 } else (stop(paste("No file", file.name)))
 ```
 
 Convert to WGS84 long/lat as required by Google Earth:
 
 ```{r}
-r.gnatsgo.4326 <- terra::project(r.gnatsgo, 
+r.gssurgo.4326 <- terra::project(r.gssurgo, 
                                  "+proj=longlat +datum=WGS84",
                                  method="cubic")
 # correct -3.4e+38 'NA' values
-v <- values(r.gnatsgo.4326)
-values(r.gnatsgo.4326) <- ifelse((v < 0), NA, v)
-plot(r.gnatsgo.4326)
-r.gnatsgo.4326
+v <- values(r.gssurgo.4326)
+values(r.gssurgo.4326) <- ifelse((v < 0), NA, v)
+plot(r.gssurgo.4326)
+r.gssurgo.4326
 ```
 
 ## Limit to a sub-tile
@@ -198,9 +199,9 @@ bb.sub <- ext(.m)
 Crop to the subtile:
 
 ```{r plot.properties.crop}
-r.gnatsgo.4326 <- crop(r.gnatsgo.4326, bb.sub)
-print(r.gnatsgo.4326)
-plot(r.gnatsgo.4326, col=topo.colors(64))
+r.gssurgo.crop <- crop(r.gssurgo.4326, bb.sub)
+print(r.gssurgo.crop)
+plot(r.gssurgo.crop, col=topo.colors(64))
 ```
 
 
@@ -237,19 +238,20 @@ A `GE_SpatialGrid` has a triple purpose:
 The function requires a `Spatial*` object from package `sp`. We must first convert the `terra::SpatRaster` to a `raster::RasterLayer` from the older `raster` package (which `terra` is replacing), and then cast to an `sp` object.
 
 ```{r create.spdf}
-class(r.gnatsgo.4326)
-tmp <- raster::raster(r.gnatsgo.4326)
+class(r.gssurgo.crop)
+tmp <- raster::raster(r.gssurgo.crop)
 class(tmp)
 r.sp.84 <- as(tmp, "SpatialPixelsDataFrame")
 class(r.sp.84)
-# spplot(r.sp.84, col.regions=heat.colors(256))
+spplot(r.sp.84, col.regions=heat.colors(256))
+dim(r.sp.84)
 ```
 
 Now make the `GE_SpatialGrid`, changing the default pixel size to show each prediction pixel.
 
 ```{r warning=FALSE}
-# default maxPixels=600, we want more detail
-GRD <- maptools::GE_SpatialGrid(r.sp.84, maxPixels=max(dim(r.gnatsgo.4326)[1:2]))
+# default maxPixels=600, here we set to the maximum dimension, full resolution
+GRD <- maptools::GE_SpatialGrid(r.sp.84, maxPixels=max(dim(r.gssurgo.crop)[1:2]))
 str(GRD)
 ```
 
@@ -259,7 +261,7 @@ This is the ground overlay.  We use the same directory from which we obtained th
 
 
 ```{r}
-(filename.png <- paste0(src.dir.gnatsgo,"/", voi.depth.name, '.png'))
+(filename.png <- paste0(src.dir.gssurgo,"/", voi.depth.name, '.png'))
 png(file=filename.png, width=GRD$width, height=GRD$height,
     bg="transparent")
 par(mar=c(0,0,0,0), xaxs="i", yaxs="i")
@@ -274,7 +276,7 @@ dev.off()
 This specifies the ground overlay to display (a separate file from the KML) and its position. The filename is identical to that for the PNG, but with a different extension.
 
 ```{r}
-(filename.kml <- paste0(src.dir.gnatsgo,"/", voi.depth.name, '.kml'))
+(filename.kml <- paste0(src.dir.gssurgo,"/", voi.depth.name, '.kml'))
 maptools::kmlOverlay(GRD, 
                      kmlfile = filename.kml,
                      imagefile = filename.png,

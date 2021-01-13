@@ -5,10 +5,10 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -77
-   lrc_lat: 35
+   lrc_long: -76
+   lrc_lat: 42
    size: 1 
-   voi.n: 1
+   voi.n: 4
    quantile.n: NA
    depth.n: 4
 output:
@@ -505,6 +505,23 @@ We set up a colour ramp that covers the entire range, and then select the colour
 color.ramp <- bpy.colors(n.class)
 #
 (class.limits <- c(zlim[1], cuts, zlim[2]))
+```
+
+Save the limits in a table for the paper:
+
+
+```{r}
+options(xtable.floating = FALSE)
+options(xtable.timestamp = "")
+x <- xtable(data.frame(quantiles=c("minimum", paste0("q", 1:3), 
+                                   "median", paste0("q", 5:7), "maximum"),
+                       limits=round(class.limits,2)), 
+            align="lrr",
+            row.names=FALSE, digits=2)
+autoformat(x)
+capture.output(print(x, include.rownames=FALSE), file=
+                 paste0("../LaTeX_tables/class_limits_",
+                           AOI.dir.prefix, "_", voi.depth, ".tex"))
 ```
 
 ## Classification
