@@ -412,10 +412,13 @@ r.sg.p <- terra::resample(r.sg, r.p, method="cubic")
 # plot(r.sg.p)
 ```
 
-For gSSURGO the CRS must be changed, not just the resolution:
+For gSSURGO the CRS must be changed, not just the resolution.
+Since the resolutions are similar (30 m vs. 1 arc-second), use nearest-neighbour to avoid diffuse values along what had been polygon boundaries in the original map.The value range will not change.
+
+This avoids spurious very thin polygons, if the raster has to be polygonized, e.g., as class maps.
 
 ```{r crs.project}
-r.gssurgo.p <- terra::project(r.gssurgo, r.p, method="cubic") 
+r.gssurgo.p <- terra::project(r.gssurgo, r.p, method="near") 
 # plot(r.gssurgo.p)
 ```
 

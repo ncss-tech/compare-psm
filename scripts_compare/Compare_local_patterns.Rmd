@@ -5,12 +5,12 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -76
-   lrc_lat: 42
+   lrc_long: -77
+   lrc_lat: 35
    size: 1 
-   voi.n: 4
+   voi.n: 1
    quantile.n: NA
-   depth.n: 4
+   depth.n: 1
 output:
   html_document:
     fig_align: center
@@ -26,7 +26,7 @@ output:
 
 ```{r setup, include=FALSE, purl=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, purl = FALSE,
-                      fig.align = 'center', fig.path = './figs/compare_maps_local/')
+                      fig.align = 'center', fig.path = './figs/compare_maps_30m/')
 knitr::opts_chunk$set(cache.extra = R.version.string)
 ```
 
@@ -546,48 +546,7 @@ polaris.sf.v <- sf::st_make_valid(polaris.sf)
 # st_is_valid(polaris.sf.v, reason=TRUE)
 ```
 
-
 Now the topology is correct.
-
-## Plot the polygonized class maps
-
-Display the maps. Compute each legend from the classes present in that map.
-
-```{r make_class_maps}
-my.pal <- brewer.pal(n.class, "RdYlGn")
-l.gssurgo <- range(gssurgo.sf.v$class, na.rm = TRUE)
-l.sg <- range(sg.sf.v$class, na.rm = TRUE)
-l.polaris <- range(polaris.sf.v$class, na.rm = TRUE)
-g0 <- ggplot(data=gssurgo.sf.v) +
-  geom_sf(aes(fill = class)) +
-  coord_sf(crs = st_crs(gssurgo.sf)) +
-#  guides(fill=FALSE) +   # no legend on the two leftmost
-# no, that distorts the size compared to the one with legend
-   labs(title = "gSSURGO")  +
-  scale_fill_continuous(low=my.pal[l.gssurgo[1]], high=my.pal[l.gssurgo[2]]) +
-  theme(legend.position = "bottom", legend.direction = "horizontal")
-g1 <- ggplot(data=sg.sf.v) +
-  geom_sf(aes(fill = class)) +
-  coord_sf(crs = st_crs(sg.sf)) +
-  labs(title = "SoilGrids250")  +
-  scale_fill_continuous(low=my.pal[l.sg[1]], high=my.pal[l.sg[2]]) +
-  theme(legend.position = "bottom", legend.direction = "horizontal")
-g2 <- ggplot(data=polaris.sf.v) +
-  geom_sf(aes(fill = class)) +
-  coord_sf(crs = st_crs(sg.sf)) +
-  labs(title = "POLARIS") +
-  scale_fill_continuous(low=my.pal[l.polaris[1]], high=my.pal[l.polaris[2]]) +
-  theme(legend.position = "bottom", legend.direction = "horizontal")
-```
-
-Show the class maps:
-
-```{r class_maps, fig.width=map.fig.width, fig.height=map.fig.height}
-tmp <- "list(g0, g1, g2)"
-grid.arrange(grobs = eval(parse(text=tmp)), nrow=n.figs.row, ncol=n.figs.col)
-```
-
-
 
 # Metrics from the `sabre` package
 
@@ -625,7 +584,7 @@ Compute the metrics with the `sabre` package.
 
 ### SoilGrids vs. gSSURGO
 
-```{r gSSURGO8.sg}
+```{r vmaps.gssurgo.sg.compute}
 regions.gssurgo.sg <- vmeasure_calc(x = gssurgo.sf.v, 
                                  y = sg.sf.v, 
                                  x_name = class, y_name = class)
@@ -644,7 +603,9 @@ attr(regions.gssurgo.sg, "precision")  # NULL, means a system default
 
 Here we leave it as the default `NULL`.
 
-```{r vmaps.gssurgo.sg, fig.width=4, fig.height=6}
+These maps are too complicated to be useful visualizations (unlike the 250 m maps), so set `EVAL=FALSE`.
+
+```{r vmaps.gssurgo.sg, fig.width=4, fig.height=6, eval=FALSE}
   ## produced maps -- the homogeneity of the regions.gssurgo.sg
 terra::plot(regions.gssurgo.sg$map1["rih"], main = "Homogeneity --  SG250 vs. gSSURGO")
 terra::plot(regions.gssurgo.sg$map2["rih"], main = "Completeness -- SG250 vs. gSSURGO")
@@ -653,7 +614,7 @@ terra::plot(regions.gssurgo.sg$map2["rih"], main = "Completeness -- SG250 vs. gS
 
 ### POLARIS vs. gSSURGO 
 
-```{r vmaps.gssurgo.polaris, fig.width=4, fig.height=6}
+```{r vmaps.gssurgo.polaris, compute}
 par(mfrow=c(1, 2))
 regions.gssurgo.polaris <- vmeasure_calc(x = gssurgo.sf.v, 
                                       y = polaris.sf.v, 
@@ -661,6 +622,11 @@ regions.gssurgo.polaris <- vmeasure_calc(x = gssurgo.sf.v,
 print(regions.gssurgo.polaris)
 names(regions.gssurgo.polaris)
 names(regions.gssurgo.polaris$map1)
+```
+
+These maps are too complicated to be useful visualizations (unlike the 250 m maps), so set `EVAL=FALSE`.
+
+```{r vmaps.gssurgo.polaris, fig.width=4, fig.height=6, eval=FALSE}
 terra::plot(regions.gssurgo.polaris$map1["rih"], main = "Homogeneity -- POLARIS vs. gSSURGO")
 terra::plot(regions.gssurgo.polaris$map2["rih"], main = "Completeness -- POLARIS vs. gSSURGO")
 par(mfrow=c(1, 1))
@@ -668,18 +634,24 @@ par(mfrow=c(1, 1))
 
 ### SoilGrids250 vs. POLARIS
 
-```{r vmaps.sg.polaris, fig.width=4, fig.height=6}
-  regions.sg.polaris <- vmeasure_calc(x = sg.sf.v, 
-                                  y = polaris.sf.v, 
-                                  x_name = class, y_name = class)
-  print(regions.sg.polaris)
-  names(regions.sg.polaris)
-  names(regions.sg.polaris$map1)
-  ## produced maps -- the homogeneity of the regions
-  par(mfrow=c(1, 2))
-  terra::plot(regions.sg.polaris$map1["rih"], main = "Homogeneity -- POLARIS -- SoilGrids250")
-  terra::plot(regions.sg.polaris$map2["rih"], main = "Completeness -- POLARIS -- SoilGrids250")
-  par(mfrow=c(1, 1))
+```{r vmaps.sg.polaris.compute}
+regions.sg.polaris <- vmeasure_calc(x = sg.sf.v, 
+                                    y = polaris.sf.v, 
+                                    x_name = class, y_name = class)
+print(regions.sg.polaris)
+names(regions.sg.polaris)
+names(regions.sg.polaris$map1)
+## produced maps -- the homogeneity of the regions
+```
+
+These maps are too complicated to be useful visualizations (unlike the 250 m maps), so set `EVAL=FALSE`.
+
+  
+```{r vmaps.sg.polaris, fig.width=4, fig.height=6, eval=FALSE}
+par(mfrow=c(1, 2))
+terra::plot(regions.sg.polaris$map1["rih"], main = "Homogeneity -- POLARIS -- SoilGrids250")
+terra::plot(regions.sg.polaris$map2["rih"], main = "Completeness -- POLARIS -- SoilGrids250")
+par(mfrow=c(1, 1))
 ```
 
 ## Table with `vmeasure` statistics
@@ -852,30 +824,35 @@ polaris.sp <- as(raster(polaris.crop), "SpatialPointsDataFrame")
 
 ## Compute and model empirical variograms
 
+The variograms are not always bounded within the subtile, we just want to model the close-range variation.
+
 Initial parameters for empirical variograms and models:
 
 ```{r}
-range.init <- 2000  # m 
-cutoff.init <- range.init*2.5  # m
+range.init <- 1000  # m 
+cutoff.init <- range.init*2  # m
+width.init <- 200   # plenty of cells for narrow bins
 ```
 
 Compute and model variograms. Note the estimated sill is the maximum $\gamma$ in the empirical variogram.
+
 
 Model the variograms with the exponential model; the range parameter is 1/3 of the effective range. Initial estimate of total sill is 80% of maximum semivariance of the empirical variogram; initial nugget is 0.
 
 
 ```{r compute.variogram, fig.height=6, fig.width=8}
-v.gssurgo <- gstat::variogram(voi ~ 1, loc = gssurgo.sp, cutoff=cutoff.init, width=500)
+v.gssurgo <- gstat::variogram(voi ~ 1, loc = gssurgo.sp, 
+                              cutoff=cutoff.init, width=width.init)
 vm.gssurgo <- vgm(0.8*max(v.gssurgo$gamma), "Exp", range.init, 0)
 vmf.gssurgo <- fit.variogram(v.gssurgo, model=vm.gssurgo)
 # plot(v.gssurgo, pl=T, model=vmf.gssurgo)
 #
-v.sg <- variogram(voi ~ 1, loc = sg.sp, cutoff=cutoff.init, width=500)
+v.sg <- variogram(voi ~ 1, loc = sg.sp, cutoff=cutoff.init, width=width.init)
 vm.sg <- vgm(0.8*max(v.sg$gamma), "Exp", range.init, 0)
 vmf.sg <- fit.variogram(v.sg, model=vm.sg)
 # plot(v.sg, pl=T, model=vmf.sg)
 #
-v.polaris <- variogram(voi ~ 1, loc = polaris.sp, cutoff=cutoff.init, width=500)
+v.polaris <- variogram(voi ~ 1, loc = polaris.sp, cutoff=cutoff.init, width=width.init)
 vm.polaris <- vgm(0.8*max(v.polaris$gamma), "Exp", range.init, 0)
 vmf.polaris <- fit.variogram(v.polaris, model=vm.polaris)
 #  plot(v.polaris, pl=T, model=vmf.polaris)
@@ -916,7 +893,7 @@ options(xtable.timestamp = "")
 x <- xtable(vmeasure.compare, row.names=FALSE, digits=2)
 autoformat(x)
 capture.output(print(x, include.rownames=FALSE), file=
-                 paste0("../LaTeX_tables/compare_variograms_local_x`",
+                 paste0("../LaTeX_tables/compare_variograms_local_",
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
 ```
 
