@@ -82,7 +82,7 @@ depth.list <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
 Set the property, depth and quantile:
 
 ```{r}
-voi <- "sand"   # variable of interest
+voi <- "silt"   # variable of interest
 depth <- "0-5" # depth slice
 quantile <- "mean"  # quantile or mean
 ```
@@ -92,12 +92,8 @@ quantile <- "mean"  # quantile or mean
 Specify the lower-right corner using WGS84 geographic coordinates and the longitude/latitude extent, in degrees.
 
 ```{r}
-# tile.lrc <- c(-122, 46) # lower-right corner: Centralia WA
-tile.lrc <- c(-76, 41) # lower-right corner: central NY
-# tile.lrc <- c(-76, 35)   # lower-right corner: coastal plain NC
-# tile.lrc <- c(119, 32)   # lower-right corner: Nanjing area
-# tile.lrc <- c(-76, 42)   # lower-right corner: northern tier PA, southern tier NY
-d.long <- 2; d.lat <- 2
+tile.lrc <- c(-76.1, 42.2) # lower-right corner: central NY
+d.long <- 0.4; d.lat <- 0.4
 ```
 
 Compute the bounding box:

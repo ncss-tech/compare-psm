@@ -2,6 +2,13 @@
 title: "POLARIS ground overlays"
 author: "D G Rossiter"
 date: "`r Sys.Date()`"
+params:
+   lrc_long: -76
+   lrc_lat: 42 
+   size: 1
+   quantile.n: 4
+   voi.n: 11
+   depth.n: 1
 output:
   html_document:
     fig_align: center
@@ -10,6 +17,7 @@ output:
     number_section: yes
     theme: spacelab
     df_print: paged
+    code_folding: hide
     toc: yes
     toc_float: yes
 ---
@@ -33,7 +41,9 @@ The overlay can be displayed along with [SoilWeb Apps](https://casoilresource.la
 
 This documents has two parts. The first is a step-by-step explanation with a single Area of Interest (AOI) which can be adjusted manually [in this section](#aoi), property, depth and quantile, which can be adjusted manually [in this section](#voi). The second is a self-contained [function](#function) to carry out the analysis for a user-selected set of properties, depths and quantiles for a single AOI and save all the results in the file system; this is [here](#compute).  When compiling this document with `knitr`, sample calls to the function are suppressed with the `eval=FALSE` markdown tag.
 
-_Usage (1)_: To create one overlay step-by-step, specify an area of interest (AOI) [in this section](#aoi), and a property, depth and quantile [in this section](#voi). Then either run directly within R Studio or knit to HTML. The ground overlay (as PNG graphics file) and KML specification will be placed in the directory structure based on the AOI, property, depth and quantile. Open the KML in Google Earth and adjust transparency as desired.
+_Usage (1)_: To create one overlay step-by-step, specify an area of interest (AOI) [in this section](#aoi), and a property, depth and quantile [in this section](#voi), in the YAML parameters (header of this R Markdown source).
+
+Then either run directly within R Studio or knit to HTML. The ground overlay (as PNG graphics file) and KML specification will be placed in the directory structure based on the AOI, property, depth and quantile. Open the KML in Google Earth and adjust transparency as desired.
 
 _Usage (2)_: To create one more more overlays with the function, first run [this code](#function) to define the function `make.ground.overlay` in your workspace, and then call it, as shown with examples in [this section](#compute).
 
@@ -64,6 +74,15 @@ library(sp)             # older representation of spatial data types
 library(maptools)       # create KML overlays, among others
 ```
 
+# Parameters
+
+Parameters for this run:
+
+```{r}
+print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat, "; size:", params$size))
+print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n, " quantile.n:", params$quantile.n))
+```
+
 ## Set variable of interest {#voi}
 
 Define the variables for the POLARIS soil property and layer of interest. See [here](https://www.isric.org/explore/soilgrids/faq-soilgrids#What_do_the_filename_codes_mean) for the naming conventions and units of measure.
@@ -79,11 +98,12 @@ depth.list <- c("0_5", "5_15", "15_30", "30_60", "60_100", "100_200")
 Set the property, depth and quantile:
 
 ```{r}
-voi <- "clay"   # variable of interest
-depth <- "30_60" # depth slice
-quantile <- "mean"  # quantile or mean
+voi <- voi.list[params$voi.n] # variable of interest
+depth <- depth.list[params$depth.n] # depth slice
+voi.depth <- paste0(voi, "_", depth)
+quantile <- quantile.list[params$quantile.n]  # quantile or mean
 ## a title for graphs
-voi_layer <- paste(voi, paste0(depth,"cm"), quantile, sep="_")
+(voi_layer <- paste(paste0(voi.depth,"cm"), quantile, sep="_"))
 ```
 
 ## Define Area of Interest (AOI) {#aoi}
@@ -96,12 +116,7 @@ The file name contains the tile bounding box, e.g. `lat4142_lon-78-77.tif`.
 Specify the lower-right corner using WGS84 geographic coordinates, in degrees.
 
 ```{r}
-# tile.lrc <- c(-122, 46) # lower-right corner: Centralia WA
-# tile.lrc <- c(-76, 42) # lower-right corner: central NY
-# tile.lrc <- c(-76, 35)   # lower-right corner: coastal plain NC
-# tile.lrc <- c(119, 32)   # lower-right corner: Nanjing area
-# tile.lrc <- c(-76, 42)   # lower-right corner: northern tier PA, southern tier NY
-tile.lrc <- c(-91, 36)   # lower-right corner: MO/AR central border
+tile.lrc <- c(params$lrc_long, params$lrc_lat)
 ```
 
 ## Subtile
@@ -111,10 +126,11 @@ Since we are interested in the detailed spatial pattern compared to gSSURGO and 
 So the $1 \times 1^\circ$ tile contains about $60/3 = 20$ subtiles. Specify the lower-right corner of the subtile as an offset in minutes:
 
 ```{r}
-subtile.offset.long <- 0  # minutes offset from lrc, longitude
-subtile.offset.lat <- 15   # minutes offset from lrc, latitude
-subtile.size <- 30  # tile size, minutes in long and lat
+subtile.offset.long <- 15  # minutes offset from lrc, longitude
+subtile.offset.lat <- 21   # minutes offset from lrc, latitude
+subtile.size <- 4  # tile size, minutes in long and lat
 ```
+
 
 Compute the bounding box:
 
@@ -188,7 +204,8 @@ We use the `terra` package to read the GeoTIFF.
 ```{r plot.properties.tile}
 r.p <- terra::rast(dest.file)
 print(r.p)
-plot(r.p)
+plot(r.p, col=heat.colors(64),
+     main=voi.depth)
 ```
 
 Note the CRS is already correct for Google Earth.
@@ -215,7 +232,7 @@ Crop to the subtile:
 ```{r plot.properties.crop}
 r.p.sub <- crop(r.p, bb.sub)
 print(r.p.sub)
-plot(r.p.sub, col=topo.colors(64))
+plot(r.p.sub, col=heat.colors(64))
 ```
 
 # Creating a ground overlay and KML specification
@@ -253,7 +270,7 @@ The function requires a `Spatial*` object from package `sp`. We must first conve
 tmp <- raster::raster(r.p.sub)
 r.sp.sub <- as(tmp, "SpatialPixelsDataFrame")
 fullgrid(r.sp.sub) <- TRUE
-spplot(r.sp.sub, col.regions=topo.colors(64))
+# spplot(r.sp.sub, col.regions=heat.colors(64))
 bbox(r.sp.sub)
 ```
 
@@ -275,7 +292,7 @@ png(file=filename.png, width=GRD$width, height=GRD$height,
     bg="transparent")
 par(mar=c(0,0,0,0), xaxs="i", yaxs="i")
 image(r.sp.sub, xlim=GRD$xlim, ylim=GRD$ylim, 
-     col=topo.colors(128),
+     col=heat.colors(128),
      setParUsrBB=TRUE)
 dev.off()
 ```

@@ -5,12 +5,12 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -77
-   lrc_lat: 35
-   size: 1 
-   voi.n: 1
+   lrc_long: -76
+   lrc_lat: 42
+   size: 1
+   voi.n: 4
    quantile.n: NA
-   depth.n: 1
+   depth.n: 4
 output:
   html_document:
     fig_align: center
@@ -79,7 +79,9 @@ These three can be adjusted in the YAML header; these include the default parame
 
 These can also be specified with the `params` argument in a call to `rmarkdown::render`.
 
-4. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
+4. [Set the sub-tile](#sub_aoi), if you want to compare a smaller area than a full tile; this makes sense since we want to see details at this resolution.
+
+5. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
 
 Results:
 
@@ -256,6 +258,18 @@ crs.aea <- "+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0
 ```
 
 
+## Test area {#sub_aoi}
+
+Because the full tile is so large, here we can choose to test on a smaller area, e.g., a quarter-tile 0.25 x 0.25 degrees.
+
+Set the size and offset from the lower-right corner. The test area will be to the north and west of this.
+
+```{r}
+test.tile.size <- 0.15  # degrees
+test.tile.x.offset <- 0.3  # west from right edge
+test.tile.y.offset <- 0.45  # north from bottom edge
+```
+
 # Products to compare
 
 Load the tiles in their native CRS, as processed in the import scripts.
@@ -315,7 +329,9 @@ if (file.exists(file.name)) {
 ```
 
 
-# Make the units compatible
+# Make maps compatible
+
+## Make the units compatible
 
 Depending on the property, data in some coverages need to be converted to the units used in SoilGrids250; we choose this as the base units; note these are integers. Here are the units:
 
@@ -389,7 +405,7 @@ if (!is.na(fact) && (fact != 1)) { r.p <- r.p*fact }
 
 
 
-# Match resolution and CRS
+## Match resolution and CRS
 
 SoilGrids250 and POLARIS are in EPSG:4326 (WGS84 long/lat), at different grid resolutions.
 
@@ -423,7 +439,7 @@ r.gssurgo.p <- terra::project(r.gssurgo, r.p, method="near")
 ```
 
 
-# Make all maps cover the same area
+## Make all maps cover the same area
 
 
 Make a true 1 degree tile raster and use it to mask the other coverages, to get consistent coverage.
@@ -465,15 +481,23 @@ r.sg.p <- mask(r.sg.p, r.gssurgo.p)
 ```
 
 
-Check that the maps cover the same area and have the same units, ignore different stretches for now:
 
-```{r plot.resampled, fig.width=map.fig.width, fig.height=map.fig.height}
-par(mfrow=c(n.figs.row, n.figs.col))
-plot(r.gssurgo.p, main="gSSURGO")
-plot(r.p, main="POLARIS")
-plot(r.sg.p, main="SoilGrids250")
-par(mfrow=c(1, 1))
+
+## Crop to test area
+
+
+```{r crop.test.area}
+(tmp <- as.vector(ext(r.sg.p)))
+tmp["xmax"] <- tmp["xmax"] - test.tile.x.offset
+tmp["xmin"] <- tmp["xmax"] - test.tile.size
+tmp["ymin"] <- tmp["ymin"] + test.tile.y.offset
+tmp["ymax"] <- tmp["ymin"] + test.tile.size
+ext(tmp)
+r.gssurgo.p <- crop(r.gssurgo.p, ext(tmp))
+r.sg.p <- crop(r.sg.p, ext(tmp))
+r.p <- crop(r.p, ext(tmp))
 ```
+
 
 # Compare
 

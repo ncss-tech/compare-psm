@@ -5,10 +5,10 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -77
-   lrc_lat: 35
+   lrc_long: -76
+   lrc_lat: 42
    size: 1 
-   voi.n: 1
+   voi.n: 4
    quantile.n: NA
    depth.n: 1
 output:
@@ -71,9 +71,9 @@ These three can be adjusted in the YAML header; these include the default parame
 ---
 ```
 
-4. [Select a sub-area](#sub_aoi), by default 0.2 x 0.2 degrees, within the 1 x 1 degree tile.
+Note that a sub-area was specified by `Compare_local.Rmd`, which must be run before this, on the 1-degree tile specified in the YAML. This script will work on that subtile.
 
-5. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
+4. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
 
 Generated figures will be in directory `./figs/compare_maps/`, in a subdirectory named for the AOI. The file name includes the PSM method, property and depth slice.
 
@@ -157,19 +157,6 @@ AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
 ```
 
 
-## Test area {#sub_aoi}
-
-Because the full tile is so large, here we can choose to test on a smaller area, e.g., 0.1 x 0.1 degrees, $\approx 11 \times 11$ km.
-
-Set the size and offset from the lower-right corner. The test area will be to the north and west of this.
-
-```{r}
-test.tile.size <- 0.1  # degrees
-test.tile.x.offset <- 0.75  # west from right edge
-test.tile.y.offset <- 0.3  # north from bottom edge
-```
-
-
 ## Property of interest {#voi}
 
 Set the property of interest from the YAML or rendering parameters:
@@ -221,21 +208,6 @@ rgdal::showP4(crs(sg))
 These are all in WGS84 geographic coordinates, cover the same area, and have the same no-data areas.
 
 
-## Crop to test area
-
-
-```{r crop.test.area}
-(tmp <- as.vector(ext(sg)))
-tmp["xmax"] <- tmp["xmax"] - test.tile.x.offset
-tmp["xmin"] <- tmp["xmax"] - test.tile.size
-tmp["ymin"] <- tmp["ymin"] + test.tile.y.offset
-tmp["ymax"] <- tmp["ymin"] + test.tile.size
-ext(tmp)
-gssurgo.crop <- crop(gssurgo, ext(tmp))
-sg.crop <- crop(sg, ext(tmp))
-polaris.crop <- crop(polaris, ext(tmp))
-```
-
 ## Project to metric CRS
 
 For area calculations, we need a metric CRS, not geographic.
@@ -255,9 +227,9 @@ Use this to resample:
 
 ```{r}
 crs.utm <- paste0("+init=epsg:", epsg.code)
-gssurgo.crop <- terra::project(gssurgo.crop, crs.utm)
-sg.crop <- terra::project(sg.crop, crs.utm)
-polaris.crop <- terra::project(polaris.crop, crs.utm)
+gssurgo <- terra::project(gssurgo, crs.utm)
+sg <- terra::project(sg, crs.utm)
+polaris <- terra::project(polaris, crs.utm)
 ```
 
 ## Determine property range
@@ -265,9 +237,9 @@ polaris.crop <- terra::project(polaris.crop, crs.utm)
 Determine the full range of the property across all maps, to one decimal place:
 
 ```{r zlim}
-values.all <- c(values(gssurgo.crop),
-                values(sg.crop),
-                values(polaris.crop))
+values.all <- c(values(gssurgo),
+                values(sg),
+                values(polaris))
 (zlim <- c(min(values.all, na.rm = TRUE),
                 max(values.all, na.rm=TRUE)))
 ```
@@ -278,9 +250,9 @@ Now show the maps together:
 
 ```{r side.by.side, fig.width=map.fig.width, fig.height=map.fig.height}
 par(mfrow=c(n.figs.row, n.figs.col))
-plot(gssurgo.crop, main="gSSURGO", range=zlim)
-plot(sg.crop, main="SoilGrids250", range=zlim)
-plot(polaris.crop, main="POLARIS", range=zlim)
+plot(gssurgo, main="gSSURGO", range=zlim)
+plot(sg, main="SoilGrids250", range=zlim)
+plot(polaris, main="POLARIS", range=zlim)
 par(mfrow=c(1,1))
 ```   
 
@@ -304,14 +276,14 @@ rmse.adj <- function(v1, v2) {   # RMSE adjusted for ME (bias)
 ```{r compare.stats}
 stats.compare <- data.frame(PSM_product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
 stats.compare[1, ] <- c("SoilGrids250",
-                        me(values(gssurgo.crop),values(sg.crop)),
-                        rmse(values(gssurgo.crop),values(sg.crop)),
-                        rmse.adj(values(gssurgo.crop),values(sg.crop))
+                        me(values(gssurgo),values(sg)),
+                        rmse(values(gssurgo),values(sg)),
+                        rmse.adj(values(gssurgo),values(sg))
                         )
 stats.compare[2, ] <- c("POLARIS",
-                        me(values(gssurgo.crop),values(polaris.crop)),
-                        rmse(values(gssurgo.crop),values(polaris.crop)),
-                        rmse.adj(values(gssurgo.crop),values(polaris.crop))
+                        me(values(gssurgo),values(polaris)),
+                        rmse(values(gssurgo),values(polaris)),
+                        rmse.adj(values(gssurgo),values(polaris))
 )
 print(stats.compare)
 ```
@@ -324,14 +296,14 @@ So also make a bias-adjusted version of the PSM products, using gSSURGO as the b
 
 
 ```{r side.by.side.unbiased}
-sg.adj <- sg.crop + me(values(gssurgo.crop),values(sg.crop))
-polaris.adj <- polaris.crop + me(values(gssurgo.crop),values(polaris.crop))
+sg.adj <- sg + me(values(gssurgo),values(sg))
+polaris.adj <- polaris + me(values(gssurgo),values(polaris))
 ```
 
 Recompute limits:
 
 ```{r zlim.adj}
-values.all.adj <- c(values(gssurgo.crop), values(sg.adj), values(polaris.adj))
+values.all.adj <- c(values(gssurgo), values(sg.adj), values(polaris.adj))
 (zlim.adj <- c(min(values.all.adj, na.rm = TRUE),
                 max(values.all.adj, na.rm=TRUE)))
 ```
@@ -341,14 +313,14 @@ These are now similar in their ranges, but not in their patterns. Compare the st
 ```{r compare.stats.adj}
 stats.compare <- data.frame(PSM_product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
 stats.compare[1, ] <- c("SoilGrids250",
-                        me(values(gssurgo.crop),values(sg.adj)),
-                        rmse(values(gssurgo.crop),values(sg.adj)),
-                        rmse.adj(values(gssurgo.crop),values(sg.adj))
+                        me(values(gssurgo),values(sg.adj)),
+                        rmse(values(gssurgo),values(sg.adj)),
+                        rmse.adj(values(gssurgo),values(sg.adj))
                         )
 stats.compare[2, ] <- c("POLARIS",
-                        me(values(gssurgo.crop),values(polaris.adj)),
-                        rmse(values(gssurgo.crop),values(polaris.adj)),
-                        rmse.adj(values(gssurgo.crop),values(polaris.adj))
+                        me(values(gssurgo),values(polaris.adj)),
+                        rmse(values(gssurgo),values(polaris.adj)),
+                        rmse.adj(values(gssurgo),values(polaris.adj))
                         )
 print(stats.compare)
 ```
@@ -420,7 +392,7 @@ capture.output(print(x, include.rownames=FALSE), file=
 ## Classification
 
 ```{r classify.raster}
-gssurgo.class <- classify(gssurgo.crop, rcl=class.limits)
+gssurgo.class <- classify(gssurgo, rcl=class.limits)
 # gssurgo.class <- as.factor(gssurgo.class)
 table(values(gssurgo.class))
 # .l <- range(values(gssurgo.class), na.rm=TRUE)
@@ -428,7 +400,7 @@ table(values(gssurgo.class))
 #             col=color.ramp[.l[1]:.l[2]], type="classes",
 #             main="SoilGrids250")
 #
-sg.class <- classify(sg.crop, rcl=class.limits)
+sg.class <- classify(sg, rcl=class.limits)
 # sg.class <- as.factor(sg.class)
 table(values(sg.class))
 # .l <- range(values(sg.class), na.rm=TRUE)
@@ -436,7 +408,7 @@ table(values(sg.class))
 #             col=color.ramp[.l[1]:.l[2]], type="classes",
 #             main="SoilGrids250")
 #
-polaris.class <- classify(polaris.crop, rcl=class.limits)
+polaris.class <- classify(polaris, rcl=class.limits)
 # psu.class <- as.factor(psu.class)
 table(values(polaris.class))
 # .l <- range(values(polaris.class), na.rm=TRUE)
@@ -817,9 +789,9 @@ Convert the `terra::SpatRaster` objects to `raster::raster` and then to `sp:Spat
 
 
 ```{r make.sp}
-gssurgo.sp <- as(raster(gssurgo.crop), "SpatialPointsDataFrame")
-sg.sp <- as(raster(sg.crop), "SpatialPointsDataFrame")
-polaris.sp <- as(raster(polaris.crop), "SpatialPointsDataFrame") 
+gssurgo.sp <- as(raster(gssurgo), "SpatialPointsDataFrame")
+sg.sp <- as(raster(sg), "SpatialPointsDataFrame")
+polaris.sp <- as(raster(polaris), "SpatialPointsDataFrame") 
 ```
 
 ## Compute and model empirical variograms

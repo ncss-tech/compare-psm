@@ -7,7 +7,7 @@ params:
    lrc_lat: 42 
    size: 1
    quantile.n: NA
-   voi.n: 4
+   voi.n: 2
    depth.n: 1
 output:
   html_document:
@@ -138,9 +138,9 @@ Since we are interested in the detailed spatial pattern compared to gSSURGO and 
 A $1 \times 1^\circ$ GSM tile contains about $60/3 = 20$ subtiles. Specify the lower-right corner of the subtile as an offset in minutes:
 
 ```{r}
-subtile.offset.long <- 36  # minutes offset from lrc, longitude
-subtile.offset.lat <- 18   # minutes offset from lrc, latitude
-subtile.size <- 5  # tile size, minutes in long and lat
+subtile.offset.long <- 15  # minutes offset from lrc, longitude
+subtile.offset.lat <- 21   # minutes offset from lrc, latitude
+subtile.size <- 4  # tile size, minutes in long and lat
 ```
 
 
@@ -280,7 +280,7 @@ This specifies the ground overlay to display (a separate file from the KML) and 
 maptools::kmlOverlay(GRD, 
                      kmlfile = filename.kml,
                      imagefile = filename.png,
-                     name=paste0("GSM", voi.depth.name)
+                     name=paste0("gSSURGO", voi.depth.name)
                      )
 ```
 
