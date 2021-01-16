@@ -10,7 +10,7 @@ params:
    size: 1 
    voi.n: 4
    quantile.n: NA
-   depth.n: 1
+   depth.n: 4
 output:
   html_document:
     fig_align: center
@@ -103,7 +103,7 @@ library(sf)          # Simple Features
 require(xtable)      # format tables for LaTeX
 library(dplyr)       # data wrangling
 library(ggplot2)     # ggplot graphics
-library(gridExtra)
+library(gridExtra)  # arrange multiple plots
 library(RColorBrewer)
 library(sabre)       # compare polygon map spatial structure
 library(landscapemetrics)   # FRAGSTATS metrics
@@ -251,8 +251,8 @@ Now show the maps together:
 ```{r side.by.side, fig.width=map.fig.width, fig.height=map.fig.height}
 par(mfrow=c(n.figs.row, n.figs.col))
 plot(gssurgo, main="gSSURGO", range=zlim)
-plot(sg, main="SoilGrids250", range=zlim)
 plot(polaris, main="POLARIS", range=zlim)
+plot(sg, main="SoilGrids250", range=zlim)
 par(mfrow=c(1,1))
 ```   
 
@@ -425,13 +425,13 @@ terra::plot(gssurgo.class,
             col=color.ramp[.l[1]:.l[2]], type="classes",
             main="gSSURGO")
 .l <- range(values(sg.class), na.rm=TRUE)
-terra::plot(sg.class,
-            col=color.ramp[.l[1]:.l[2]], type="classes",
-            main="SoilGrids250")
 .l <- range(values(polaris.class), na.rm=TRUE)
 terra::plot(polaris.class,
             col=color.ramp[.l[1]:.l[2]], type="classes",
             main="POLARIS")
+terra::plot(sg.class,
+            col=color.ramp[.l[1]:.l[2]], type="classes",
+            main="SoilGrids250")
 par(mfrow=c(1,1))
 ```
 
@@ -688,8 +688,10 @@ check_landscape(r.sg)
 check_landscape(r.polaris)
 ```
 
+## Display the landscapes
 
-A function to display the landscape with a consistent colour ramp:
+A function to display the landscape with a consistent colour ramp.
+This returns a `ggplot2` object.
 
 ```{r show.landscape.function}
 (my.pal <- c(brewer.pal(n.class, "RdYlGn"), "#FFFFFF"))
@@ -711,12 +713,12 @@ show.landscape <- function(r.map, r.title) {
 
 Show the landscapes of each product:
 
-```{r show.landscape, fig.width=7, fig.height=5}
-(g <- show.landscape(r.gssurgo, "gSSURGO"))
-(g <- show.landscape(r.sg, "SoilGrids250"))
-(g <- show.landscape(r.polaris, "POLARIS"))
+```{r show.landscape, fig.width=map.fig.width, fig.height=map.fig.height}
+g1<- show.landscape(r.gssurgo, "gSSURGO")
+g2 <- show.landscape(r.polaris, "POLARIS")
+g3 <- show.landscape(r.sg, "SoilGrids250")
+grid.arrange(g1, g2, g3, nrow=1, ncol=3)
 ```
-
 
 
 ## Visualize class and patch metrics
