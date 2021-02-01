@@ -265,8 +265,13 @@ Because the full tile is so large, here we can choose to test on a smaller area,
 Set the size and offset from the lower-right corner. The test area will be to the north and west of this.
 
 ```{r}
+## NC
+# test.tile.size <- 0.15  # degrees
+# test.tile.x.offset <- 0.25  # west from right edge
+# test.tile.y.offset <- 0.70  # north from bottom edge
+## CNY
 test.tile.size <- 0.15  # degrees
-test.tile.x.offset <- 0.3  # west from right edge
+test.tile.x.offset <- 0.30  # west from right edge
 test.tile.y.offset <- 0.45  # north from bottom edge
 ```
 
