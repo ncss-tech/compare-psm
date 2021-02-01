@@ -5,12 +5,12 @@ author:
   - "d.g.rossiter@cornell.edu"
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -76
-   lrc_lat: 42
+   lrc_long: -77
+   lrc_lat: 35
    size: 1
    quantile.n: NA
-   voi.n: 2
-   depth.n: 1
+   voi.n: 1
+   depth.n: 4
 output:
   html_document:
     fig_align: center

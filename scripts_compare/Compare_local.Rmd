@@ -5,12 +5,15 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -76
-   lrc_lat: 42
+   lrc_long: -77
+   lrc_lat: 35
    size: 1
-   voi.n: 4
+   voi.n: 1
    quantile.n: NA
-   depth.n: 4
+   depth.n: 1
+   test.tile.size: 0.15  # degrees
+   test.tile.x.offset: 0.32  # west from right edge
+   test.tile.y.offset: 0.68  # north from bottom edge
 output:
   html_document:
     fig_align: center
@@ -63,7 +66,9 @@ To use this script:
 
 3. [Select an Area of Interest](#aoi), using the YAML header or by knitting with parameters.
 
-These three can be adjusted in the YAML header; these include the default parameters and look like:
+4. [Set the sub-tile](#sub_aoi), if you want to compare a smaller area than a full tile; this makes sense since we want to see details at this resolution.
+
+The above can be adjusted in the YAML header; these include the default parameters and look like:
 
 ```
 ---
@@ -74,12 +79,13 @@ These three can be adjusted in the YAML header; these include the default parame
    voi.n: 4
    quantile.n: NA 
    depth.n: 4
+   test.tile.size: 0.15  # degrees
+   test.tile.x.offset: 0.32  # west from right edge
+   test.tile.y.offset: 0.68  # north from bottom edge
 ---
 ```
 
 These can also be specified with the `params` argument in a call to `rmarkdown::render`.
-
-4. [Set the sub-tile](#sub_aoi), if you want to compare a smaller area than a full tile; this makes sense since we want to see details at this resolution.
 
 5. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
 
@@ -265,14 +271,19 @@ Because the full tile is so large, here we can choose to test on a smaller area,
 Set the size and offset from the lower-right corner. The test area will be to the north and west of this.
 
 ```{r}
+tile.lrc <- c(params$lrc_long, params$lrc_lat) # lower-right corner
+tile.size <- params$size     
+test.tile.size <- params$test.tile.size  # degrees
+test.tile.x.offset <- params$test.tile.x.offset  # west from right edge
+test.tile.y.offset <- params$test.tile.y.offset  # north from bottom edge
+## CNY
+# test.tile.size <- 0.15  # degrees
+# test.tile.x.offset <- 0.30  # west from right edge
+# test.tile.y.offset <- 0.45  # north from bottom edge
 ## NC
 # test.tile.size <- 0.15  # degrees
-# test.tile.x.offset <- 0.25  # west from right edge
-# test.tile.y.offset <- 0.70  # north from bottom edge
-## CNY
-test.tile.size <- 0.15  # degrees
-test.tile.x.offset <- 0.30  # west from right edge
-test.tile.y.offset <- 0.45  # north from bottom edge
+# test.tile.x.offset <- 0.32  # west from right edge
+# test.tile.y.offset <- 0.68  # north from bottom edge
 ```
 
 # Products to compare

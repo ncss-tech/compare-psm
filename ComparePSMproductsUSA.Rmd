@@ -95,7 +95,7 @@ Explained in Ramcharan, A., T. Hengl, T. Nauman, C. Brungard, S. Waltman, et al.
 
 See import scripts for details.
 
-* [gNATSGO, gSSURGO](https://nrcs.app.box.com/v/soils) 
+* [gNATSGO, gSSURGO](https://nrcs.app.box.com/v/soils) -- accessd via Web Coverage Services (WCS)
 * [Global Soil Map v0.5](https://new.cloudvault.usda.gov/index.php/s/AdiZdePpT9aJ6oZ) -- limited access, US Government site; also [here](https://edcftp.cr.usgs.gov/project/soil/GlobalSoilMap/);    
 * [SoilGrids250 web converage service](https://www.isric.org/web-coverage-services-wcs);
 * [ISSR-800 Soil Properties](https://casoilresource.lawr.ucdavis.edu/soil-properties/download.php);
@@ -109,15 +109,22 @@ Each download script explains which soil properties are included, how they are n
 
 # Step 1: Import maps
 
-Each product has an R Markdown file to import the product, in subdirectory `scripts_importmaps`:
+Each product has an R Markdown file to import the product, in subdirectory `./scripts_importmaps`:
 
-* `gNATSGO_WCS_import.Rmd`
+Regional maps:
+
+* `gNATSGO_WCS_import.Rmd` -- accessed via Web Coverage Services
 * `GSM_USA_V05_import.Rmd`
 * `ISSR_import.Rmd`
 * `POLARIS_import.Rmd`
 * `SoilGrids250_import.Rmd`
 * `SPCG100USA_import.Rmd`
 * `LandGIS_import.Rmd`
+
+Local maps (30 m resolution):
+
+* `gSSURGO_WCS_import.Rmd` -- accessed via Web Coverage Services
+* `POLARIS_import.Rmd`
 
 To compare products, adjust each of these to the area of interest (AOI), property of interest, and the depth slice of interest, and import the product. To compare uncertainties also specify the quantile of interest, for those products that provide it. These should be adjusted in the YAML header.
 
@@ -191,7 +198,7 @@ import.all(lrc_long=-120,
 
 And of course the call to `import.all` can be put with a `for` statement to import several properties, depths, AOI at once.
 
-The AOI is typically a $1 \times 1^\circ$ tile in geographic coordinates. This is because POLARIS is provided in these tiles, and also because this is a large enough area to see the regional differences between products.
+The AOI is usually a $1 \times 1^\circ$ tile in geographic coordinates, with integer corners. This is because POLARIS is provided in these tiles, and also because this is a large enough area to see the regional differences between products.
 
 Two products provide uncertainty estimates: SoilGrids250 and POLARIS. These scripts also allow the choice of a quantile, as well as the mean prediction.
 
@@ -203,11 +210,35 @@ A set of scripts in subdirectory `./scripts_compare` take the imported tiles and
 
 First is the direct comparison of the mapped property, in script `./scripts_compare/Compare_regional.Rmd`.
 
-This exports harmonized regional maps (same CRS, same resolution, same units, same area), which can then be compared for their spatial patterns by script `./scripts_compare/Compare_regional_patterns.Rmd`.
+This script exports harmonized regional maps (same CRS, same resolution, same units, same area), which can then be compared for their spatial patterns by script `./scripts_compare/Compare_regional_patterns.Rmd`.
 
 ## Regional uncertainty (250 m spatial resolution)
 
 Two products provide prediction quantiles at 5, 50 and 95%, as well as the mean: SoilGrids250 and POLARIS. These can be compared with script `./scripts_compare/Compare_regional_uncertainty.Rmd`.
+
+## Regional pattern analysis (250 m spatial resolution)
+
+Script `./scripts_compare/Compare_regional_patterns.Rmd` allows you to specify a sub-area of the full 1-degree tile to be classified by histogram equalization over all the products to compare, and then compares the patterns of the classified maps.
+
+This script must follow script `Compare_regional.Rmd`, i.e., comparing the regional maps.
+
+## Local properties (30 m spatial resolution)
+
+First is the direct comparison of the mapped property, in script `./scripts_compare/Compare_local.Rmd`.
+
+This specifies an AOI within a $1 \times 1^\circ$ tile, generally $0.15 \times 0.15^\circ$, as an offset from the lower-right corner of the full tile.
+
+This script exports harmonized regional maps (same CRS, same resolution, same units, same area), which can then be compared for their spatial patterns by script `./scripts_compare/Compare_local_patterns.Rmd`.
+
+## Local uncertainty (30 m spatial resolution)
+
+Two products provide prediction quantiles at 5, 50 and 95%, as well as the mean: SoilGrids250 and POLARIS. These can be compared with script `./scripts_compare/Compare_regional_uncertainty.Rmd`.
+
+## Local pattern analysis
+
+Script `./scripts_compare/Compare_local_patterns.Rmd` uses the sub-tile processed by `Compare_local.Rmd`. It classifies the selected propeerty by histogram equalization over all the products to compare, and then compares the patterns of the classified maps.
+
+This script must follow script `Compare_local.Rmd`, i.e., comparing the local maps and selecting the sub-tile.
 
 # Ground overlays
 
