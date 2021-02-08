@@ -14,7 +14,7 @@
 ##  and `Compare_regional_patterns.Rmd`
 ## also the subtile limits for patterns
 
-compare.one <- function(lrc_long, lrc_lat, voi.n, depth.n) {
+compare.one <- function(lrc_long, lrc_lat, voi.n, depth.n, test.tile.size, test.tile.x.offset, test.tile.y.offset) {
   library(knitr)
   param.list <- list(lrc_long=lrc_long,
                      lrc_lat=lrc_lat,
@@ -22,6 +22,11 @@ compare.one <- function(lrc_long, lrc_lat, voi.n, depth.n) {
                      voi.n=voi.n,
                      depth.n=depth.n,
                      quantile.n=4)  # only compare means
+  
+  param.list.patterns <- c(param.list, # for the pattern analysis
+                           test.tile.size=test.tile.size,
+                           test.tile.x.offset=test.tile.x.offset,
+                           test.tile.y.offset=test.tile.y.offset)
   
   out.file.name <- paste0("Compare_", lrc_long, '_', lrc_lat, '_', 
                           voi.n, '_', 
@@ -38,7 +43,7 @@ compare.one <- function(lrc_long, lrc_lat, voi.n, depth.n) {
                           depth.n, '.html')
   
   rmarkdown::render("Compare_regional_patterns.Rmd",
-                    params = param.list,
+                    params = param.list.patterns,
                     output_file = out.file.name,
                     envir = new.env(parent = globalenv())
   )
@@ -46,6 +51,12 @@ compare.one <- function(lrc_long, lrc_lat, voi.n, depth.n) {
 }
 
 ## ad-hoc calls to this
-for (d.n in c(1,4)) {
-  compare.one(lrc_long=-77, lrc_lat=35, voi.n=1, depth.n=d.n)
+for (d.n in c(1,2)) {
+  compare.one(lrc_long=-86, lrc_lat=38, 
+              voi.n=6, 
+              depth.n=d.n, 
+              test.tile.size=0.2,
+              test.tile.x.offset=0.61,
+              test.tile.y.offset=0.44
+  )
 }

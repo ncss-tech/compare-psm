@@ -5,12 +5,12 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -77
-   lrc_lat: 35
+   lrc_long: -86
+   lrc_lat: 38
    size: 1 
-   voi.n: 1
+   voi.n: 6
    quantile.n: NA
-   depth.n: 4
+   depth.n: 1
 output:
   html_document:
     fig_align: center
@@ -316,6 +316,7 @@ if (file.exists(file.name)) {
   r.gnatsgo <- terra::rast(file.name)
   names(r.gnatsgo) <- "gnatsgo"
   print(r.gnatsgo)
+  summary(r.gnatsgo)
 } else { stop("No gNATSGO tile, stopping") }
 ```
 
@@ -337,6 +338,7 @@ if (file.exists(file.name)) {
   r.sg <- terra::rast(file.name)
   names(r.sg) <- "SoilGrids250"
   print(r.sg)
+  summary(r.sg)
 } else { stop("No SoilGrids250 tile, stopping") }
 ```
 
@@ -352,6 +354,7 @@ if ("GSM v0.5" %in% products) {
     r.gsm <- terra::rast(file.name)
     names(r.gsm) <- "GSMv0.5"
     print(r.gsm)
+    summary(r.gsm)
   } 
 }
 ```
@@ -368,6 +371,7 @@ if ("SPCG100USA" %in% products) {
     r.psu <- terra::rast(file.name)
     names(r.psu) <- "spcg100usa"
     print(r.psu)
+    summary(r.psu)
   }
 }
 ```
@@ -386,6 +390,7 @@ if ("POLARIS" %in% products) {
     r.p <- terra::rast(file.name)
     names(r.p) <- "polaris"
     print(r.p)
+    summary(r.p)
   }
 }
 ```
@@ -404,6 +409,7 @@ if ("LandGIS" %in% products) {
     r.landgis <- terra::rast(file.name)
     names(r.landgis) <- "landgis"
     print(r.landgis)
+    summary(r.landgis)
   }
 }
 ```
@@ -422,6 +428,7 @@ if ("ISSR-800" %in% products) {
     r.issr8 <- terra::rast(file.name)
     names(r.issr8) <- "ISSR-800"
     print(r.issr8)
+    summary(r.issr8)
   }
 }
 ```
@@ -440,7 +447,7 @@ df <- data.frame(property=voi.list.sg,
                  # sieveno10_r is complement of cfvo; som not soc
                  gsm=c("%%","%%","%%","pHx10","cmol(c)/kg","g/gF","Mg/m3", "m3/m3"),  # GSM
                  p=c("%","%", "%","pH","", "log10(1.724 * %)", "g/cm3", ""),  # POLARIS
-                 spcg=c("%","%","%","pHx10", "", "%","g/cm3", ""),  # SPCG100USA
+                 spcg=c("%","%","%","pHx10", "", "%%","g/cm3", ""),  # SPCG100USA
                  lgis=c("%","%","%","pHx10","","5g/Kg","10 kg/m3", "%"),  # LandGIS
                  issr=c("%","%","%","pH","cmol(+)/kg","","g/cm3", "%")  # ISSR-800
                  )
@@ -459,10 +466,10 @@ Some conversions are given [here](https://www.isric.org/explore/soilgrids/faq-so
 som.to.soc <- 1/1.724138 # this was used in the lab, I know it has been heavily criticized
 conversions <- data.frame(property=voi.list.sg, 
                  # sg=c("%%","%%","%%","pHx10","mmol(c)/kg","dg/kg","cg/cm3", "cm3/dm3"), #SG
-                 gnatsgo=c(10, 10, 10, 10 , 10, 0.01*som.to.soc, 100, NA),  # gNATSGO
+                 gnatsgo=c(10, 10, 10, 10 , 10, 1000*som.to.soc, 100, NA),  # gNATSGO
                  gsm=c(1, 1, 1, 1 , 10, 0.01, 0.01, 0.1),  # GSM
                  p=c(10,  10, 10,  10, NA, NA, 100, NA),  # POLARIS -- SOM is special case
-                 spcg=c(10,  10, 10, 1, NA,  1,   100, NA),  # SPCG100USA
+                 spcg=c(10,  10, 10, 1, NA,  10,   100, NA),  # SPCG100USA
                  lgis=c(10,  10, 10, 1, NA, 20, 0.1, 0.1),  # LandGIS
                  issr=c(10,  10, 10,  10, 10, NA, 1, 0.1)  # ISSR-800
                  )
@@ -481,7 +488,7 @@ SOC for POLARIS is a special case, because of the log10-scale, and because it is
 
 ```{r polaris.soc}
 if (exists("r.p") && (voi.sg=="soc")) {
-    r.p <- ((10^r.p)*som.to.soc*1000) 
+    r.p <- (10^r.p)*som.to.soc*1000 
 }
 ```
 
@@ -536,6 +543,12 @@ if (exists("r.issr8")) {
 }
 ```
 
+```{r}
+summary(r.gnatsgo)
+summary(r.p)
+summary(r.psu)
+summary(r.sg)
+```
 
 
 # Match resolution and CRS

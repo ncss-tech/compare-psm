@@ -17,6 +17,7 @@ import.all <- function(lrc_long, lrc_lat, size=1, voi.n, depth.n=1, quantile.n=4
     "SoilGrids250",
     "POLARIS",
     "SPCG100USA",
+    "gSSURGO_WCS",
     "LandGIS",
     "GSM_USA_V05",
     "ISSR8")
@@ -41,6 +42,8 @@ import.all <- function(lrc_long, lrc_lat, size=1, voi.n, depth.n=1, quantile.n=4
   }
 }
 
-for (d in c(1,4)) {
-  import.all(lrc_long=-76, lrc_lat=42, size=1, voi.n=4, depth.n=d, quantile.n=4, which=1:3)
+for (d in c(1,2)) {
+  for (q in c(2)) {
+  import.all(lrc_long=-86, lrc_lat=38, size=1, voi.n=6, depth.n=d, quantile.n=q, which=c(3))
+  }
 }

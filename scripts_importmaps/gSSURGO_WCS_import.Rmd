@@ -9,8 +9,8 @@ params:
    lrc_lat: 35
    size: 1
    quantile.n: NA
-   voi.n: 1
-   depth.n: 4
+   voi.n: 6
+   depth.n: 1
 output:
   html_document:
     fig_align: center

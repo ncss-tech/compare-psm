@@ -10,10 +10,10 @@ params:
    size: 1
    voi.n: 1
    quantile.n: NA
-   depth.n: 1
+   depth.n: 4
    test.tile.size: 0.15  # degrees
-   test.tile.x.offset: 0.32  # west from right edge
-   test.tile.y.offset: 0.68  # north from bottom edge
+   test.tile.x.offset: 0.34  # west from right edge
+   test.tile.y.offset: 0.70  # north from bottom edge
 output:
   html_document:
     fig_align: center
@@ -163,6 +163,9 @@ Parameters for this run:
 ```{r}
 print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat, "; size:", params$size))
 print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
+print(paste("test.tile.size:", params$test.tile.size, 
+            "test.tile.x.offset:", params$test.tile.x.offset,
+            "test.tile.y.offset:", params$test.tile.y.offset))
 ```
 
 ## Property of interest {#voi}

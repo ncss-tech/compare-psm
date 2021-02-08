@@ -3,12 +3,15 @@ title: "POLARIS ground overlays"
 author: "D G Rossiter"
 date: "`r Sys.Date()`"
 params:
-   lrc_long: -76
-   lrc_lat: 42 
+   lrc_long: -77
+   lrc_lat: 35
    size: 1
    quantile.n: 4
-   voi.n: 11
+   voi.n: 8
    depth.n: 1
+   subtile.offset.long: 31  # minutes offset from lrc, longitude
+   subtile.offset.lat: 45   # minutes offset from lrc, latitude
+   subtile.size: 4  # tile size, minutes in long and lat
 output:
   html_document:
     fig_align: center
@@ -81,6 +84,9 @@ Parameters for this run:
 ```{r}
 print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat, "; size:", params$size))
 print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n, " quantile.n:", params$quantile.n))
+print(paste("subtile.offset.long:", params$subtile.offset.long, 
+            "subtile.offset.lat:", params$subtile.offset.lat,
+            "subtile.size: ", params$subtile.size))
 ```
 
 ## Set variable of interest {#voi}
@@ -126,9 +132,9 @@ Since we are interested in the detailed spatial pattern compared to gSSURGO and 
 So the $1 \times 1^\circ$ tile contains about $60/3 = 20$ subtiles. Specify the lower-right corner of the subtile as an offset in minutes:
 
 ```{r}
-subtile.offset.long <- 15  # minutes offset from lrc, longitude
-subtile.offset.lat <- 21   # minutes offset from lrc, latitude
-subtile.size <- 4  # tile size, minutes in long and lat
+subtile.offset.long <- params$subtile.offset.long  # minutes offset from lrc, longitude
+subtile.offset.lat <- params$subtile.offset.lat   # minutes offset from lrc, latitude
+subtile.size <- params$subtile.size  # tile size, minutes in long and lat
 ```
 
 

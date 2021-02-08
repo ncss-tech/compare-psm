@@ -85,7 +85,7 @@ Explained in Ramcharan, A., T. Hengl, T. Nauman, C. Brungard, S. Waltman, et al.
 
 # Depth slices
 
-* _gNATSGO_, _gSSURGO_ gives values by genetic horizon, with no standard intervals.
+* _gNATSGO_, _gSSURGO_ gives values by genetic horizon, with no standard intervals, however they are served as WCS with any depth interval, by depth-weighted averaging over the requested depth slice.
 * _GSMv05_, _SoilGrids250_ and _POLARIS_ predict as average values over the GlobalSoilMap.net specification depth slices: 0-5, 5-15, 15-30, 30-60, 60-100, and 100-200 cm. In fact SoilGrids250 (and POLARIS?) predict at the midpoint of these intervals but report the values as if they cover the interval.
 * _SPCG100US_ makes predictions for 7 standard soil depths (0, 5, 15, 30, 60, 100 and 200 cm). These are considered "point" predictions, i.e., the values for an infintesimal vertical extent at these depth points.
 * _ISSR-800_ can be produced for any depth slice, as a thickness-weighted average based on gSSURGO.
@@ -214,7 +214,7 @@ This script exports harmonized regional maps (same CRS, same resolution, same un
 
 ## Regional uncertainty (250 m spatial resolution)
 
-Two products provide prediction quantiles at 5, 50 and 95%, as well as the mean: SoilGrids250 and POLARIS. These can be compared with script `./scripts_compare/Compare_regional_uncertainty.Rmd`.
+Two products provide prediction quantiles at 5, 50 and 95%, as well as the mean: SoilGrids250 and POLARIS. These can be compared with script `./scripts_compare/Compare_regional_uncertainty.Rmd`. These quantiles must have been previously imported.
 
 ## Regional pattern analysis (250 m spatial resolution)
 
@@ -232,7 +232,7 @@ This script exports harmonized regional maps (same CRS, same resolution, same un
 
 ## Local uncertainty (30 m spatial resolution)
 
-Two products provide prediction quantiles at 5, 50 and 95%, as well as the mean: SoilGrids250 and POLARIS. These can be compared with script `./scripts_compare/Compare_regional_uncertainty.Rmd`.
+Only POLARIS gives prediction quantiles at 5, 50 and 95%, as well as the mean. There is no other product with which to compare it.
 
 ## Local pattern analysis
 
@@ -258,7 +258,7 @@ In the script, if the parameters are defined either by calling `knitr::render` w
 
 Here are the lists to which the parameters refer:
 
-# Property of interest {#voi}
+`# Property of interest {#voi}
 
 Property names the different products. Note that all except GSM v0.5 and SoilGrids250 are missing one or more properties. Such products will be omitted from comparisons for those properties.
 

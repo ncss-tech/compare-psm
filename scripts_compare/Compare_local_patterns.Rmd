@@ -10,7 +10,7 @@ params:
    size: 1 
    voi.n: 1
    quantile.n: NA
-   depth.n: 1
+   depth.n: 4
 output:
   html_document:
     fig_align: center
@@ -328,6 +328,125 @@ print(stats.compare)
 Removing bias changes the spatial statistics only slightly, because the cut points in classification are the same so some pixels change classes.
 
 So for now, _do not adjust_, use the original cropped images.
+
+# Local spatial structure
+
+The variogram (equivalent to correlogram) can be used to characterize the degree of spatial continuity and the "roughness" of a continuous property map. 
+
+In this section we compute and compare the short-range variograms, these reveal the local structure. In these maps the variogram is typically unbounded, but we don't care about the long-range structure.
+
+Convert the `terra::SpatRaster` objects to `raster::raster` and then to `sp:SpatialPointsDataFrame` in order to compute variograms. Note that there is (so far) no direct conversion. Note that `gstat::variogram` must be applied to an object of class `sp` or `sf`, not directly to a `terra::SpatRaster`.
+
+
+```{r make.sp}
+gssurgo.sp <- as(raster(gssurgo), "SpatialPointsDataFrame")
+sg.sp <- as(raster(sg), "SpatialPointsDataFrame")
+polaris.sp <- as(raster(polaris), "SpatialPointsDataFrame") 
+```
+
+## Compute and model empirical variograms
+
+The variograms are not always bounded within the subtile, we just want to model the close-range variation.
+
+Initial parameters for empirical variograms and models. These could be adjusted for different areas and properties.
+
+```{r}
+range.init <- 800  # m 
+cutoff.init <- range.init*3 # m
+width.init <- 100   # plenty of cells for narrow bins
+```
+
+Compute the empirical variograms.
+
+
+```{r compute.variogram, fig.height=6, fig.width=8}
+system.time(
+  v.gssurgo <- gstat::variogram(voi ~ 1, loc = gssurgo.sp, 
+                                cutoff=cutoff.init, width=width.init)
+) # system.time
+# plot(v.gssurgo, pl=T)
+#
+system.time(
+  v.sg <- variogram(voi ~ 1, loc = sg.sp, cutoff=cutoff.init, width=width.init)
+) # system.time
+# plot(v.sg, pl=T)
+#
+system.time(
+v.polaris <- variogram(voi ~ 1, loc = polaris.sp, cutoff=cutoff.init, width=width.init)
+) # system.time
+#  plot(v.polaris, pl=T)
+```
+
+Model the variograms with the exponential model; the range parameter is 1/3 of the effective range. Initial estimate of total sill is 80% of maximum semivariance of the empirical variogram; initial nugget is 0.
+
+Note that these may not converge with the automatic initial model selection; if not, adjust by hand based on the plot of the empirical variogram (just above).
+  
+```{r model.variogram, fig.height=6, fig.width=8}
+vm.gssurgo <- vgm(0.8*max(v.gssurgo$gamma), "Exp", range.init, 0)
+vmf.gssurgo <- fit.variogram(v.gssurgo, model=vm.gssurgo)
+# plot(v.gssurgo, pl=T, model=vmf.gssurgo)
+#
+vm.sg <- vgm(0.8*max(v.sg$gamma), "Exp", range.init, 0)
+vmf.sg <- fit.variogram(v.sg, model=vm.sg)
+# plot(v.sg, pl=T, model=vmf.sg)
+#
+vm.polaris <- vgm(0.8*max(v.polaris$gamma), "Exp", range.init, 0)
+vmf.polaris <- fit.variogram(v.polaris, model=vm.polaris)
+# plot(v.polaris, pl=T, model=vmf.polaris)
+```
+
+## Table of variogram parameters
+
+Make a table of the variogram parameters:
+
+```{r table.compare.variograms}
+vmeasure.compare <- data.frame(PSM_products = "", Range = 0, StructSill = 0, PropNugget = 0)
+vmeasure.compare[1,] <- c("gSSURGO", 
+                       round(vmf.gssurgo[2,"range"], 0),
+                       round(vmf.gssurgo[2,"psill"], 2),
+                       round(vmf.gssurgo[1,"psill"]/sum(vmf.gssurgo[,"psill"]), 2)
+                       )
+vmeasure.compare[2,] <- c("SG2", 
+                       round(vmf.sg[2,"range"], 0),
+                       round(vmf.sg[2,"psill"], 2),
+                       round(vmf.sg[1,"psill"]/sum(vmf.sg[,"psill"]), 2)
+                       )
+  vmeasure.compare[3, ] <-  c("POLARIS", 
+                       round(vmf.polaris[2,"range"], 0),
+                       round(vmf.polaris[2,"psill"], 2),
+                       round(vmf.polaris[1,"psill"]/sum(vmf.polaris[,"psill"]), 2))
+# multiply all range parameters by 3 to get effective range
+vmeasure.compare[, 2:4] <- apply(vmeasure.compare[, 2:4],  2, as.numeric)
+vmeasure.compare[, "Range"] <- vmeasure.compare[, "Range"]*3
+print(vmeasure.compare)
+```
+
+
+```{r write.table.compare.variograms}
+names(vmeasure.compare) <- c("Product", "Effective range", 
+                             "Structural Sill", "Proportional Nugget")
+options(xtable.floating = FALSE)
+options(xtable.timestamp = "")
+x <- xtable(vmeasure.compare, row.names=FALSE, digits=2)
+autoformat(x)
+capture.output(print(x, include.rownames=FALSE), file=
+                 paste0("../LaTeX_tables/compare_variograms_local_",
+                           AOI.dir.prefix, "_", voi.depth, ".tex"))
+```
+
+## Plot fitted variograms
+
+
+```{r plot.vgms, fig.width=map.fig.width, fig.height=map.fig.height}
+ylims <- c(0, max(v.gssurgo$gamma, v.sg$gamma, 
+                  max(v.polaris$gamma))*1.1)
+p0 <- plot(v.gssurgo, ylim=ylims, model=vmf.gssurgo, main="gSSURGO", xlab="separation (m)", pch=20)
+p1 <- plot(v.polaris, ylim=ylims, model=vmf.polaris, main="POLARIS", xlab="separation (m)", pch=20)
+p2 <- plot(v.sg, ylim=ylims, model=vmf.sg, main="SoilGrids250", xlab="separation (m)", pch=20)
+print(p0, split=c(1, 1, n.figs.col, n.figs.row), more=T) 
+print(p1, split=c(2, 1, n.figs.col, n.figs.row), more=T) 
+print(p2, split=c(3, 1, n.figs.col, n.figs.row), more=F)
+```
 
 
 # Classify
@@ -781,119 +900,4 @@ capture.output(print(x, include.rownames=FALSE), file=
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
 ```
 
-# Local spatial structure
-
-The variogram (equivalent to correlogram) can be used to characterize the degree of spatial continuity and the "roughness" of a continuous property map. 
-
-In this section we compute and compare the short-range variograms, these reveal the local structure. In these maps the variogram is typically unbounded, but we don't care about the long-range structure.
-
-Convert the `terra::SpatRaster` objects to `raster::raster` and then to `sp:SpatialPointsDataFrame` in order to compute variograms. Note that there is (so far) no direct conversion. Note that `gstat::variogram` must be applied to an object of class `sp` or `sf`, not directly to a `terra::SpatRaster`.
-
-
-```{r make.sp}
-gssurgo.sp <- as(raster(gssurgo), "SpatialPointsDataFrame")
-sg.sp <- as(raster(sg), "SpatialPointsDataFrame")
-polaris.sp <- as(raster(polaris), "SpatialPointsDataFrame") 
-```
-
-## Compute and model empirical variograms
-
-The variograms are not always bounded within the subtile, we just want to model the close-range variation.
-
-Initial parameters for empirical variograms and models:
-
-```{r}
-range.init <- 1000  # m 
-cutoff.init <- range.init*2  # m
-width.init <- 200   # plenty of cells for narrow bins
-```
-
-Compute and model variograms. Note the estimated sill is the maximum $\gamma$ in the empirical variogram.
-
-
-Model the variograms with the exponential model; the range parameter is 1/3 of the effective range. Initial estimate of total sill is 80% of maximum semivariance of the empirical variogram; initial nugget is 0.
-
-
-```{r compute.variogram, fig.height=6, fig.width=8}
-v.gssurgo <- gstat::variogram(voi ~ 1, loc = gssurgo.sp, 
-                              cutoff=cutoff.init, width=width.init)
-vm.gssurgo <- vgm(0.8*max(v.gssurgo$gamma), "Exp", range.init, 0)
-vmf.gssurgo <- fit.variogram(v.gssurgo, model=vm.gssurgo)
-# plot(v.gssurgo, pl=T, model=vmf.gssurgo)
-#
-v.sg <- variogram(voi ~ 1, loc = sg.sp, cutoff=cutoff.init, width=width.init)
-vm.sg <- vgm(0.8*max(v.sg$gamma), "Exp", range.init, 0)
-vmf.sg <- fit.variogram(v.sg, model=vm.sg)
-# plot(v.sg, pl=T, model=vmf.sg)
-#
-v.polaris <- variogram(voi ~ 1, loc = polaris.sp, cutoff=cutoff.init, width=width.init)
-vm.polaris <- vgm(0.8*max(v.polaris$gamma), "Exp", range.init, 0)
-vmf.polaris <- fit.variogram(v.polaris, model=vm.polaris)
-#  plot(v.polaris, pl=T, model=vmf.polaris)
-```
-
-## Table of variogram parameters
-
-Make a table of the variogram parameters:
-
-```{r table.compare.variograms}
-vmeasure.compare <- data.frame(PSM_products = "", Range = 0, StructSill = 0, PropNugget = 0)
-vmeasure.compare[1,] <- c("gSSURGO", 
-                       round(vmf.gssurgo[2,"range"], 0),
-                       round(vmf.gssurgo[2,"psill"], 2),
-                       round(vmf.gssurgo[1,"psill"]/sum(vmf.gssurgo[,"psill"]), 2)
-                       )
-vmeasure.compare[2,] <- c("SG2", 
-                       round(vmf.sg[2,"range"], 0),
-                       round(vmf.sg[2,"psill"], 2),
-                       round(vmf.sg[1,"psill"]/sum(vmf.sg[,"psill"]), 2)
-                       )
-  vmeasure.compare[3, ] <-  c("POLARIS", 
-                       round(vmf.polaris[2,"range"], 0),
-                       round(vmf.polaris[2,"psill"], 2),
-                       round(vmf.polaris[1,"psill"]/sum(vmf.polaris[,"psill"]), 2))
-# multiply all range parameters by 3 to get effective range
-vmeasure.compare[, 2:4] <- apply(vmeasure.compare[, 2:4],  2, as.numeric)
-vmeasure.compare[, "Range"] <- vmeasure.compare[, "Range"]*3
-print(vmeasure.compare)
-```
-
-
-```{r write.table.compare.variograms}
-names(vmeasure.compare) <- c("Product", "Effective range", 
-                             "Structural Sill", "Proportional Nugget")
-options(xtable.floating = FALSE)
-options(xtable.timestamp = "")
-x <- xtable(vmeasure.compare, row.names=FALSE, digits=2)
-autoformat(x)
-capture.output(print(x, include.rownames=FALSE), file=
-                 paste0("../LaTeX_tables/compare_variograms_local_",
-                           AOI.dir.prefix, "_", voi.depth, ".tex"))
-```
-
-## Plot fitted variograms
-
-Plot the variograms with the fitted models. 
-
-A helper function:
-
-```{r compute.position}
-rc.pos <- function(r, c) {
-  if (c == 0) { r <- r + 1; c <- 1} # go to the next row if this one is full
-  return(c(r, c))
-}
-```
-
-Plot:
-
-```{r plot.vgms, fig.width=map.fig.width, fig.height=map.fig.height}
-ylims <- c(0, max(v.gssurgo$gamma, v.sg$gamma, 
-                  max(v.polaris$gamma))*1.1)
-p0 <- plot(v.gssurgo, ylim=ylims, model=vmf.gssurgo, main="gSSURGO", xlab="separation (m)", pch=20)
-p1 <- plot(v.polaris, ylim=ylims, model=vmf.polaris, main="POLARIS", xlab="separation (m)", pch=20)
-p2 <- plot(v.sg, ylim=ylims, model=vmf.sg, main="SoilGrids250", xlab="separation (m)", pch=20)
-print(p0, split=c(1, 1, n.figs.col, n.figs.row), more=T) 
-print(p1, split=c(2, 1, n.figs.col, n.figs.row), more=T) 
-print(p2, split=c(3, 1, n.figs.col, n.figs.row), more=F)
-```
 
