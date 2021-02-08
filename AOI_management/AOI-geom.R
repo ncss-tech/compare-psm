@@ -17,6 +17,9 @@ library(sp)
 library(raster)
 library(rgdal)
 
+source('local-functions.R')
+
+
 ## AOI are created from lower-right corners
 
 ## save 3 versions to SHP

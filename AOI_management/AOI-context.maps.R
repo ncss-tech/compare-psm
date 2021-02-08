@@ -21,7 +21,7 @@ us_states <- spTransform(us_states, CRS(gNATSGO.crs))
 
 
 # AOIs in AEA / gNATSGO CRS
-aoi <- readOGR(dsn = 'geom', layer = 'AOI_aea')
+aoi <- readOGR(dsn = 'geom', layer = 'AOI_1_aea')
 
 ## TODO: put this online
 # soil color background image
