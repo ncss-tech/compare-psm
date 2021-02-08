@@ -22,6 +22,7 @@ us_states <- spTransform(us_states, CRS(gNATSGO.crs))
 
 # AOIs in AEA / gNATSGO CRS
 aoi <- readOGR(dsn = 'geom', layer = 'AOI_1_aea')
+sub_aoi <- readOGR(dsn = 'geom', layer = 'AOI_0.2_aea')
 
 ## TODO: put this online
 # soil color background image
@@ -71,9 +72,22 @@ plotZoom <- function(i, b = 50000) {
     # maxpixels = 10000
   )
   
+  # state boundaries
   plot(us_states, border = 'white', lwd = 1, add = TRUE)
+  
+  # current AOI
   plot(i, border = 'green', lwd = 2, add = TRUE, lend = 1)
   
+  # any sub-AOIs within the current AOI
+  ovr.res <- over(i, sub_aoi)
+  ovr.res <- na.omit(ovr.res)
+  if(nrow(ovr.res) > 0) {
+    
+    plot(sub_aoi[sub_aoi$id == ovr.res$id, ], border = 'green', lwd = 1, add = TRUE, lend = 1)
+  }
+  
+  
+  # label AOI
   mtext(i[['name']], side = 1, line = -2, col = 'white', font = 2, cex = 1.5)
   
 }
