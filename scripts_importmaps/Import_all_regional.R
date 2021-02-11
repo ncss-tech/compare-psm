@@ -42,8 +42,14 @@ import.all <- function(lrc_long, lrc_lat, size=1, voi.n, depth.n=1, quantile.n=4
   }
 }
 
-for (d in c(1,2)) {
-  for (q in c(2)) {
-  import.all(lrc_long=-86, lrc_lat=38, size=1, voi.n=6, depth.n=d, quantile.n=q, which=c(3))
+# depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
+for (d in c(2)) {
+  # quantile.list <- c("Q0.05", "Q0.5", "Q0.95", "mean")
+  for (q in c(1,2,3)) {
+    # voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
+    for (v in c(1,4)) {
+      import.all(lrc_long=-120, lrc_lat=38, size=1, voi.n=v, depth.n=d, quantile.n=q, which=c(2,3))
+    }
   }
 }
+
