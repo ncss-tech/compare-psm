@@ -33,9 +33,9 @@ compare.one <- function(lrc_long, lrc_lat, voi.n, depth.n) {
 
 ## ad-hoc calls to this
 # voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
-for (v in c(1,3,4)) {
+for (v in c(7)) {
   # depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
-  for (d in c(2)) {
-    compare.one(lrc_long=-120, lrc_lat=38, voi.n=v, depth.n=d)
+  for (d in c(1,2)) {
+    compare.one(lrc_long=-86, lrc_lat=38, voi.n=v, depth.n=d)
   }
 }
