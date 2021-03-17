@@ -54,7 +54,7 @@ compare.one <- function(lrc_long, lrc_lat, voi.n, depth.n, test.tile.size, test.
 # depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
 for (d.n in c(1,2)) {
   compare.one(lrc_long=-86, lrc_lat=38, 
-              voi.n=7,  # voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
+              voi.n=6,  # voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
               depth.n=d.n, 
               test.tile.size=0.2,
               test.tile.x.offset=0.58,

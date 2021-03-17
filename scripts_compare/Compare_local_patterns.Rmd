@@ -5,12 +5,12 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -77
-   lrc_lat: 35
-   size: 1 
-   voi.n: 1
+   lrc_long: -76
+   lrc_lat: 42
+   size: 1
+   voi.n: 4
    quantile.n: NA
-   depth.n: 4
+   depth.n: 1
 output:
   html_document:
     fig_align: center
@@ -873,7 +873,7 @@ But we want landscape-level metrics, we are not interested in individual patches
 Here are the landscape-level metrics we will report:
 
 ```{r}
-lst <- paste0("lsm_l_", c("shdi", "shei", "lsi", "frac_mn"))
+lst <- paste0("lsm_l_", c("shdi", "shei", "lsi", "lai", "frac_mn"))
 ls.metrics.gssurgo <- calculate_lsm(r.gssurgo, what=lst)
 ls.metrics.sg <- calculate_lsm(r.sg, what=lst)
 ls.metrics.polaris <- calculate_lsm(r.polaris, what=lst)
@@ -899,5 +899,15 @@ capture.output(print(x, include.rownames=FALSE), file=
                  paste0("../LaTeX_tables/landscape_metrics_local_",
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
 ```
+
+# Co-occurrence vector (`motif` package)
+
+```{r metrics.motif}
+library(motif)
+library(stars) # `motif` functions require this format
+start.ssurgo <- sf_as_stars(r.ssurgo)
+lsp_signature()
+```
+
 
 

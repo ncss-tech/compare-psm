@@ -5,15 +5,15 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -77
-   lrc_lat: 35
+   lrc_long: -86
+   lrc_lat: 38
    size: 1
-   voi.n: 1
+   voi.n: 6
    quantile.n: NA
-   depth.n: 4
+   depth.n: 2
    test.tile.size: 0.15  # degrees
-   test.tile.x.offset: 0.34  # west from right edge
-   test.tile.y.offset: 0.70  # north from bottom edge
+   test.tile.x.offset: 0.61  # west from right edge
+   test.tile.y.offset: 0.44  # north from bottom edge
 output:
   html_document:
     fig_align: center
@@ -287,7 +287,12 @@ test.tile.y.offset <- params$test.tile.y.offset  # north from bottom edge
 # test.tile.size <- 0.15  # degrees
 # test.tile.x.offset <- 0.32  # west from right edge
 # test.tile.y.offset <- 0.68  # north from bottom edge
+## IN
+# test.tile.size <- 0.15  # degrees
+# test.tile.x.offset <- 0.61  # west from right edge
+# test.tile.y.offset <- 0.44  # north from bottom edge
 ```
+
 
 # Products to compare
 
@@ -354,6 +359,7 @@ if (file.exists(file.name)) {
 
 Depending on the property, data in some coverages need to be converted to the units used in SoilGrids250; we choose this as the base units; note these are integers. Here are the units:
 
+ 
 ```{r show.conversions}
 df <- data.frame(property=voi.list.sg, 
                  #"clay"  "silt"  "sand"  "phh2o" "cec"   "soc"   "bdod"  "cfvo" 
@@ -361,9 +367,9 @@ df <- data.frame(property=voi.list.sg,
                  ## metadata for gSSURGO:
                  ## https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/survey/geo/?cid=nrcs142p2_053631
                  gssurgo=c("%","%","%","pH","meq/Cg","1.724 * %","g/cm3", "100-%"),  # gSSURGO
-                 # sieveno10_r is complement of cfvo; som not soc
+                  # sieveno10_r is complement of cfvo; som not soc
                  p=c("%","%", "%","pH","", "log10(1.724 * %)", "g/cm3", ""))  # POLARIS
-knitr::kable(
+ knitr::kable(
   df, caption = 'Properties and units of measure',
   col.names=c("Property", "SoilGrids", "gSSURGO",  "POLARIS"),
   booktabs = TRUE)
@@ -377,7 +383,7 @@ Some conversions are given [here](https://www.isric.org/explore/soilgrids/faq-so
 som.to.soc <- 1/1.724138 # this was used in the lab, I know it has been heavily criticized
 conversions <- data.frame(property=voi.list.sg, 
                  # sg=c("%%","%%","%%","pHx10","mmol(c)/kg","dg/kg","cg/cm3", "cm3/dm3"), #SG
-                 gssurgo=c(10, 10, 10, 10 , 10, 0.01*som.to.soc, 100, NA),  # gSSURGO
+                 gssurgo=c(10, 10, 10, 10 , 10, 1000*som.to.soc, 100, NA),  # gSSURGO
                  p=c(10,  10, 10,  10, NA, NA, 100, NA)  # POLARIS -- SOM is special case
                  )
 conversions <- format(conversions, digits=4, nsmall=0, scientific=FALSE)
