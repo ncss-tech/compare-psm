@@ -5,15 +5,15 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -86
-   lrc_lat: 38
-   size: 1 
-   voi.n: 6
+   lrc_long: -76
+   lrc_lat: 42
+   size: 1
+   voi.n: 4
    quantile.n: NA
    depth.n: 1
-   test.tile.size: 0.2  # degrees
-   test.tile.x.offset: 0.61  # west from right edge
-   test.tile.y.offset: 0.44  # north from bottom edge
+   test.tile.size: 0.20  # degrees
+   test.tile.x.offset: 0.6  # west from right edge
+   test.tile.y.offset: 0.2  # north from bottom edge
 output:
   html_document:
     fig_align: center
@@ -1439,7 +1439,7 @@ But we want landscape-level metrics, we are not interested in individual patches
 Here are the landscape-level metrics we will report:
 
 ```{r}
-lst <- paste0("lsm_l_", c("shdi", "shei", "lsi", "frac_mn"))
+lst <- paste0("lsm_l_", c("shdi", "shei", "lsi", "lai",  "frac_mn"))
 ls.metrics.gnatsgo <- calculate_lsm(r.gnatsgo, what=lst)
 ls.metrics.sg <- calculate_lsm(r.sg, what=lst)
 if(exists("r.psu")) ls.metrics.psu <- calculate_lsm(r.psu, what=lst)
@@ -1478,4 +1478,78 @@ capture.output(print(x, include.rownames=FALSE), file=
                  paste0("../LaTeX_tables/landscape_metrics_",
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
 ```
+
+
+# Distance between co-occurrence vectors
+
+Generate a "signature" of the landscapes, in this case, the co-occurrence vector:
+
+```{r metrics.cove}
+library(motif) # `lsp_signature`
+library(stars) # `motif` functions require this format
+# normalized co-occurence vector 8 x 8
+# plot(st_as_stars(r.sg))
+# plot(st_as_stars(r.gnatsgo))
+#
+cove.sg <- lsp_signature(st_as_stars(r.sg), type="cove")
+cove.gnatsgo <- lsp_signature(st_as_stars(r.gnatsgo), type="cove")
+if (exists("r.psu")) cove.psu <- lsp_signature(st_as_stars(r.psu), type="cove")
+if (exists("r.polaris")) cove.polaris <- lsp_signature(st_as_stars(r.polaris), type="cove")
+if (exists("r.gsm")) cove.gsm <- lsp_signature(st_as_stars(r.gsm), type="cove")
+if (exists("r.issr8")) cove.issr8 <- lsp_signature(st_as_stars(r.issr8), type="cove")
+if (exists("r.landgis")) cove.landgis <- lsp_signature(st_as_stars(r.landgis), type="cove")
+```
+
+Compute the Jensen-Shannon distances between signatures:
+
+```{r distance.cove}
+# combine the vectors into a dataframe, one row per vector
+cove.df <- data.frame(cove.gnatsgo)$signature[[1]][1,]
+cove.df <- rbind(cove.df, cove.sg$signature[[1]][1,])
+df.row.names <- c( "gNATSGO", "SoilGrids")
+if (exists("r.psu")) {
+  cove.df <- rbind(cove.df, cove.psu$signature[[1]][1,])
+  df.row.names <- c(df.row.names, "SPCG100USA")
+}
+if (exists("r.polaris")) {
+  cove.df <- rbind(cove.df, cove.polaris$signature[[1]][1,])
+  df.row.names <- c(df.row.names, "POLARIS")
+}
+if (exists("r.gsm")) {
+  cove.df <- rbind(cove.df, cove.gsm$signature[[1]][1,])
+  df.row.names <- c(df.row.names, "GSM v0.5")
+}
+if (exists("r.issr8")) {
+  cove.df <- rbind(cove.df, cove.issr8$signature[[1]][1,])
+  df.row.names <- c(df.row.names, "ISSR8")
+}
+if (exists("r.landgis")) {
+  cove.df <- rbind(cove.df, cove.landgis$signature[[1]][1,])
+  df.row.names <- c(df.row.names, "LandGIS")
+}
+row.names(cove.df) <- df.row.names
+# compute the distances
+#
+# philentropy::getDistMethods()
+cove.dists <- round(
+  philentropy::distance(cove.df, method = "jensen-shannon", 
+                        use.row.names =TRUE, 
+                        as.dist.obj = FALSE,
+                        diag = FALSE)
+  ,4)
+print(cove.dists)
+```   
+
+Export the results to a \LaTex{} table:
+
+```{r table.cove}
+options(xtable.floating = FALSE)
+options(xtable.timestamp = "")
+x <- xtable(as.matrix(cove.dists), row.names=TRUE, digits=3)
+autoformat(x)
+capture.output(print(x, include.rownames=TRUE), file=
+                 paste0("../LaTeX_tables/compare_landscape_patterns_",
+                           AOI.dir.prefix, "_", voi.depth, ".tex"))
+```
+
 

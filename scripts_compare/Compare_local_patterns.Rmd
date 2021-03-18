@@ -900,14 +900,52 @@ capture.output(print(x, include.rownames=FALSE), file=
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
 ```
 
-# Co-occurrence vector (`motif` package)
+# Distance between co-occurrence vectors
 
-```{r metrics.motif}
-library(motif)
+Generate a "signature" of the landscapes, in this case, the co-occurrence vector:
+
+```{r metrics.cove}
+library(motif) # `lsp_signature`
 library(stars) # `motif` functions require this format
-start.ssurgo <- sf_as_stars(r.ssurgo)
-lsp_signature()
+# normalized co-occurence vector 8 x 8
+# plot(st_as_stars(r.sg))
+# plot(st_as_stars(r.gssurgo))
+# plot(st_as_stars(r.polaris))
+#
+cove.sg <- lsp_signature(st_as_stars(r.sg), type="cove")
+cove.gssurgo <- lsp_signature(st_as_stars(r.gssurgo), type="cove")
+cove.polaris <- lsp_signature(st_as_stars(r.polaris), type="cove")
 ```
 
+Compute the Jensen-Shannon distances between signatures:
 
+```{r distance.cove}
+# combine the vectors into a dataframe, one row per vector
+cove.df <- data.frame(cove.gssurgo)$signature[[1]][1,]
+cove.df <- rbind(cove.df, cove.sg$signature[[1]][1,])
+cove.df <- rbind(cove.df, cove.polaris$signature[[1]][1,])
+row.names(cove.df) <- c( "gSSURGO", "SoilGrids", "POLARIS")
+# compute the distances
+#
+# philentropy::getDistMethods()
+cove.dists <- round(
+  philentropy::distance(cove.df, method = "jensen-shannon", 
+                        use.row.names =TRUE, 
+                        as.dist.obj = TRUE,
+                        diag = FALSE)
+  ,4)
+print(cove.dists)
+```   
+
+Export the results to a \LaTex{} table:
+
+```{r table.cove}
+options(xtable.floating = FALSE)
+options(xtable.timestamp = "")
+x <- xtable(as.matrix(cove.dists), row.names=TRUE, digits=3)
+autoformat(x)
+capture.output(print(x, include.rownames=TRUE), file=
+                 paste0("../LaTeX_tables/compare_landscape_patterns_local_",
+                           AOI.dir.prefix, "_", voi.depth, ".tex"))
+```
 
