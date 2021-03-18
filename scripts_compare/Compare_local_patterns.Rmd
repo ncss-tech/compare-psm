@@ -886,7 +886,7 @@ metrics.table <- data.frame(product=c("gSSURGO", "SoilGrids", "POLARIS"),
                             rbind(round(ls.metrics.gssurgo$value, 3),
                                   round(ls.metrics.sg$value, 3),
                                   round(ls.metrics.polaris$value, 3)))
-names(metrics.table)[2:5] <- ls.metrics.gssurgo$metric
+names(metrics.table)[2:6] <- ls.metrics.gssurgo$metric
 ```
 
 

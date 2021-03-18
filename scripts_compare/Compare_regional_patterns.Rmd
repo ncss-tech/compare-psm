@@ -1439,7 +1439,7 @@ But we want landscape-level metrics, we are not interested in individual patches
 Here are the landscape-level metrics we will report:
 
 ```{r}
-lst <- paste0("lsm_l_", c("shdi", "shei", "lsi", "lai",  "frac_mn"))
+lst <- paste0("lsm_l_", c("shdi", "shei", "lsi", "ai",  "frac_mn"))
 ls.metrics.gnatsgo <- calculate_lsm(r.gnatsgo, what=lst)
 ls.metrics.sg <- calculate_lsm(r.sg, what=lst)
 if(exists("r.psu")) ls.metrics.psu <- calculate_lsm(r.psu, what=lst)
@@ -1465,7 +1465,7 @@ if (exists("ls.metrics.issr8")) { metrics.table <- rbind(metrics.table,
                                                          c("ISSR-800", round(ls.metrics.issr8$value, 3))) }  
 if (exists("ls.metrics.landgis")) { metrics.table <- rbind(metrics.table, 
                                                            c("LandGIS", round(ls.metrics.landgis$value, 3))) }  
-names(metrics.table)[2:5] <- ls.metrics.gnatsgo$metric
+names(metrics.table)[2:6] <- ls.metrics.gnatsgo$metric
 ```
 
 
