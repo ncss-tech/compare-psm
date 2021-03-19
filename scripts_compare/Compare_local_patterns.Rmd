@@ -873,7 +873,7 @@ But we want landscape-level metrics, we are not interested in individual patches
 Here are the landscape-level metrics we will report:
 
 ```{r}
-lst <- paste0("lsm_l_", c("shdi", "shei", "lsi", "lai", "frac_mn"))
+lst <- paste0("lsm_l_", c("shdi", "shei", "lsi", "ai", "frac_mn"))
 ls.metrics.gssurgo <- calculate_lsm(r.gssurgo, what=lst)
 ls.metrics.sg <- calculate_lsm(r.sg, what=lst)
 ls.metrics.polaris <- calculate_lsm(r.polaris, what=lst)
