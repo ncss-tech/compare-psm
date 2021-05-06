@@ -5,12 +5,12 @@ author:
   - "d.g.rossiter@cornell.edu"
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -76
-   lrc_lat: 42 
+   lrc_long: -120
+   lrc_lat: 37 
    size: 1
-   voi.n: 4
-   quantile.n: 4 
-   depth.n: 4
+   voi.n: 3
+   quantile.n: 4
+   depth.n: 3
 output:
    html_document:
      toc: TRUE
@@ -123,7 +123,7 @@ Define the variables for the soil property and layer of interest. See [here](htt
 `mean` - mean of the distribution.
 
 ```{r q.list}
-quantile.list <- c("Q0.05", "Q0.5", "Q0.95", "mean")
+ quantile.list <- c("Q0.05", "Q0.5", "Q0.95", "mean")
 ```
 
 Here are the properties predicted by SoilGrids250:
@@ -232,7 +232,11 @@ First get the VRT that describes the AOI:
 Here is is the part of a URL that describes the location and downloading parameters:
 
 ```{r read.vrt.1}
-sg_url <- "/vsicurl?max_retry=3&retry_delay=1&list_dir=no&url=https://files.isric.org/soilgrids/latest/data/"
+## this version (with parameters to vsicurl) not working as of 25-Apr-2021
+## possibly a server glitch
+# sg_url <- "/vsicurl?max_retry=3&retry_delay=1&list_dir=no&url=https://files.isric.org/soilgrids/latest/data/"
+sg_url <- "/vsicurl/https://files.isric.org/soilgrids/latest/data/"
+# sg_url <- "https://files.isric.org/soilgrids/latest/data/"
 ```
 
 ## Import native format tile
@@ -263,6 +267,7 @@ Build the actual TIFF in the native coordinates. This goes into the local storag
 gdal_translate(src_dataset = file.out.vrt,
                dst_dataset = file.out,
                co=c("TILED=YES","COMPRESS=DEFLATE","PREDICTOR=2","BIGTIFF=YES"),
+               projwin=bb.sg,
                overwrite=TRUE,
                of="GTiff")
 ```

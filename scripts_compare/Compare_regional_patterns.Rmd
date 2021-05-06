@@ -5,15 +5,15 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -76
-   lrc_lat: 42
+   lrc_long: -120
+   lrc_lat: 37
    size: 1
-   voi.n: 4
+   voi.n: 3
    quantile.n: NA
-   depth.n: 1
+   depth.n: 3
    test.tile.size: 0.20  # degrees
-   test.tile.x.offset: 0.6  # west from right edge
-   test.tile.y.offset: 0.2  # north from bottom edge
+   test.tile.x.offset: 0.54  # west from right edge
+   test.tile.y.offset: 0.77  # north from bottom edge
 output:
   html_document:
     fig_align: center
@@ -570,22 +570,22 @@ vm.sg <- vgm(0.8*max(v.sg$gamma), "Exp", range.init, 0)
 vmf.sg <- fit.variogram(v.sg, model=vm.sg)
 # plot(v.sg, pl=T, model=vmf.sg)
 #
-if (exists("r.polaris")) {
+if (exists("v.polaris")) {
   vm.polaris <- vgm(0.8*max(v.polaris$gamma), "Exp", range.init, 0)
   vmf.polaris <- fit.variogram(v.polaris, model=vm.polaris)
-#  plot(v.polaris, pl=T, model=vmf.polaris)
+  # plot(v.polaris, pl=T, model=vmf.polaris)
 }
-if (exists("r.issr8")) {
+if (exists("v.issr8")) {
   vm.issr8 <- vgm(0.8*max(v.issr8$gamma), "Exp", range.init, 0)
   vmf.issr8 <- fit.variogram(v.issr8, model=vm.issr8)
 #  plot(v.issr8, pl=T, model=vmf.issr8)
 }
-if (exists("r.gsm")) {
+if (exists("v.gsm")) {
   vm.gsm <- vgm(0.8*max(v.gsm$gamma), "Exp", range.init, 0)
   vmf.gsm <- fit.variogram(v.gsm, model=vm.gsm)
 #  plot(v.gsm, pl=T, model=vmf.gsm)
 }
-if (exists("r.psu")) {
+if (exists("v.psu")) {
   vm.psu <- vgm(0.8*max(v.psu$gamma), "Exp", range.init, 0)
   vmf.psu <- fit.variogram(v.psu, model=vm.psu)
 #  plot(v.psu, pl=T, model=vmf.psu)

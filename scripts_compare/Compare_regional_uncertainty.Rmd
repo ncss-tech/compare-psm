@@ -6,9 +6,9 @@ author:
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
    lrc_long: -120
-   lrc_lat: 38
+   lrc_lat: 37
    size: NA
-   voi.n: 1
+   voi.n: 3
    quantile.n: NA
    depth.n: 2
 output:

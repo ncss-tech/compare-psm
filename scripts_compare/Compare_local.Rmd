@@ -5,14 +5,14 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -76
-   lrc_lat: 42
+   lrc_long: -86
+   lrc_lat: 38
    size: 1
-   voi.n: 4
+   voi.n: 6
    quantile.n: NA
    depth.n: 1
    test.tile.size: 0.15  # degrees
-   test.tile.x.offset: 0.3  # west from right edge
+   test.tile.x.offset: 0.61  # west from right edge
    test.tile.y.offset: 0.45  # north from bottom edge
 output:
   html_document:
