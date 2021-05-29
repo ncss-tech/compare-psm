@@ -81,14 +81,25 @@ compare.one <- function(lrc_long, lrc_lat, voi.n, depth.n, test.tile.size, test.
 # 0.15 x 0.15 degree :lower right corner lat3844_lon-8661
 
 # SW Indiana SOC, BD; 0-5, 5-15
-for (voi in c(6, 7)) {
-  for (d.n in c(1,2)) {
-    compare.one(lrc_long=-86, lrc_lat=38, 
-                voi.n=voi,  
-                depth.n=d.n, 
-                test.tile.size=0.15,
-                test.tile.x.offset=0.61, # SW of French Lick
-                test.tile.y.offset=0.44
-    )
-  }  
+# for (voi in c(6, 7)) {
+#   for (d.n in c(1,2)) {
+#     compare.one(lrc_long=-86, lrc_lat=38, 
+#                 voi.n=voi,  
+#                 depth.n=d.n, 
+#                 test.tile.size=0.15,
+#                 test.tile.x.offset=0.61, # SW of French Lick
+#                 test.tile.y.offset=0.44
+#     )
+#   }  
+# }
+
+# California sand 5-15, 15-30
+for (d.n in c(2, 3)) {
+  compare.one(lrc_long=-120, lrc_lat=37,
+              voi.n=3,
+              depth.n=d.n,
+              test.tile.size=0.15,
+              test.tile.x.offset=0.54,
+              test.tile.y.offset=0.77
+  )
 }

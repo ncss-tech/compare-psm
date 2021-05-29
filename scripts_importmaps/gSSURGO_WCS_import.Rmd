@@ -10,7 +10,7 @@ params:
    size: 1
    voi.n: 3
    quantile.n: NA
-   depth.n: 3
+   depth.n: 2
 output:
   html_document:
     fig_align: center
