@@ -61,13 +61,13 @@ Set base directories, specific to the local file system.
 
 
 ```{r}
-base.dir <- "/Users/rossiter/ds/"
+base.dir <- "/Volumes/Pythagoras/ds/DSM_export/"
 base.dir.polaris <- paste0(base.dir, "POLARIS/")
-base.dir.import <- "/Volumes/Pythagoras/ds/"
+base.dir.import <- "/Volumes/Pythagoras/ds/DSM_import/"
 base.dir.polaris.import <- paste0(base.dir.import, "POLARIS/")
 ```
 
-These are the base of destination directories built [below](#dest)
+These are the base of destination directories built [below]#dest)
 
 # Packages
 

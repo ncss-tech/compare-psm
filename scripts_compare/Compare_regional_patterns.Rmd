@@ -137,7 +137,7 @@ library(gstat)      # variogram modelling
 Set the directory on the local file system, under which local files were stored by `Compare_regional.Rmd`, and where this script will store its results.
 
 ```{r}
-base.dir <- "/Users/rossiter/ds/Compare_PSM/"
+base.dir <- "/Volumes/Pythagoras/ds/Compare_PSM/"
 ```
 
 # Parameters

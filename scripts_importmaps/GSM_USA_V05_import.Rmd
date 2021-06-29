@@ -75,8 +75,8 @@ ogr.d[ix <- which(ogr.d$name=="OpenFileGDB"), ]
 One directory is used for the large original files (all-CONUS grid and all-map unit database), and another for the extracted tiles. Set these to areas on your own system.
 
 ```{r}
-base.dir.gsm05 <- "/Users/rossiter/ds/GSM_USA/"
-base.dir.gsm05.import <- "/Volumes/Pythagoras/ds/GSM_USA/"
+base.dir.gsm05 <- "/Volumes/Pythagoras/ds/DSM_export/GSM_USA/"
+base.dir.gsm05.import <- "/Volumes/Pythagoras/ds/DSM_import/GSM_USA/"
 ```
 
 # Files

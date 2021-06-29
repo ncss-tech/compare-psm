@@ -81,8 +81,8 @@ library(viridis)
 One directory is used for the large original files (grid and map unit database about 60 Mb), and another for the extracted tiles (each raster map about 12 Mb). Set these to areas on your own system.
 
 ```{r}
-base.dir.gssurgo <- "/Users/rossiter/ds/gSSURGO"
-base.dir.gssurgo.import <- "/Volumes/Pythagoras/ds/gSSURGO"
+base.dir.gssurgo <- "/Volumes/Pythagoras/ds/DSM_export/gSSURGO"
+base.dir.gssurgo.import <- "/Volumes/Pythagoras/ds/DSM_import/gSSURGO"
 ```
 
 

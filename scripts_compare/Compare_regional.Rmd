@@ -144,7 +144,7 @@ Set base directories, specific to the local file system.
 1. `base.dir`: This is the location of the PSM tiles that have been cropped to an AOI by an import script.
 
 ```{r base.dir}
-base.dir <- "/Users/rossiter/ds/"
+base.dir <- "/Volumes/Pythagoras/ds/DSM_export/"
 base.dir.gnatsgo <- paste0(base.dir, "gNATSGO")
 base.dir.sg <- paste0(base.dir, "SoilGrids250")
 base.dir.gsm <- paste0(base.dir, "GSM_USA")
@@ -159,14 +159,14 @@ base.dir.landgis <- paste0(base.dir, "LandGIS")
 In this script this location is only used for POLARIS, since these large files (15-30Mb) are imported directly as $1 \times 1^\circ$ tiles by script `./scripts_importmaps/POLARIS_import.Rmd`.
 
 ```{r base.dir.import}
-base.dir.import <- "/Volumes/Pythagoras/ds/"
+base.dir.import <- "/Volumes/Pythagoras/ds/DSM_import/"
 base.dir.polaris.import <- paste0(base.dir.import, "POLARIS")
 ```
 
-3. `base.dir.export`: This is where generated harmonized maps will be saved for further processing, e.g., comparing patterns.
+3. `base.dir.compare`: This is where generated harmonized maps will be saved for further processing, e.g., comparing patterns.
 
-```{r base.dir.export}
-base.dir.export <- paste0(base.dir, "Compare_PSM")
+```{r base.dir.compare}
+base.dir.compare <- paste0("/Volumes/Pythagoras/ds/Compare_PSM")
 ```
 
 # Parameters
@@ -985,7 +985,7 @@ par(mfrow=c(1,1))
 Set up a directory for these, based on the AOI:
 
 ```{r save.dir}
-dest.dir.save <-  file.path(base.dir.export,
+dest.dir.save <-  file.path(base.dir.compare,
                        AOI.dir.prefix)
 if (!dir.exists(dest.dir.save)) {
    dir.create(dest.dir.save, recursive = TRUE)

@@ -8,7 +8,7 @@ params:
    lrc_long: -91
    lrc_lat: 36
    size: 1
-   quantile.n: NA
+   quantile.n: 4
    voi.n: 1
    depth.n: 4
 output:
@@ -80,8 +80,8 @@ library(rasterVis)
 One directory is used for the large original files (all-CONUS grid and all-map unit database), and another for the extracted tiles. Set these to areas on your own system.
 
 ```{r}
-base.dir.gnatsgo <- "/Users/rossiter/ds/gNATSGO"
-base.dir.gnatsgo.import <- "/Volumes/Pythagoras/ds/gNATSGO"
+base.dir.gnatsgo <- "/Volumes/Pythagoras/ds/DSM_export/gNATSGO"
+base.dir.gnatsgo.import <- "/Volumes/Pythagoras/ds/DSM_import/gNATSGO"
 ```
 
 
@@ -92,21 +92,25 @@ Parameters for this run:
 
 ```{r}
 print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat, "; size:", params$size))
-print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
+print(paste("voi.n:", params$voi.n, "; quantile.n:", params$quantile.n, "; depth.n:", params$depth.n))
 ```
 
 ## Property of interest {#prop}
 
 The following properties can be compared to SoilGrids250 and other PSM products.
 
-Note the ``_r` in the name, this means "representative value".
+Convert the "quantile" corresponding to 5%, 50%, 95%, mean in SoilGrids and POLARIS to:
+`_l` (low), `_r` (representative value),  `_h` (high) and `_r` (again) as a suffix to the property name.
+These are estimates by expert opinion.
 
 
 ```{r voi.list}
 voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
-voi.list.gnatsgo <- c("claytotal_r", "silttotal_r", "sandtotal_r",
-                  "ph1to1h2o_r", "cec7_r", "om_r",   # note SOM not SOC
-                  "dbthirdbar_r", "sieveno10_r") # passing 2.0 mm sieve, complement is coarse fragments
+voi.val <- c("l", "r", "h", "r")[match(params$quantile.n, c("1", "2", "3", "4"))]  # which value? l, r, h, r
+voi.list.gnatsgo <- paste(c("claytotal", "silttotal", "sandtotal",
+                  "ph1to1h2o", "cec7", "om",   # note SOM not SOC
+                  "dbthirdbar", "sieveno10"), # passing 2.0 mm sieve, complement is coarse fragments
+                  voi.val, sep="_")
 ```
 
 *Select a property* by its position in the list, and make a full name from it:

@@ -133,7 +133,7 @@ Set base directories, specific to the local file system.
 1. `base.dir`: This is the location of the PSM tiles that have been cropped to an AOI by an import script.
 
 ```{r base.dir}
-base.dir <- "/Users/rossiter/ds/"
+base.dir <- "/Volumes/Pythagoras/ds/DSM_export"
 base.dir.gssurgo <- paste0(base.dir, "gSSURGO")
 base.dir.polaris <- paste0(base.dir, "POLARIS")
 base.dir.sg <- paste0(base.dir, "SoilGrids250")

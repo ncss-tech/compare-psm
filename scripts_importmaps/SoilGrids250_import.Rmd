@@ -60,9 +60,9 @@ Set base directories, specific to the local file system.
 
 
 ```{r set.dirs}
-base.dir <- "/Users/rossiter/ds/"
+base.dir <- "/Volumes/Pythagoras/ds/DSM_export/"
 base.dir.sg <- paste0(base.dir, "SoilGrids250/")
-base.dir.import <- "/Volumes/Pythagoras/ds/"
+base.dir.import <- "/Volumes/Pythagoras/ds/DSM_import/"
 base.dir.sg.import <- paste0(base.dir.import, "SoilGrids250/")
 ```
 

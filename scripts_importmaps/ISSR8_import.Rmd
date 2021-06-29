@@ -63,9 +63,9 @@ library(terra)  # for raster import and display
 # Directories {#dirs}
 
 ```{r}
-base.dir.import <- "/Volumes/Pythagoras/ds/"
+base.dir.import <- "/Volumes/Pythagoras/ds/DSM_import/"
 base.dir.issr8.import <- paste0(base.dir.import, "ISSR8")
-base.dir <- "/Users/rossiter/ds/"
+base.dir <- "/Volumes/Pythagoras/ds/DSM_export/"
 base.dir.issr8 <- paste0(base.dir, "ISSR8")
 ```
 

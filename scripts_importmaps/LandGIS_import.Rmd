@@ -70,9 +70,9 @@ library(terra)          # raster data, replaces `raster`
 Set a base directory, specific to the local file system. This is where downloaded LandGIS GeoTIFF are located,
 
 ```{r}
-base.dir <- "/Users/rossiter/ds/"
+base.dir <- "/Volumes/Pythagoras/ds/DSM_export/"
 base.dir.landgis <- paste0(base.dir, "LandGIS")
-base.dir.import <- "/Volumes/Pythagoras/ds/"
+base.dir.import <- "/Volumes/Pythagoras/ds/DSM_import/"
 base.dir.landgis.import <- paste0(base.dir.import, "LandGIS")
 ```
 
