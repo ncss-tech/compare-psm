@@ -1,4 +1,4 @@
-# Function to compare the uncertainty from SoilGrids250 and POLARI
+# Function to compare the uncertainty from SoilGrids250 and POLARIS and gNATSGO
 #  by rendering their respective R Markdown scripts
 # Arguments:
 # lrc_long: -76
@@ -31,18 +31,26 @@ compare.one <- function(lrc_long, lrc_lat, voi.n, depth.n) {
 
 }
 
-## Indiana soc
 # voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
-# for (v in c(6)) {
-#   # depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
-#   for (d in c(1,2)) {
-#     compare.one(lrc_long=-86, lrc_lat=38, voi.n=v, depth.n=d)
-#   }
-# }
+# depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
+
+## CNY pH 0-5, 30-60
+for (v in c(4)) {
+  # depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
+  for (d in c(1,4)) {
+    compare.one(lrc_long=-76, lrc_lat=42, voi.n=v, depth.n=d)
+  }
+}
+
+# Indiana soc
+for (v in c(6)) {
+  for (d in c(1,2)) {
+    compare.one(lrc_long=-86, lrc_lat=38, voi.n=v, depth.n=d)
+  }
+}
 
 ## California sand 5-15, 15-30
 for (v in c(3)) {
-  # depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
   for (d in c(2,3)) {
     compare.one(lrc_long=-120, lrc_lat=37, voi.n=v, depth.n=d)
   }

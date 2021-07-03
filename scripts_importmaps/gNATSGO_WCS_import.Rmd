@@ -289,7 +289,7 @@ warnings()[1]
 
 This is a list of components, each with its attribute value for the depth slice.
 
-For some tiles, some of the map units have incorrect horizination.
+For some tiles, some of the map units have incorrect horizonation.
 
 Make an ID field for reshaping; this is the same for all components:
 
@@ -339,10 +339,6 @@ Now we have two ways to get properties from the map unit: weighted proportion or
 
 
 # Functions
-
-## Get the property value of the dominant component 
-
-This is not yet implemented.
 
 ## Weight the property value by the component proportions
 

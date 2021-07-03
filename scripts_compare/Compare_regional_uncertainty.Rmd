@@ -523,7 +523,7 @@ par(mfrow=c(1,1))
 
 # IQR/range difference histogram and map
 
-```{r iqr.diff.hist, fig.width=5, fig.height=5}
+```{r iqr.diff.hist, fig.width=6, fig.height=4}
 r.iqr.diff <- (r.iqr.sg - r.iqr.p)
 summary(r.iqr.diff)
 hist(r.iqr.diff, main="IQR difference  5/95%, SG250-POLARIS")
@@ -534,13 +534,24 @@ terra::plot(r.iqr.diff, col=rev(bpy.colors(64)),
      main="IQR difference  5/95%, SG250-POLARIS")
 ```
 
-```{r range.diff.hist, fig.width=5, fig.height=5}
+```{r range.diff.hist.sg, fig.width=6, fig.height=4}
 r.iqr.diff <- (r.iqr.sg - r.iqr.gn)
 summary(r.iqr.diff)
 hist(r.iqr.diff, main="IQR/range  5/95% vs. low/high, SG250-gNATSGO")
 ```
 
-```{r range.diff.map}
+```{r range.diff.map.sg}
 terra::plot(r.iqr.diff, col=rev(bpy.colors(64)),
      main="IQR/range  5/95% vs. low/high, SG250-gNATSGO")
+```
+
+```{r range.diff.hist.p, fig.width=6, fig.height=4}
+r.iqr.diff <- (r.iqr.p - r.iqr.gn)
+summary(r.iqr.diff)
+hist(r.iqr.diff, main="IQR/range  5/95% vs. low/high, POLARIS-gNATSGO")
+```
+
+```{r range.diff.map.p}
+terra::plot(r.iqr.diff, col=rev(bpy.colors(64)),
+     main="IQR/range  5/95% vs. low/high, POLARIS-gNATSGO")
 ```
