@@ -12,8 +12,6 @@ params:
    quantile.n: 4 
    depth.n: 1
 output:
-  pdf_document:
-    toc: yes
   html_document:
     toc: yes
     toc_float: yes
@@ -22,6 +20,9 @@ output:
     fig_height: 7
     fig_width: 7
     fig_caption: false
+    code_folding: show
+  pdf_document:
+    toc: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -55,19 +56,14 @@ This GeoTIFF can then be read into R and compared with other PSM products.
 
 Set base directories, specific to the local file system. 
 
-1. `base.dir.import`: This is where downloaded large GeoTIFF are located. Because of their size they may be on a separate file system, e.g., removable or networked drive.
-
-2. `base.dir`: This is where the processed POLARIS maps are stored.
-
+Directory `base.dir.polaris.import` is where downloaded large (up to 35 Mb) GeoTIFF are located. Because of their size they may be on a separate file system, e.g., removable or networked drive.
 
 ```{r}
-base.dir <- "/Volumes/Pythagoras/ds/DSM_export/"
-base.dir.polaris <- paste0(base.dir, "POLARIS/")
 base.dir.import <- "/Volumes/Pythagoras/ds/DSM_import/"
 base.dir.polaris.import <- paste0(base.dir.import, "POLARIS/")
 ```
 
-These are the base of destination directories built [below]#dest)
+These are the base of destination directories built [below](#dest).
 
 # Packages
 
@@ -90,10 +86,10 @@ print(paste("quantile.n:", params$quantile.n))
 
 Define the variables for the soil property and layer of interest.
 
-`p5` - 5% quantile from the machine-learning methods
-`p50` - median of the distribution
-`p95` - 95% quantile
-`mean` - mean of the distribution;
+* `p5` - 5% quantile from the machine-learning methods;
+* `p50` - median of the distribution;
+* `p95` - 95% quantile;
+* `mean` - mean of the distribution.
 
 ```{r}
 quantile.list.polaris <- c("p5", "p50", "p95", "mean")
@@ -217,5 +213,5 @@ r <- terra::rast(dest.file)
 print(r)
 plot(r)
 ```
-`
+
 

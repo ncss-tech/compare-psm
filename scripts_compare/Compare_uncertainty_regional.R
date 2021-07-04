@@ -35,10 +35,17 @@ compare.one <- function(lrc_long, lrc_lat, voi.n, depth.n) {
 # depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
 
 ## CNY pH 0-5, 30-60
-for (v in c(4)) {
-  # depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
+# for (v in c(4)) {
+#   # depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
+#   for (d in c(1,4)) {
+#     compare.one(lrc_long=-76, lrc_lat=42, voi.n=v, depth.n=d)
+#   }
+# }
+
+# NC clay
+for (v in c(1)) {
   for (d in c(1,4)) {
-    compare.one(lrc_long=-76, lrc_lat=42, voi.n=v, depth.n=d)
+    compare.one(lrc_long=-77, lrc_lat=35, voi.n=v, depth.n=d)
   }
 }
 

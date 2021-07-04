@@ -5,10 +5,10 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -76
-   lrc_lat: 42
+   lrc_long: -77
+   lrc_lat: 35
    size: NA
-   voi.n: 4
+   voi.n: 1
    quantile.n: NA
    depth.n: 1
 output:
@@ -95,10 +95,10 @@ Set base directory for the products, specific to the local file system.
 
 
 ```{r}
-base.dir <- "/Volumes/Pythagoras/ds/DSM_export/"
-base.dir.sg <- paste0(base.dir, "SoilGrids250")
-base.dir.polaris <- paste0(base.dir, "POLARIS")
-base.dir.gnatsgo <- paste0(base.dir, "gNATSGO")
+base.dir <- "/Volumes/Pythagoras/ds/"
+base.dir.sg <- paste0(base.dir, "DSM_export/SoilGrids250")  # extracted tiles
+base.dir.polaris <- paste0(base.dir, "DSM_import/POLARIS")  # unprocessed tiles
+base.dir.gnatsgo <- paste0(base.dir, "DSM_export/gNATSGO")  # extracted tiles
 ```
 
 # Parameters
