@@ -5,15 +5,15 @@ author:
   - "d.g.rossiter@cornell.edu"
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 output:
+  pdf_document:
+    toc: yes
   html_document:
     toc: yes
     toc_float: yes
-    theme: spacelab
+    theme: cosmo
     number_section: yes
     fig_height: 4
     fig_width: 4
-  pdf_document:
-    toc: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -24,13 +24,6 @@ knitr::opts_chunk$set(cache.extra = R.version.string)
 # Objective
 
 This document explains the procedures to evaluate of maps of soil properties made by Predictive Soil Mapping (PSM) in the USA. It refers to a set of R Markdown scripts for the various steps of the procedure.
-
-The USA has a long-established soil survey, and most of the lower 48 States (CONUS) have been mapped in detail with extensive field investigation. Thus digital products directly based on these surveys (e.g., GSM v0.5) are presumed to be as accurate as possible, or at least can serve as a reference for comparison.
-
-By contrast there are several [PSM products](#srcs) that are based on these surveys but with some PSM applied (e.g., POLARIS), and others that are only based on point datasets, environmental covariates that are supposed to represent soil-forming factors, and models. These may be global (e.g., SoilGrids250 from ISRIC) or USA-specific (e.g., Soil Properties and Class 100m Grids USA), which can use CONUS-only covariates such as surficial geology and parent material derived from the original soil survey.
-
-The procedures explained here allow comparison between digital products, and can reveal to what extent predictions made by predictive match predictions made with the best available local knowledge, especially detailed field survey.
-
 
 # Data sources {#srcs}
 
@@ -45,7 +38,7 @@ There are several sources of soil property information for the USA:
 * [Soil Properties and Class 100m Grids USA](https://doi.org/10.18113/S1KW2H), further abbreviated as _SPCG100USA_;
 * [LandGIS](https://opengeohub.org/about-landgis) from the private company [EnvirometriX](http://envirometrix.nl/).
 
-SG2, POLARIS and LandGIS also give uncertainty estimates as the 5/95% quantiles.
+SG2, POLARIS and LandGIS also give uncertainty estimates as the 5/95% quantiles, and gNATSGO/gSSURGO give low and high estimated values, as well as representative value.
 
 Here is a brief explanation of each of these:
 
@@ -132,7 +125,7 @@ The YAML headers include the default parameters and look like:
 
 ```
 ---
-   params:
+params:
    lrc_long: -76
    lrc_lat: 42 
    size: 1
@@ -144,7 +137,7 @@ The YAML headers include the default parameters and look like:
 
 These can be overridden with the `params` argument in a call to `rmarkdown::render`.
 
-The script `Import_all.R` can be used to import one or more products, setting the parameters there:
+The script `Import_all_regional.R` can be used to import one or more regional products, setting the parameters there:
 
 ```{r import.all, eval=FALSE}
 import.all <- function(lrc_long, lrc_lat, 
@@ -184,7 +177,7 @@ import.all <- function(lrc_long, lrc_lat,
 }
 ```
 
-This script can be called as follows, for example:
+This function can be called as follows, for example:
 
 ```{r call.import.all, eval=FALSE}
 import.all(lrc_long=-120, 
@@ -214,7 +207,7 @@ This script exports harmonized regional maps (same CRS, same resolution, same un
 
 ## Regional uncertainty (250 m spatial resolution)
 
-Two products provide prediction quantiles at 5, 50 and 95%, as well as the mean: SoilGrids250 and POLARIS. These can be compared with script `./scripts_compare/Compare_regional_uncertainty.Rmd`. These quantiles must have been previously imported.
+Two products provide prediction quantiles at 5, 50 and 95%, as well as the mean: SoilGrids250 and POLARIS. gNATSGO provides estimates of the low and high ends of the property range, with no probabilistic implication. These can be compared with script `./scripts_compare/Compare_regional_uncertainty.Rmd`. These quantiles and low/representative/high values must have been previously imported.
 
 ## Regional pattern analysis (250 m spatial resolution)
 

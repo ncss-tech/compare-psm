@@ -1,3 +1,0 @@
-# Comparing PSM products
-
-This repository contains a set of scripts...
