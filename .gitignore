@@ -1,7 +1,5 @@
 .DS_Store
 *.txt
-*.html
-*.pdf
 *.Rproj
 *.el
 .RData
@@ -10,7 +8,12 @@
 LaTeX_tables/
 auto/
 figs/
+example_figs/
 scripts_compare/figs/
+scripts_compare/*.html
 scripts_importmaps/figs/
+scripts_importmaps/*.html
 scripts_ground_overlays/figs/
+scripts_ground_overlays/*html
+scripts_make_figures_tables/
 local-data
