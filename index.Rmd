@@ -5,11 +5,11 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 output:
-  pdf_document: default
   html_document:
+    toc: yes
+    toc_float: yes
     df_print: paged
     theme: cosmo
-    toc: yes
 ---
 
 This repository contains a set of R Markdown scripts that allow you to evaluate of maps of soil properties made by Predictive Soil Mapping (PSM) over the continental USA (CONUS, "the lower 48"). The procedures explained here allow comparison between digital products, and can reveal to what extent predictions made by predictive match predictions made with the best available local knowledge, especially detailed field survey.
@@ -32,14 +32,14 @@ There are several sources of soil property information for the USA:
 
 * [gNATSGO](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/survey/geo/?cid=nrcseprd1464625), entire CONUS;
 * [gSSURGO](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/survey/geo/?cid=nrcs142p2_053628), by State;
-* [Global Soil Map v0.5](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/research/?cid=nrcseprd1321715), further abbreviated as _GSMv05_;
-* [Intermediate-scale gridded soil property and interpretation maps from averaged and aggregated SSURGO and STATSGO data](https://github.com/ncss-tech/ISSR-800), further abbreviated as _ISSR-800_;
+* [Global Soil Map v0.5](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/research/?cid=nrcseprd1321715);
+* [Intermediate-scale gridded soil property and interpretation maps from averaged and aggregated SSURGO and STATSGO data](https://github.com/ncss-tech/ISSR-800), abbreviated as ISSR-800; this has largely been superseded by gNATSGO;
 * POLARIS Soil Properties;
-* [SoiLGrids250](https://www.isric.org/explore/soilgrids)  from ISRIC further abbreviated as _SG2_;
-* [Soil Properties and Class 100m Grids USA](https://doi.org/10.18113/S1KW2H), further abbreviated as _SPCG100USA_;
+* [SoiLGrids250](https://www.isric.org/explore/soilgrids)  from ISRIC;
+* [Soil Properties and Class 100m Grids USA](https://doi.org/10.18113/S1KW2H), abbreviated as _SPCG100_;
 * [LandGIS](https://opengeohub.org/about-landgis) from the private company [EnvirometriX](http://envirometrix.nl/).
 
-SG2, POLARIS and LandGIS also give uncertainty estimates as the 5/95% quantiles, and gNATSGO/gSSURGO give low and high estimated values, as well as representative value.
+SG2, POLARIS and LandGIS also give uncertainty estimates as the 5/95% quantiles. gNATSGO/gSSURGO give low and high estimated values, as well as representative value.
 
 ## Coverage and mapping method
 
@@ -73,7 +73,7 @@ SoilGrids250 filenames, procedures etc. are explained in a [FAQ](https://www.isr
 The choice of the [Goode Homolosine projection](https://en.wikipedia.org/wiki/Goode_homolosine_projection) is explained in Moreira de Sousa, L., L. Poggio, and B. Kempen. 2019. Comparison of FOSS4G Supported Equal-Area Projections Using Discrete Distortion Indicatrices. ISPRS International Journal of Geo-Information 8(8): 351. https://doi.org/10.3390/ijgi8080351.
  
 
-* _SPCG100US_ is an adaption of the SoilGrids methodology for the USA, using  the NCSS Characterization Database, the National Soil Information System (NASIS), and the Rapid Carbon Assessment (RaCA) point datasets and some covariates only available for the USA, giving a 100 m grid resolution.
+* _SPCG100_ is an adaption of the SoilGrids methodology for the USA, using  the NCSS Characterization Database, the National Soil Information System (NASIS), and the Rapid Carbon Assessment (RaCA) point datasets and some covariates only available for the USA, giving a 100 m grid resolution.
 <p>
 Explained in Ramcharan, A., T. Hengl, T. Nauman, C. Brungard, S. Waltman, et al. 2018. Soil property and class maps of the conterminous United States at 100-meter spatial resolution. Soil Science Society of America Journal 82(1): 186–201. https://doi.org/10.2136/sssaj2017.04.0122. This source was able to use 87 parent material classes  four and drainage classes based on the representative soil components of gSSURGO map units.
 
