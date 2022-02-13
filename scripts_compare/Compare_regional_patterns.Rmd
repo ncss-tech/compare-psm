@@ -1058,7 +1058,7 @@ Now the topology is correct.
 Display the maps. Compute each legend from the classes present in that map.
 
 ```{r make_class_maps}
-my.pal <- brewer.pal(n.class, "RdYlGn")
+my.pal <- brewer.pal(n.class, "YlOrRd")
 l.gnatsgo <- range(gnatsgo.sf.v$class, na.rm = TRUE)
 l.sg <- range(sg.sf.v$class, na.rm = TRUE)
 if (exists("gsm.sf")) { l.gsm <- range(gsm.sf.v$class, na.rm = TRUE) }
