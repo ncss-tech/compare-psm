@@ -5,12 +5,12 @@ author:
   - "d.g.rossiter@cornell.edu"
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -120
-   lrc_lat: 37 
+   lrc_long: -76
+   lrc_lat: 42 
    size: 1
-   voi.n: 3
+   voi.n: 7
    quantile.n: 4
-   depth.n: 3
+   depth.n: 4
 output:
    html_document:
      toc: TRUE
@@ -258,6 +258,7 @@ gdal_translate(src_dataset=paste0(sg_url, voi, '/', voi_layer, '.vrt'),
     of="VRT",
     overwrite=TRUE,
     verbose=TRUE)
+# ,config = "key=GDAL_HTTP_UNSAFESS value='YES'"
 ```
 
 Build the actual TIFF in the native coordinates. This goes into the local storage

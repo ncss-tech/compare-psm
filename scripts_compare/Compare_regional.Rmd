@@ -5,10 +5,10 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -86
-   lrc_lat: 38
+   lrc_long: -76
+   lrc_lat: 42
    size: 1 
-   voi.n: 6
+   voi.n: 4
    quantile.n: NA
    depth.n: 1
 output:
@@ -760,19 +760,19 @@ Pairwise Pearson correlations. Note the distributions are fairly symmetric/quasi
 
 ```{r pairwise}
 v.all <- data.frame(gnatsgo=values(r.gnatsgo.sg),
-                    sg=values(r.sg),
-                    gsm=NA,
-                    polaris=NA,
-                    spcg100=NA,
+                    SG2=values(r.sg),
+                    GSM=NA,
+                    PSP=NA,
+                    SPCG=NA,
                     landgis=NA,
                     issr8=NA)
 # remove any fields w/o data, so correlation only shows the products we want to compare
 if (exists("r.gsm.sg")) { v.all$gsm <- values(r.gsm.sg) } else 
-  { v.all["gsm"] <- list(NULL) }
+  { v.all["GSM"] <- list(NULL) }
 if (exists("r.p.sg")) { v.all$polaris <- values(r.p.sg) } else 
-  { v.all["polaris"] <- list(NULL) }
+  { v.all["PSP"] <- list(NULL) }
 if (exists("r.psu.sg")) { v.all$spcg100 <- values(r.psu.sg) } else
-  { v.all["spcg100"] <- list(NULL) }
+  { v.all["SPCG"] <- list(NULL) }
 if (exists("r.landgis.sg")) { v.all$landgis <-  values(r.landgis.sg) } else 
   { v.all["landgis"] <- list(NULL) }
 if (exists("r.issr8.sg")) { v.all$issr8 <- values(r.issr8.sg) } else
@@ -812,7 +812,7 @@ if (exists("r.issr8.sg")) { diff.gnatsgo.issr8 <-  r.gnatsgo.sg - r.issr8.sg }
 RMSE, ME, RMSE adjusted to ME, for all products compared to gNATSGO:
 
 ```{r stats.compare.sg, warning=FALSE}
-stats.compare <- data.frame(PSM_product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
+stats.compare <- data.frame(Product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
 rmse <- function(v1, v2) {
   round(sqrt(mean((v1-v2)^2, na.rm=TRUE)),3)
 }
@@ -824,7 +824,7 @@ rmse.adj <- function(v1, v2) {   # RMSE adjusted for ME (bias)
   v2.adj <- v2 + me
   round(sqrt(mean((v1-v2.adj)^2, na.rm=TRUE)),3)
 }
-stats.compare[1, ] <- c("SoilGrids250",
+stats.compare[1, ] <- c("SG2",
                         me(values(r.gnatsgo.sg),values(r.sg)),
                         rmse(values(r.gnatsgo.sg),values(r.sg)),
                         rmse.adj(values(r.gnatsgo.sg),values(r.sg))
@@ -837,14 +837,14 @@ if (exists("r.gsm.sg")) {
                         ); i <- i + 1
 }
 if (exists("r.p.sg")) {
-  stats.compare[i, ] <- c("POLARIS",
+  stats.compare[i, ] <- c("PSP",
                         me(values(r.gnatsgo.sg),values(r.p.sg)),
                         rmse(values(r.gnatsgo.sg),values(r.p.sg)),
                         rmse.adj(values(r.gnatsgo.sg),values(r.p.sg))
                         ); i <- i + 1
 }
 if (exists("r.psu.sg")) {
-  stats.compare[i, ] <- c("SPCG100",
+  stats.compare[i, ] <- c("SPCG",
                         me(values(r.gnatsgo.sg),values(r.psu.sg)),
                         rmse(values(r.gnatsgo.sg),values(r.psu.sg)),
                         rmse.adj(values(r.gnatsgo.sg),values(r.psu.sg))

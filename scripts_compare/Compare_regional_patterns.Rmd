@@ -5,15 +5,15 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -120
-   lrc_lat: 37
+   lrc_long: -76
+   lrc_lat: 42
    size: 1
-   voi.n: 3
+   voi.n: 4
    quantile.n: NA
-   depth.n: 3
+   depth.n: 1
    test.tile.size: 0.20  # degrees
-   test.tile.x.offset: 0.54  # west from right edge
-   test.tile.y.offset: 0.77  # north from bottom edge
+   test.tile.x.offset: 0.61  # west from right edge
+   test.tile.y.offset: 0.44  # north from bottom edge
 output:
   html_document:
     fig_align: center
@@ -1195,8 +1195,8 @@ Here we leave it as the default `NULL`.
 
 ```{r vmaps.gnatsgo.sg, fig.width=4, fig.height=6}
   ## produced maps -- the homogeneity of the regions.gnatsgo.sg
-terra::plot(regions.gnatsgo.sg$map1["rih"], main = "Homogeneity -- SG250 vs. gNATSGO")
-terra::plot(regions.gnatsgo.sg$map2["rih"], main = "Completeness -- SG250 vs. gNATSGO")
+terra::plot(regions.gnatsgo.sg$map1["rih"], main = "Inhomogeneity -- SG2 vs. gNATSGO")
+terra::plot(regions.gnatsgo.sg$map2["rih"], main = "Incompleteness -- SG2 vs. gNATSGO")
 ```
 
 ### gNATSGO vs. SPCG100USA
@@ -1211,10 +1211,8 @@ if (exists("psu.sf.v")) {
   names(regions.gnatsgo.psu)
   names(regions.gnatsgo.psu$map1)
   ## produced maps -- the homogeneity of the regions.gnatsgo.psu
-  par(mfrow=c(1, 2))
-  terra::plot(regions.gnatsgo.psu$map1["rih"], main = "Homogeneity -- SPCG100USA vs. gNATSGO")
-  terra::plot(regions.gnatsgo.psu$map2["rih"], main = "Completeness -- SPCG100USA vs. gNATSGO")
-  par(mfrow=c(1, 1))
+  terra::plot(regions.gnatsgo.psu$map1["rih"], main = "Inhomogeneity -- SPCG vs. gNATSGO")
+  terra::plot(regions.gnatsgo.psu$map2["rih"], main = "Incompleteness -- SPCGA vs. gNATSGO")
 }
 ```
 
@@ -1230,9 +1228,8 @@ class(regions.gnatsgo.polaris)
 print(regions.gnatsgo.polaris)
 names(regions.gnatsgo.polaris)
 names(regions.gnatsgo.polaris$map1)
-terra::plot(regions.gnatsgo.psu$map1["rih"], main = "Homogeneity -- POLARIS vs. gNATSGO")
-terra::plot(regions.gnatsgo.psu$map2["rih"], main = "Completeness -- POLARIS vs. gNATSGO")
-par(mfrow=c(1, 1))
+terra::plot(regions.gnatsgo.psu$map1["rih"], main = "Inhomogeneity -- PSP vs. gNATSGO")
+terra::plot(regions.gnatsgo.psu$map2["rih"], main = "Incompleteness -- PSP vs. gNATSGO")
 ```
 
 ### SoilGrids250 vs. SPCG100USA
@@ -1247,10 +1244,8 @@ if (exists("psu.sf.v")) {
   names(regions.sg.psu)
   names(regions.sg.psu$map1)
   ## produced maps -- the homogeneity of the regions
-  par(mfrow=c(1, 2))
-  terra::plot(regions.sg.psu$map1["rih"], main = "Homogeneity -- SPCG100USA -- SoilGrids250")
-  terra::plot(regions.sg.psu$map2["rih"], main = "Completeness -- SPCG100USA -- SoilGrids250")
-  par(mfrow=c(1, 1))
+  terra::plot(regions.sg.psu$map1["rih"], main = "Inhomogeneity -- SPCG vs. SG2")
+  terra::plot(regions.sg.psu$map2["rih"], main = "Incompleteness -- SPCG vs. SG2")
 }
 ```
 
@@ -1266,21 +1261,21 @@ vmeasure.compare[1,] <- c("gNATSGO vs. SG2",
                        )
 i <- 1
 if (exists("regions.gnatsgo.psu")) {
-  vmeasure.compare[i <- i+1,] <- c("gNATSGO vs. SPCG100USA", 
+  vmeasure.compare[i <- i+1,] <- c("gNATSGO vs. SPCG", 
                             round(regions.gnatsgo.psu$v_measure, 4),
                             round(regions.gnatsgo.psu$homogeneity, 4),
                             round(regions.gnatsgo.psu$completeness, 4)
   )
 }
 if (exists("regions.gnatsgo.polaris")) {
-  vmeasure.compare[i <- i+1,] <- c("gNATSGO vs. POLARIS", 
+  vmeasure.compare[i <- i+1,] <- c("gNATSGO vs. PSP", 
                             round(regions.gnatsgo.polaris$v_measure, 4),
                             round(regions.gnatsgo.polaris$homogeneity, 4),
                             round(regions.gnatsgo.polaris$completeness, 4)
   )
 }
 if (exists("regions.gnatsgo.psu")) {
-  vmeasure.compare[i <- i+1,] <- c("SG2 va. SPCG100USA", 
+  vmeasure.compare[i <- i+1,] <- c("SG2 va. SPCG100", 
                        round(regions.sg.psu$v_measure, 4),
                        round(regions.sg.psu$homogeneity, 4),
                        round(regions.sg.psu$completeness, 4)

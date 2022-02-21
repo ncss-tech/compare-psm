@@ -5,10 +5,10 @@ author:
   - "d.g.rossiter@cornell.edu"
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -86
-   lrc_lat: 38
+   lrc_long: -76
+   lrc_lat: 42
    size: 1
-   voi.n: 6
+   voi.n: 4
    quantile.n: 4 
    depth.n: 1
 output:

@@ -39,9 +39,9 @@ Here is the base URL for local storage of the downloaded SoilGrids250 coverage a
 Base directories for import from the SoilGrids server, and for writing the ground overlays:
 
 ```{r}
-base.dir <- "/Users/rossiter/ds/"
+base.dir <- "/Volumes/Pythagoras/ds/"
 base.dir.import <- "/Volumes/Pythagoras/ds/"
-base.dir.sg <- paste0(base.dir, "SoilGrids250")
+base.dir.sg <- paste0(base.dir, "SoilGrids250_kml")
 base.dir.sg.import <- paste0(base.dir.import, "SoilGrids250")
 ```
 
@@ -82,7 +82,7 @@ depth.list <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
 Set the property, depth and quantile:
 
 ```{r}
-voi <- "silt"   # variable of interest
+voi <- "phh2o"   # variable of interest
 depth <- "0-5" # depth slice
 quantile <- "mean"  # quantile or mean
 ```
@@ -92,8 +92,8 @@ quantile <- "mean"  # quantile or mean
 Specify the lower-right corner using WGS84 geographic coordinates and the longitude/latitude extent, in degrees.
 
 ```{r}
-tile.lrc <- c(-76.1, 42.2) # lower-right corner: central NY
-d.long <- 0.4; d.lat <- 0.4
+tile.lrc <- c(-76, 42) # lower-right corner: central NY
+d.long <- 1; d.lat <- 1
 ```
 
 Compute the bounding box:
@@ -116,10 +116,15 @@ AOI.dir.prefix <- paste0("lat", tile.lrc[2], .tile.ulc[2],
 
 We would like to use geographic coordinates for the tile. But the WCS does not serve this. so we  first must download in the native Homolosine CRS. For this we need to know the bounding box in that CRS.
 
-```{r}
-.crs.igh <- '+proj=igh +lat_0=0 +lon_0=0 +datum=WGS84 +units=m +no_defs'
-.bb.igh <- st_transform(bb.ll, .crs.igh)
-(.bb.igh <- st_coordinates(.bb.igh)[,1:2])
+```{r bbox}
+crs.igh <- '+proj=igh +lat_0=0 +lon_0=0 +datum=WGS84 +units=m +no_defs'
+.bb.igh <- st_transform(bb.ll, crs.igh)
+(.bb.igh.coords <- st_coordinates(.bb.igh)[,1:2])
+#  convert to a bounding box, must order these as c(ulx, uly, lrx, lry)
+(bb.sg <- as.vector(c(min(.bb.igh.coords[,"X"]), 
+                     max(.bb.igh.coords[,"Y"]), 
+                     max(.bb.igh.coords[,"X"]), 
+                     min(.bb.igh.coords[,"Y"]))))
 ```
 
 This bounding box is somewhat larger than the specified rectangular long/lat box because we specify the extremes in the Homolosine projection, which is inclined.
@@ -127,11 +132,11 @@ This bounding box is somewhat larger than the specified rectangular long/lat box
 Directory for the imported tile:
 
 ```{r}
-dest.dir.sg.import <-  paste0(base.dir.sg.import, "/",
+(dest.dir.sg.import <-  paste0(base.dir.sg.import, "/",
                           AOI.dir.prefix, "/",
                           voi, "/", 
                           quantile, "/", 
-                       paste0(depth,"cm"))
+                       paste0(depth,"cm")))
 if (!dir.exists(dest.dir.sg.import)) {
   dir.create(dest.dir.sg.import, recursive = TRUE)
 }
@@ -144,37 +149,57 @@ Link names are given [here](https://maps.isric.org/).
 Access procedures are given [at [here](https://www.isric.org/web-coverage-services-wcs).
 This shows the raw HTTPS command to get capabilities, describe coverage, and get coverage. The [tutorial](https://git.wur.nl/isric/soilgrids/soilgrids.notebooks/-/blob/master/markdown/wcs_from_R.md) by Laura Poggio  shows how to make these calls within R.
 
-## WCS access to SoilGrids250
+# Accessing SoilGrids250 via WebDAV
 
-We set other variables necessary for the WCS call for all kinds of requests
+Access procedures via WebDAV are explained [here](https://git.wur.nl/isric/soilgrids/soilgrids.notebooks/-/blob/master/markdown/webdav_from_R.md)
 
-```{r}
-wcs_path_base <- "https://maps.isric.org/mapserv?map=/map/" # Path to the WCS. See maps.isric.org
-wcs_service <- "SERVICE=WCS"
-wcs_version <- "VERSION=2.0.1"
-# Add the variable of interest to the path of the URL
-wcs_path <- paste0(wcs_path_base ,voi,".map")
+We do this via a Virtual Raster Table (VRT). See https://gdal.org/drivers/raster/vrt.html: "The VRT driver is a format driver for GDAL that allows a virtual GDAL dataset to be composed from other GDAL datasets with repositioning, and algorithms potentially applied as well as various kinds of metadata altered or added. VRT descriptions of datasets can be saved in an XML format normally given the extension .vrt."  VRT are quite small, they describe how to build the actual raster.
+
+First get the VRT that describes the AOI:
+
+Here is is the part of a URL that describes the location and downloading parameters:
+
+```{r read.vrt.1}
+## this version (with parameters to vsicurl) not working as of 25-Apr-2021
+## possibly a server glitch
+# sg_url <- "/vsicurl?max_retry=3&retry_delay=1&list_dir=no&url=https://files.isric.org/soilgrids/latest/data/"
+sg_url <- "/vsicurl/https://files.isric.org/soilgrids/latest/data/"
+# sg_url <- "https://files.isric.org/soilgrids/latest/data/"
 ```
 
-Add the service request:
+## Import native format tile
 
-```{r}
-wcs <- paste(wcs_path, wcs_service, wcs_version, sep="&") 
+Here is the destination file:
+
+```{r read.vrt.2}
+(file.out.vrt <- paste0(dest.dir.sg.import, "/", voi_layer, '.vrt'))
 ```
 
-## Create an XML 
+And now the download of the VRT for this property, depth and quantile. Note the specification of the output format `of`; the default is "GTiff" but we want just the virtual raster.
 
-This will be used with the `gdal` utility after being saved to disk.
-The `datasetname` is an XML file that describes the dataset and the operation, here its description, which allows `gdal_translate` to find and download it.
-
-```{r}
-voi_layer <- paste(voi, paste0(depth,"cm"), quantile, sep="_")
-.l1 <- newXMLNode("wcs_GDAL")
-.l1.s <- newXMLNode("ServiceURL", wcs, parent=.l1)
-.l1.l <- newXMLNode("CoverageName", voi_layer, parent=.l1)
-xml.download <- paste0(base.dir.sg, "/sg_download.xml")
-saveXML(.l1, file = xml.download)
+```{r read.vrt.3}
+gdal_translate(src_dataset=paste0(sg_url, voi, '/', voi_layer, '.vrt'),
+    dst_dataset=file.out.vrt,
+    tr=c(250,250),
+    projwin = bb.sg,
+    projwin_srs = .crs.igh, 
+    of = "VRT",
+    overwrite=TRUE,
+    verbose=TRUE)
 ```
+
+Build the actual TIFF in the native coordinates. This goes into the local storage
+
+```{r vrt.to.tiff.igh}
+(file.out <- paste0(dest.dir.sg, "/", voi_layer, '.tif'))
+gdal_translate(src_dataset = file.out.vrt,
+               dst_dataset = file.out,
+               co=c("TILED=YES","COMPRESS=DEFLATE","PREDICTOR=2","BIGTIFF=YES"),
+               projwin=bb.sg,
+               overwrite=TRUE,
+               of="GTiff")
+```
+
 
 ## Download the GeoTIFF
 
@@ -185,6 +210,7 @@ This is an R wrapper for [`gdal_translate`](https://gdal.org/programs/gdal_trans
 
 
 ```{r}
+
 file.out <- paste0(dest.dir.sg.import, "/", voi_layer, '.tif')
 if (!file.exists(file.out)) {
   gdal_translate(src_dataset=xml.download,
