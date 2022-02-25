@@ -12,8 +12,8 @@ params:
    quantile.n: NA
    depth.n: 1
    test.tile.size: 0.20  # degrees
-   test.tile.x.offset: 0.61  # west from right edge
-   test.tile.y.offset: 0.44  # north from bottom edge
+   test.tile.x.offset: 0.6  # west from right edge
+   test.tile.y.offset: 0.2  # north from bottom edge
 output:
   html_document:
     fig_align: center
@@ -176,8 +176,8 @@ These names correspond to files stored by script `Compare_regional.Rmd`, which i
 AOI prefix:
 
 ```{r aoi.set.dir.prefix}
-AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
-                         "_lon", tile.ulc[1], tile.lrc[1])
+(AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
+                         "_lon", tile.ulc[1], tile.lrc[1]))
 ```
 
 
@@ -236,23 +236,23 @@ names(gnatsgo) <- "voi"
 names(sg) <- "voi"
 if ("GSM v0.5" %in% products) {
   file.name <- paste0(base.dir, AOI.dir.prefix, "/gsm_tile_250_", voi.depth, ".tif")
-  if (file.exists(file.name)) { (gsm <- rast(file.name)); names(gsm) <- "voi" }
+  if (file.exists(file.name)) { print(gsm <- rast(file.name)); names(gsm) <- "voi" }
 }
 if ("ISSR-800" %in% products) {
   file.name <- paste0(base.dir, AOI.dir.prefix, "/issr8_tile_250_", voi.depth, ".tif")
-  if (file.exists(file.name)) { (issr8 <- rast(file.name)); names(issr8) <- "voi" }
+  if (file.exists(file.name)) { print(issr8 <- rast(file.name)); names(issr8) <- "voi" }
 }
 if ("SPCG100USA" %in% products) {
   file.name <- paste0(base.dir, AOI.dir.prefix, "/psu_tile_250_", voi.depth, ".tif")
-  if (file.exists(file.name)) { (psu <- rast(file.name)); names(psu) <- "voi" }
+  if (file.exists(file.name)) { print(psu <- rast(file.name)); names(psu) <- "voi" }
 }
 if ("POLARIS" %in% products) {
   file.name <- paste0(base.dir, AOI.dir.prefix, "/polaris_tile_250_", voi.depth, ".tif")
-  if (file.exists(file.name)) { (polaris <- rast(file.name)); names(polaris) <- "voi" }
+  if (file.exists(file.name)) { print(polaris <- rast(file.name)); names(polaris) <- "voi" }
 }
 if ("LandGIS" %in% products) {
   file.name <- paste0(base.dir, AOI.dir.prefix, "/landgis_tile_250_", voi.depth, ".tif")
-  if (file.exists(file.name)) { (landgis <- rast(file.name)); names(landgis) <- "voi" }
+  if (file.exists(file.name)) { print(landgis <- rast(file.name)); names(landgis) <- "voi" }
 }
 ```
 
@@ -340,7 +340,7 @@ plot(gnatsgo.crop, main="gNATSGO", range=zlim)
 plot(sg.crop, main="SoilGrids250", range=zlim)
 if (exists("gsm.crop")) { plot(gsm.crop, main="GSM v0.5", range=zlim) }
 if (exists("psu.crop")) plot(psu.crop, main="SPCG100USA", range=zlim)
-if (exists("polaris.crop")) plot(polaris.crop, main="POLARIS", range=zlim)
+if (exists("polaris.crop")) plot(polaris.crop, main="PSP", range=zlim)
 if (exists("landgis.crop")) plot(landgis.crop, main="LandGIS", range=zlim)
 if (exists("issr8.crop")) plot(issr8.crop, main="ISSR-800", range=zlim)
 par(mfrow=c(1,1))
@@ -380,17 +380,17 @@ if (exists("psu.crop")) stats.compare[2, ] <- c("SPCG100USA",
                         rmse(values(gnatsgo.crop),values(psu.crop)),
                         rmse.adj(values(gnatsgo.crop),values(psu.crop))
                         )
-if (exists("polaris.crop")) stats.compare[3, ] <- c("POLARIS",
+if (exists("polaris.crop")) stats.compare[3, ] <- c("PSP",
                         me(values(gnatsgo.crop),values(polaris.crop)),
                         rmse(values(gnatsgo.crop),values(polaris.crop)),
                         rmse.adj(values(gnatsgo.crop),values(polaris.crop))
                         )
-if (exists("landgis.crop")) stats.compare[4, ] <- c("POLARIS",
+if (exists("landgis.crop")) stats.compare[4, ] <- c("LandGIS",
                         me(values(gnatsgo.crop),values(landgis.crop)),
                         rmse(values(gnatsgo.crop),values(landgis.crop)),
                         rmse.adj(values(gnatsgo.crop),values(landgis.crop))
                         )
-if (exists("issr8.crop")) stats.compare[5, ] <- c("POLARIS",
+if (exists("issr8.crop")) stats.compare[5, ] <- c("ISSR8",
                         me(values(gnatsgo.crop),values(issr8.crop)),
                         rmse(values(gnatsgo.crop),values(issr8.crop)),
                         rmse.adj(values(gnatsgo.crop),values(issr8.crop))
@@ -451,17 +451,17 @@ if (exists("psu.adj")) stats.compare[2, ] <- c("SPCG100USA",
                         rmse(values(gnatsgo.crop),values(psu.adj)),
                         rmse.adj(values(gnatsgo.crop),values(psu.adj))
                         )
-if (exists("polaris.adj")) stats.compare[3, ] <- c("POLARIS",
+if (exists("polaris.adj")) stats.compare[3, ] <- c("PSP",
                         me(values(gnatsgo.crop),values(polaris.adj)),
                         rmse(values(gnatsgo.crop),values(polaris.adj)),
                         rmse.adj(values(gnatsgo.crop),values(polaris.adj))
                         )
-if (exists("landgis.adj")) stats.compare[4, ] <- c("POLARIS",
+if (exists("landgis.adj")) stats.compare[4, ] <- c("LandGIS",
                         me(values(gnatsgo.crop),values(landgis.adj)),
                         rmse(values(gnatsgo.crop),values(landgis.adj)),
                         rmse.adj(values(gnatsgo.crop),values(landgis.adj))
                         )
-if (exists("issr8.adj")) stats.compare[5, ] <- c("POLARIS",
+if (exists("issr8.adj")) stats.compare[5, ] <- c("ISSR8",
                         me(values(gnatsgo.crop),values(issr8.adj)),
                         rmse(values(gnatsgo.crop),values(issr8.adj)),
                         rmse.adj(values(gnatsgo.crop),values(issr8.adj))
@@ -615,13 +615,13 @@ vmeasure.compare[2,] <- c("SG2",
                        )
 i <- 2
 if(exists("vmf.psu")) {
-  vmeasure.compare[(i <- i+1), ] <-  c("SPCG100USA", 
+  vmeasure.compare[(i <- i+1), ] <-  c("SPCG", 
                        round(vmf.psu[2,"range"], 0),
                        round(vmf.psu[2,"psill"], 2),
                        round(vmf.psu[1,"psill"]/sum(vmf.psu[,"psill"]), 2))
 }
 if(exists("vmf.polaris")) {
-  vmeasure.compare[(i <- i+1), ] <-  c("POLARIS", 
+  vmeasure.compare[(i <- i+1), ] <-  c("PSP", 
                        round(vmf.polaris[2,"range"], 0),
                        round(vmf.polaris[2,"psill"], 2),
                        round(vmf.polaris[1,"psill"]/sum(vmf.polaris[,"psill"]), 2))
@@ -686,18 +686,18 @@ ylims <- c(0, max(v.gnatsgo$gamma, v.sg$gamma,
                   ifelse(exists("v.issr8"), max(v.issr8$gamma), 0),
                   ifelse(exists("v.landgis"), max(v.landgis$gamma), 0))*1.1)
 p0 <- plot(v.gnatsgo, ylim=ylims, model=vmf.gnatsgo, main="gNATSGO", xlab="separation (m)", pch=20)
-p1 <- plot(v.sg, ylim=ylims, model=vmf.sg, main="SoilGrids250", xlab="separation (m)", pch=20)
+p1 <- plot(v.sg, ylim=ylims, model=vmf.sg, main="SG2", xlab="separation (m)", pch=20)
 print(p0, split=c(1, 1, n.figs.col, n.figs.row), more=T) 
 print(p1, split=c(2, 1, n.figs.col, n.figs.row), more=T) # for sure these two in the first row
 r <- 1 ; c <- n.figs.col-2 # we used up two columns
 if(exists("vmf.psu")) {
   pos <- rc.pos(r, c); r <- pos[1]; c <- pos[2]
-  p2 <- plot(v.psu, ylim=ylims, model=vmf.psu, main="SPCG100USA", xlab="separation (m)", pch=20)
+  p2 <- plot(v.psu, ylim=ylims, model=vmf.psu, main="SPCG", xlab="separation (m)", pch=20)
   print(p2, split=c(c, r, n.figs.col, n.figs.row), more=T); c <- c + 1
 } 
 if(exists("vmf.polaris")) {
   pos <- rc.pos(r, c); r <- pos[1]; c <- pos[2]
-  p3 <- plot(v.polaris, ylim=ylims, model=vmf.polaris, main="POLARIS", xlab="separation (m)", pch=20)
+  p3 <- plot(v.polaris, ylim=ylims, model=vmf.polaris, main="PSP", xlab="separation (m)", pch=20)
   print(p3, split=c(c, r, n.figs.col, n.figs.row), more=T); c <- c + 1
 } 
 if(exists("vmf.gsm")) {
@@ -780,26 +780,33 @@ capture.output(print(x, include.rownames=FALSE), file=
 
 ## Classification
 
+Reclassify according to the histogram-equalized limits.
+Note that `terra::classify` keeps a record of the classification method, in this case, the vector of cutpoints, although the values of the reclassified raster are integer class numbers. These are found with `levels()[[1]]`.
+
 ```{r classify.raster}
 gnatsgo.class <- classify(gnatsgo.crop, rcl=class.limits)
 # gnatsgo.class <- as.factor(gnatsgo.class)
 table(values(gnatsgo.class))
+names(gnatsgo.class) <- "class"
+
+# levels(gnatsgo.class) <- NULL # per Hijmans, removes category labels
 # .l <- range(values(gnatsgo.class), na.rm=TRUE)
 # terra::plot(gnatsgo.class,
 #             col=color.ramp[.l[1]:.l[2]], type="classes",
-#             main="SoilGrids250")
+#             main="SG2")
 #
-sg.class <- classify(sg.crop, rcl=class.limits)
-# sg.class <- as.factor(sg.class)
+sg.class <- terra::classify(sg.crop, rcl=class.limits)
 table(values(sg.class))
+names(sg.class) <- "class"
 # .l <- range(values(sg.class), na.rm=TRUE)
 # terra::plot(sg.class,
 #             col=color.ramp[.l[1]:.l[2]], type="classes",
-#             main="SoilGrids250")
+#             main="SG2")
 #
 if (exists("gsm.crop")) {
   gsm.class <- classify(gsm.crop, rcl=class.limits)
   table(values(gsm.class))
+  names(gsm.class) <- "class"
   # gsm.class <- as.factor(gsm.class)
   # .l <- range(values(gsm.class), na.rm=TRUE)
   # terra::plot(gsm.class,
@@ -810,6 +817,7 @@ if (exists("gsm.crop")) {
 if (exists("issr8.crop")) {
   issr8.class <- classify(issr8.crop, rcl=class.limits)
   table(values(issr8.class))
+  names(issr8.class) <- "class"
   # issr8.class <- as.factor(issr8.class)
   # .l <- range(values(issr8.class), na.rm=TRUE)
   # terra::plot(issr8.class,
@@ -821,26 +829,29 @@ if (exists("psu.crop")) {
   psu.class <- classify(psu.crop, rcl=class.limits)
   # psu.class <- as.factor(psu.class)
   table(values(psu.class))
+  names(psu.class) <- "class"
   # .l <- range(values(psu.class), na.rm=TRUE)
   # terra::plot(psu.class,
   #             col=color.ramp[.l[1]:.l[2]], type="classes",
-  #             main="SPCG100USA")
+  #             main="SPCG")
   #
 }
 if (exists("polaris.crop")) {
   polaris.class <- classify(polaris.crop, rcl=class.limits)
   # psu.class <- as.factor(psu.class)
   table(values(polaris.class))
+  names(polaris.class) <- "class"
   # .l <- range(values(polaris.class), na.rm=TRUE)
   # terra::plot(polaris.class,
   #             col=color.ramp[.l[1]:.l[2]], type="classes",
-  #             main="POLARIS")
+  #             main="PSP")
   #
 }
 if (exists("landgis.crop")) {
   landgis.class <- classify(landgis.crop, rcl=class.limits)
   # psu.class <- as.factor(psu.class)
   table(values(landgis.class))
+  names(landgis.class) <- "class"
   # .l <- range(values(landgis.class), na.rm=TRUE)
   # terra::plot(landgis.class,
   #             col=color.ramp[.l[1]:.l[2]], type="classes",
@@ -858,7 +869,7 @@ terra::plot(gnatsgo.class,
 .l <- range(values(sg.class), na.rm=TRUE)
 terra::plot(sg.class,
             col=color.ramp[.l[1]:.l[2]], type="classes",
-            main="SoilGrids250")
+            main="SG2")
 if (exists("gsm.class")) {
   .l <- range(values(gsm.class), na.rm=TRUE)
   terra::plot(gsm.class,
@@ -869,13 +880,13 @@ if (exists("psu.class")) {
   .l <- range(values(psu.class), na.rm=TRUE)
   terra::plot(psu.class,
               col=color.ramp[.l[1]:.l[2]], type="classes",
-              main="SPCG100USA")
+              main="SPCG")
 }
 if (exists("polaris.class")) {
   .l <- range(values(polaris.class), na.rm=TRUE)
   terra::plot(polaris.class,
               col=color.ramp[.l[1]:.l[2]], type="classes",
-              main="POLARIS")
+              main="PSP")
 }
 if (exists("landgis.class")) {
   .l <- range(values(issr8.class), na.rm=TRUE)
@@ -942,72 +953,81 @@ if (exists("psu.class")) {
 
 The V-metrics require polygon maps, not gridded maps of classes.
 
-Polygonize them:
+Polygonize them and adjust the class names.
 
 ```{r polygonize}
-gnatsgo.poly <- terra::as.polygons(gnatsgo.class, dissolve=TRUE, trunc=FALSE)
-sg.poly <- terra::as.polygons(sg.class, dissolve=TRUE, trunc=FALSE)
-if (exists("issr8.class")) issr8.poly <- terra::as.polygons(issr8.class, dissolve=TRUE, trunc=FALSE)
-if (exists("psu.class")) psu.poly <- terra::as.polygons(psu.class, dissolve=TRUE, trunc=FALSE)
-if (exists("polaris.class")) polaris.poly <- terra::as.polygons(polaris.class, dissolve=TRUE, trunc=FALSE)
-if (exists("landgis.class")) landgis.poly <- terra::as.polygons(landgis.class, dissolve=TRUE, trunc=FALSE)
+gnatsgo.poly <- terra::as.polygons(gnatsgo.class,
+                                   values = TRUE,
+                                   dissolve = TRUE)
+# add break points and class IDs
+gnatsgo.poly$breaks <- cuts[-1]
+gnatsgo.poly$class <- 1:n.class
+
+sg.poly <- terra::as.polygons(sg.class,
+                              values = TRUE, 
+                              dissolve=TRUE)
+sg.poly$breaks <- cuts[-1]
+sg.poly$class <- 1:n.class
+
+if (exists("issr8.class")) {
+  issr8.poly <- terra::as.polygons(issr8.class, 
+                                   values = TRUE,
+                                   dissolve=TRUE)
+  issr8.poly$breaks <- cuts[-1]
+  issr8.poly$class <- 1:n.class
+}
+if (exists("psu.class")) {
+  psu.poly <- terra::as.polygons(psu.class, 
+                                 values = TRUE,dissolve=TRUE)
+  psu.poly$breaks <- cuts[-1]
+  psu.poly$class <- 1:n.class
+}  
+if (exists("polaris.class")) {
+  polaris.poly <- terra::as.polygons(polaris.class, 
+                                 values = TRUE,dissolve=TRUE)
+  polaris.poly$breaks <- cuts[-1]
+  polaris.poly$class <- 1:n.class
+}  
+ if (exists("landgis.class")) {
+  landgis.poly <- terra::as.polygons(landgis.class, 
+                                 values = TRUE,dissolve=TRUE)
+  landgis.poly$breaks <- cuts[-1]
+  landgis.poly$class <- 1:n.class
+}  
 ```
 
 ## Simple Features
 
 Some of the methods require Simple Features representation of spatial objects.
 
-Convert the `terra::SpatVector` objects to Simple Features. As of 2021-01-02 there seems to be no direct way, so save as a vector file and read into `sf`:
+Convert the `terra::SpatVector` objects to Simple Features. 
 
 ```{r convert.polygons.sf}
 #
-tmpf <- tempfile()
-terra::writeVector(gnatsgo.poly, tmpf, overwrite=TRUE)
-gnatsgo.sf <- st_read(tmpf, quiet = TRUE); unlink(tmpf)
-names(gnatsgo.sf)[1] <- "class"
+gnatsgo.sf <- st_as_sf(gnatsgo.poly)
 #
-tmpf <- tempfile()
-terra::writeVector(sg.poly, tmpf, overwrite=TRUE)
-sg.sf <- st_read(tmpf, quiet = TRUE); unlink(tmpf)
-names(sg.sf)[1] <- "class"
+sg.sf <- st_as_sf(sg.poly)
 #
 if (exists("gsm.class")) { 
-  tmpf <- tempfile()
-  terra::writeVector(gsm.poly, tmpf, overwrite=TRUE)
-  gsm.sf <- st_read(tmpf, quiet = TRUE); unlink(tmpf)
-  colnames(gsm.sf)[1] <- "class"
+  gsm.sf <- st_as_sf(gsm.poly)
 }
 #
 if (exists("psu.class")) {
-  tmpf <- tempfile()
-  terra::writeVector(psu.poly, tmpf, overwrite=TRUE)
-  psu.sf <- st_read(tmpf, quiet = TRUE); unlink(tmpf)
-  names(psu.sf)[1] <- "class"
+  psu.sf <- st_as_sf(psu.poly)
 }
 #
 if (exists("polaris.class")) {
-  tmpf <- tempfile()
-  terra::writeVector(polaris.poly, tmpf, overwrite=TRUE)
-  polaris.sf <- st_read(tmpf, quiet = TRUE); unlink(tmpf)
-  names(polaris.sf)[1] <- "class"
+  polaris.sf <- st_as_sf(polaris.poly)
 }
 #
 if (exists("issr8.class")) { 
-  tmpf <- tempfile()
-  terra::writeVector(issr8.poly, tmpf, overwrite=TRUE)
-  issr8.sf <- st_read(tmpf, quiet = TRUE); unlink(tmpf)
-  colnames(issr8.sf)[1] <- "class"
+  issr8.sf <- st_as_sf(issr8.poly)
 }
 if (exists("landgis.class")) {
-  tmpf <- tempfile()
-  terra::writeVector(landgis.poly, tmpf, overwrite=TRUE)
-  landgis.sf <- st_read(tmpf, quiet = TRUE); unlink(tmpf)
-  colnames(landgis.sf)[1] <- "class"
+  landgis.sf <- st_as_sf(landgis.poly)
 }
 #
 ```
-
-This is a Simple feature collection with 4 features and 1 field (and the geometry).
 
 ## Topology
 
@@ -1058,7 +1078,7 @@ Now the topology is correct.
 Display the maps. Compute each legend from the classes present in that map.
 
 ```{r make_class_maps}
-my.pal <- brewer.pal(n.class, "YlOrRd")
+my.pal <- brewer.pal(n.class, "PuBu")  # safe for colour-blind viewers
 l.gnatsgo <- range(gnatsgo.sf.v$class, na.rm = TRUE)
 l.sg <- range(sg.sf.v$class, na.rm = TRUE)
 if (exists("gsm.sf")) { l.gsm <- range(gsm.sf.v$class, na.rm = TRUE) }
@@ -1077,7 +1097,7 @@ g0 <- ggplot(data=gnatsgo.sf.v) +
 g1 <- ggplot(data=sg.sf.v) +
   geom_sf(aes(fill = class)) +
   coord_sf(crs = st_crs(sg.sf)) +
-  labs(title = "SoilGrids250")  +
+  labs(title = "SG2")  +
   scale_fill_continuous(low=my.pal[l.sg[1]], high=my.pal[l.sg[2]]) +
   theme(legend.position = "bottom", legend.direction = "horizontal")
 if (exists("gsm.sf")) { 
@@ -1100,7 +1120,7 @@ if (exists("psu.sf")) {
   g4 <- ggplot(data=psu.sf.v) +
     geom_sf(aes(fill = class)) +
     coord_sf(crs = st_crs(sg.sf)) +
-    labs(title = "SPCG100USA") +
+    labs(title = "SPCG") +
     scale_fill_continuous(low=my.pal[l.psu[1]], high=my.pal[l.psu[2]]) +
     theme(legend.position = "bottom", legend.direction = "horizontal")
 }
@@ -1108,7 +1128,7 @@ if (exists("polaris.sf")) {
   g5 <- ggplot(data=polaris.sf.v) +
     geom_sf(aes(fill = class)) +
     coord_sf(crs = st_crs(sg.sf)) +
-    labs(title = "POLARIS") +
+    labs(title = "PSP") +
     scale_fill_continuous(low=my.pal[l.polaris[1]], high=my.pal[l.polaris[2]]) +
     theme(legend.position = "bottom", legend.direction = "horizontal")
 }
@@ -1169,7 +1189,7 @@ For this function we must specify the names of the columns with the region names
 
 ## Compute metrics
 
-Compute the metrics with the `sabre` package.
+Compute the metrics with the `sabre` package. The first-listed map is the map to evaluate, with respect to the second-listed (reference) map.
 
 ### gNATSGO vs. SoilGrids
 
@@ -1232,20 +1252,20 @@ terra::plot(regions.gnatsgo.psu$map1["rih"], main = "Inhomogeneity -- PSP vs. gN
 terra::plot(regions.gnatsgo.psu$map2["rih"], main = "Incompleteness -- PSP vs. gNATSGO")
 ```
 
-### SoilGrids250 vs. SPCG100USA
+### SPCG100USA vs. SoilGrids250
 
-```{r vmaps.sg.psu, fig.width=4, fig.height=6}
+```{r vmaps.psu.sg, fig.width=4, fig.height=6}
 if (exists("psu.sf.v")) {
-  regions.sg.psu <- vmeasure_calc(x = sg.sf.v, 
-                                  y = psu.sf.v, 
+  regions.psu.sg <- vmeasure_calc(x = psu.sf.v, 
+                                  y = sg.sf.v, 
                                   x_name = class, y_name = class)
-  class(regions.sg.psu) 
-  print(regions.sg.psu)
-  names(regions.sg.psu)
-  names(regions.sg.psu$map1)
+  class(regions.psu.sg) 
+  print(regions.psu.sg)
+  names(regions.psu.sg)
+  names(regions.psu.sg$map1)
   ## produced maps -- the homogeneity of the regions
-  terra::plot(regions.sg.psu$map1["rih"], main = "Inhomogeneity -- SPCG vs. SG2")
-  terra::plot(regions.sg.psu$map2["rih"], main = "Incompleteness -- SPCG vs. SG2")
+  terra::plot(regions.psu.sg$map1["rih"], main = "Inhomogeneity -- SPCG vs. SG2")
+  terra::plot(regions.psu.sg$map2["rih"], main = "Incompleteness -- SPCG vs. SG2")
 }
 ```
 
@@ -1275,10 +1295,10 @@ if (exists("regions.gnatsgo.polaris")) {
   )
 }
 if (exists("regions.gnatsgo.psu")) {
-  vmeasure.compare[i <- i+1,] <- c("SG2 va. SPCG100", 
-                       round(regions.sg.psu$v_measure, 4),
-                       round(regions.sg.psu$homogeneity, 4),
-                       round(regions.sg.psu$completeness, 4)
+  vmeasure.compare[i <- i+1,] <- c("SPCG vs. SG2", 
+                       round(regions.psu.sg$v_measure, 4),
+                       round(regions.psu.sg$homogeneity, 4),
+                       round(regions.psu.sg$completeness, 4)
                        )
   
 }
@@ -1342,11 +1362,7 @@ A function to display the landscape with a consistent colour ramp:
 (my.pal <- c(brewer.pal(n.class, "RdYlGn"), "#FFFFFF"))
 show.landscape <- function(r.map, r.title) {
   check_landscape(r.map)
-  l <- range(values(r.map), na.rm = TRUE)
   g <- show_landscape(r.map, discrete = TRUE) +
-    # use the positions in the palette corresponding to the class numbers
-    # force the NA to the last entry in the palette
-    scale_fill_manual(values=c(my.pal[l[1]:l[2]], my.pal[n.class+1])) +
     theme(legend.position = "bottom",
           axis.text.x = element_blank(),
           axis.text.y = element_blank(),
@@ -1362,7 +1378,7 @@ Show the landscapes of each product:
 (g <- show.landscape(r.gnatsgo, "gNATSGO"))
 (g <- show.landscape(r.sg, "SoilGrids250"))
 if (exists("r.psu")) (g <- show.landscape(r.psu, "SPCG100USA"))
-if (exists("r.polaris")) (g <- show.landscape(r.polaris, "POLARIS"))
+if (exists("r.polaris")) (g <- show.landscape(r.polaris, "PSP"))
 if (exists("r.landgis")) (g <- show.landscape(r.landgis, "LandGIS"))
 if (exists("r.gsm")) (g <- show.landscape(r.gsm, "GSM v0.5"))
 if (exists("r.issr8")) (g <- show.landscape(r.issr8, "ISSR-800"))
@@ -1453,7 +1469,7 @@ metrics.table <- data.frame(product=c("gNATSGO", "SoilGrids"),
 if (exists("ls.metrics.psu")) { metrics.table <- rbind(metrics.table, 
                                                        c("SPCG100USA", round(ls.metrics.psu$value, 3))) }  
 if (exists("ls.metrics.polaris")) { metrics.table <- rbind(metrics.table, 
-                                                           c("POLARIS", round(ls.metrics.polaris$value, 3))) }  
+                                                           c("PSP", round(ls.metrics.polaris$value, 3))) }  
 if (exists("ls.metrics.gsm")) { metrics.table <- rbind(metrics.table, 
                                                        c("GSM v0.5", round(ls.metrics.gsm$value, 3))) }  
 if (exists("ls.metrics.issr8")) { metrics.table <- rbind(metrics.table, 
@@ -1508,7 +1524,7 @@ if (exists("r.psu")) {
 }
 if (exists("r.polaris")) {
   cove.df <- rbind(cove.df, cove.polaris$signature[[1]][1,])
-  df.row.names <- c(df.row.names, "POLARIS")
+  df.row.names <- c(df.row.names, "PSP")
 }
 if (exists("r.gsm")) {
   cove.df <- rbind(cove.df, cove.gsm$signature[[1]][1,])
