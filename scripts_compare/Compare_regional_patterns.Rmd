@@ -52,7 +52,7 @@ These can be included:
 * [Global Soil Map v0.5 for the USA](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/research/?cid=nrcseprd1321715), further abbreviated as _GSMv05_;
 * [Intermediate-scale gridded soil property and interpretation maps from averaged and aggregated SSURGO and STATSGO data](https://github.com/ncss-tech/ISSR-800), further abbreviated as _ISSR-800_;
 * POLARIS Soil Properties;
-* [Soil Properties and Class 100m Grids USA](https://doi.org/10.18113/S1KW2H), further abbreviated as _SPCG100USA_;
+* [Soil Properties and Class 100m Grids USA](https://doi.org/10.18113/S1KW2H), further abbreviated as _SPCG_;
 * [LandGIS](https://opengeohub.org/about-landgis) from the private company [EnvirometriX](http://envirometrix.nl/).
 
 This script must follow script `Compare_regional.Rmd` "Comparing PSM products at regional resolution". That script harmonizes the area of interest and resolution of these sources, and stores the harmonized products for this analysis.
@@ -337,9 +337,9 @@ Now show the maps together:
 ```{r side.by.side, fig.width=map.fig.width, fig.height=map.fig.height}
 par(mfrow=c(n.figs.row, n.figs.col))
 plot(gnatsgo.crop, main="gNATSGO", range=zlim)
-plot(sg.crop, main="SoilGrids250", range=zlim)
+plot(sg.crop, main="SG2", range=zlim)
 if (exists("gsm.crop")) { plot(gsm.crop, main="GSM v0.5", range=zlim) }
-if (exists("psu.crop")) plot(psu.crop, main="SPCG100USA", range=zlim)
+if (exists("psu.crop")) plot(psu.crop, main="SPCG", range=zlim)
 if (exists("polaris.crop")) plot(polaris.crop, main="PSP", range=zlim)
 if (exists("landgis.crop")) plot(landgis.crop, main="LandGIS", range=zlim)
 if (exists("issr8.crop")) plot(issr8.crop, main="ISSR-800", range=zlim)
@@ -365,7 +365,7 @@ rmse.adj <- function(v1, v2) {   # RMSE adjusted for ME (bias)
 
 ```{r compare.stats}
 stats.compare <- data.frame(PSM_product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
-stats.compare[1, ] <- c("SoilGrids250",
+stats.compare[1, ] <- c("SG2",
                         me(values(gnatsgo.crop),values(sg.crop)),
                         rmse(values(gnatsgo.crop),values(sg.crop)),
                         rmse.adj(values(gnatsgo.crop),values(sg.crop))
@@ -375,7 +375,7 @@ if (exists("gsm.crop")) stats.compare[2, ] <- c("GSM v0.5",
                         rmse(values(gnatsgo.crop),values(gsm.crop)),
                         rmse.adj(values(gnatsgo.crop),values(gsm.crop))
                         )
-if (exists("psu.crop")) stats.compare[2, ] <- c("SPCG100USA",
+if (exists("psu.crop")) stats.compare[2, ] <- c("SPCG",
                         me(values(gnatsgo.crop),values(psu.crop)),
                         rmse(values(gnatsgo.crop),values(psu.crop)),
                         rmse.adj(values(gnatsgo.crop),values(psu.crop))
@@ -436,7 +436,7 @@ These are now similar in their ranges, but not in their patterns. Compare the st
 
 ```{r compare.stats.adj}
 stats.compare <- data.frame(PSM_product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
-stats.compare[1, ] <- c("SoilGrids250",
+stats.compare[1, ] <- c("SG2",
                         me(values(gnatsgo.crop),values(sg.adj)),
                         rmse(values(gnatsgo.crop),values(sg.adj)),
                         rmse.adj(values(gnatsgo.crop),values(sg.adj))
@@ -446,7 +446,7 @@ if (exists("gsm.adj")) stats.compare[2, ] <- c("GSM v0.5",
                         rmse(values(gnatsgo.crop),values(gsm.adj)),
                         rmse.adj(values(gnatsgo.crop),values(gsm.adj))
                         )
-if (exists("psu.adj")) stats.compare[2, ] <- c("SPCG100USA",
+if (exists("psu.adj")) stats.compare[2, ] <- c("SPCG",
                         me(values(gnatsgo.crop),values(psu.adj)),
                         rmse(values(gnatsgo.crop),values(psu.adj)),
                         rmse.adj(values(gnatsgo.crop),values(psu.adj))
@@ -1377,7 +1377,7 @@ Show the landscapes of each product:
 ```{r show.landscape, fig.width=7, fig.height=5}
 (g <- show.landscape(r.gnatsgo, "gNATSGO"))
 (g <- show.landscape(r.sg, "SoilGrids250"))
-if (exists("r.psu")) (g <- show.landscape(r.psu, "SPCG100USA"))
+if (exists("r.psu")) (g <- show.landscape(r.psu, "SPCG"))
 if (exists("r.polaris")) (g <- show.landscape(r.polaris, "PSP"))
 if (exists("r.landgis")) (g <- show.landscape(r.landgis, "LandGIS"))
 if (exists("r.gsm")) (g <- show.landscape(r.gsm, "GSM v0.5"))
@@ -1463,11 +1463,11 @@ if(exists("r.landgis")) ls.metrics.landgis <- calculate_lsm(r.landgis, what=lst)
 Make a table with the metrics for the several products.
 
 ```{r}
-metrics.table <- data.frame(product=c("gNATSGO", "SoilGrids"),
+metrics.table <- data.frame(product=c("gNATSGO", "SG2"),
                             rbind(round(ls.metrics.gnatsgo$value, 3),
                                   round(ls.metrics.sg$value, 3)))
 if (exists("ls.metrics.psu")) { metrics.table <- rbind(metrics.table, 
-                                                       c("SPCG100USA", round(ls.metrics.psu$value, 3))) }  
+                                                       c("SPCG", round(ls.metrics.psu$value, 3))) }  
 if (exists("ls.metrics.polaris")) { metrics.table <- rbind(metrics.table, 
                                                            c("PSP", round(ls.metrics.polaris$value, 3))) }  
 if (exists("ls.metrics.gsm")) { metrics.table <- rbind(metrics.table, 
@@ -1517,10 +1517,10 @@ Compute the Jensen-Shannon distances between signatures:
 # combine the vectors into a dataframe, one row per vector
 cove.df <- data.frame(cove.gnatsgo)$signature[[1]][1,]
 cove.df <- rbind(cove.df, cove.sg$signature[[1]][1,])
-df.row.names <- c( "gNATSGO", "SoilGrids")
+df.row.names <- c( "gNATSGO", "SG2")
 if (exists("r.psu")) {
   cove.df <- rbind(cove.df, cove.psu$signature[[1]][1,])
-  df.row.names <- c(df.row.names, "SPCG100USA")
+  df.row.names <- c(df.row.names, "SPCG")
 }
 if (exists("r.polaris")) {
   cove.df <- rbind(cove.df, cove.polaris$signature[[1]][1,])
