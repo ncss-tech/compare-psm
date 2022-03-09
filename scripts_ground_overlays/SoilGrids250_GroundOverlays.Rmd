@@ -18,7 +18,7 @@ output:
 # Objective
 
 The aim of this script is to facilitate evaluation of [ISRIC-World Soil Information](https://www.isric.org)'s SoilGrids250 gridded maps of soil properties. Here we create ground overlay KML files for display in Google Earth. 
-This should facilitiate a qualitative evaluation of the pattern of SoilGrids250 predictions, because they can be visualized on the land cover and terrain.
+This should facilitate a qualitative evaluation of the pattern of SoilGrids250 predictions, because they can be visualized on the land cover and terrain.
 
 If the overlay is specified for the continental USA (48 States), the overlay can be displayed along with [SoilWeb Apps](https://casoilresource.lawr.ucdavis.edu/soilweb-apps/), including SoilWeb Earth which displays SSURGO (detailed) or NATSGO (generalized) soil map units in Google Earth. The USA has a long-established soil survey, and most of the lower 48 States have been mapped in detail with extensive field investigation and compiled into polygon maps.
 
@@ -31,19 +31,21 @@ _Usage (1)_: To create one overlay step-by-step, specify an area of interest (AO
 _Usage (2)_: To create one more more overlays with the function, first run [this code](#function) to define the function `make.ground.overlay` in your workspace, and then call it, as shown with examples in [this section](#compute).
 
 # Setup
+
 Here is the base URL for local storage of the downloaded SoilGrids250 coverage and the PNG/KML built from this. Adjust to your system.
 
 
 ## Storage
 
-Base directories for import from the SoilGrids server, and for writing the ground overlays:
+Base directories for import from the SoilGrids server, and for writing the ground overlays. Note that the import must have been already done with script `SoilGrids250_import.Rmd`, which uses the same directory structure.
 
 ```{r}
-base.dir <- "/Volumes/Pythagoras/ds/"
-base.dir.import <- "/Volumes/Pythagoras/ds/"
-base.dir.sg <- paste0(base.dir, "SoilGrids250_kml")
-base.dir.sg.import <- paste0(base.dir.import, "SoilGrids250")
+base.dir <- "/Volumes/Pythagoras/ds"
+base.dir.sg.kml <- paste0(base.dir, "/SoilGrids250_kml") 
+base.dir.sg.import <- paste0(base.dir, "/DSM_export/SoilGrids250")
 ```
+
+The produced KML will be stored under `r  print(base.dir.sg.kml)`.
 
 ## Packages
 
@@ -83,7 +85,7 @@ Set the property, depth and quantile:
 
 ```{r}
 voi <- "phh2o"   # variable of interest
-depth <- "0-5" # depth slice
+depth <- "0-5cm" # depth slice
 quantile <- "mean"  # quantile or mean
 ```
 
@@ -114,126 +116,20 @@ AOI.dir.prefix <- paste0("lat", tile.lrc[2], .tile.ulc[2],
                          "_lon", .tile.ulc[1], tile.lrc[1])
 ```
 
-We would like to use geographic coordinates for the tile. But the WCS does not serve this. so we  first must download in the native Homolosine CRS. For this we need to know the bounding box in that CRS.
-
-```{r bbox}
-crs.igh <- '+proj=igh +lat_0=0 +lon_0=0 +datum=WGS84 +units=m +no_defs'
-.bb.igh <- st_transform(bb.ll, crs.igh)
-(.bb.igh.coords <- st_coordinates(.bb.igh)[,1:2])
-#  convert to a bounding box, must order these as c(ulx, uly, lrx, lry)
-(bb.sg <- as.vector(c(min(.bb.igh.coords[,"X"]), 
-                     max(.bb.igh.coords[,"Y"]), 
-                     max(.bb.igh.coords[,"X"]), 
-                     min(.bb.igh.coords[,"Y"]))))
-```
-
-This bounding box is somewhat larger than the specified rectangular long/lat box because we specify the extremes in the Homolosine projection, which is inclined.
-
-Directory for the imported tile:
-
-```{r}
-(dest.dir.sg.import <-  paste0(base.dir.sg.import, "/",
-                          AOI.dir.prefix, "/",
-                          voi, "/", 
-                          quantile, "/", 
-                       paste0(depth,"cm")))
-if (!dir.exists(dest.dir.sg.import)) {
-  dir.create(dest.dir.sg.import, recursive = TRUE)
-}
-```
-
-# Get the SoilGrids250 coverage
-  
-Link names are given [here](https://maps.isric.org/).
-
-Access procedures are given [at [here](https://www.isric.org/web-coverage-services-wcs).
-This shows the raw HTTPS command to get capabilities, describe coverage, and get coverage. The [tutorial](https://git.wur.nl/isric/soilgrids/soilgrids.notebooks/-/blob/master/markdown/wcs_from_R.md) by Laura Poggio  shows how to make these calls within R.
-
-# Accessing SoilGrids250 via WebDAV
-
-Access procedures via WebDAV are explained [here](https://git.wur.nl/isric/soilgrids/soilgrids.notebooks/-/blob/master/markdown/webdav_from_R.md)
-
-We do this via a Virtual Raster Table (VRT). See https://gdal.org/drivers/raster/vrt.html: "The VRT driver is a format driver for GDAL that allows a virtual GDAL dataset to be composed from other GDAL datasets with repositioning, and algorithms potentially applied as well as various kinds of metadata altered or added. VRT descriptions of datasets can be saved in an XML format normally given the extension .vrt."  VRT are quite small, they describe how to build the actual raster.
-
-First get the VRT that describes the AOI:
-
-Here is is the part of a URL that describes the location and downloading parameters:
-
-```{r read.vrt.1}
-## this version (with parameters to vsicurl) not working as of 25-Apr-2021
-## possibly a server glitch
-# sg_url <- "/vsicurl?max_retry=3&retry_delay=1&list_dir=no&url=https://files.isric.org/soilgrids/latest/data/"
-sg_url <- "/vsicurl/https://files.isric.org/soilgrids/latest/data/"
-# sg_url <- "https://files.isric.org/soilgrids/latest/data/"
-```
-
-## Import native format tile
-
-Here is the destination file:
-
-```{r read.vrt.2}
-(file.out.vrt <- paste0(dest.dir.sg.import, "/", voi_layer, '.vrt'))
-```
-
-And now the download of the VRT for this property, depth and quantile. Note the specification of the output format `of`; the default is "GTiff" but we want just the virtual raster.
-
-```{r read.vrt.3}
-gdal_translate(src_dataset=paste0(sg_url, voi, '/', voi_layer, '.vrt'),
-    dst_dataset=file.out.vrt,
-    tr=c(250,250),
-    projwin = bb.sg,
-    projwin_srs = .crs.igh, 
-    of = "VRT",
-    overwrite=TRUE,
-    verbose=TRUE)
-```
-
-Build the actual TIFF in the native coordinates. This goes into the local storage
-
-```{r vrt.to.tiff.igh}
-(file.out <- paste0(dest.dir.sg, "/", voi_layer, '.tif'))
-gdal_translate(src_dataset = file.out.vrt,
-               dst_dataset = file.out,
-               co=c("TILED=YES","COMPRESS=DEFLATE","PREDICTOR=2","BIGTIFF=YES"),
-               projwin=bb.sg,
-               overwrite=TRUE,
-               of="GTiff")
-```
-
-
-## Download the GeoTIFF
-
-
-Finally we use `gdal_translate` to get the GeoTIFF locally.
-
-This is an R wrapper for [`gdal_translate`](https://gdal.org/programs/gdal_translate.html), which "converts raster data between different formats, potentially performing some operations like subsettings, resampling, and rescaling pixels in the process."
-
-
-```{r}
-
-file.out <- paste0(dest.dir.sg.import, "/", voi_layer, '.tif')
-if (!file.exists(file.out)) {
-  gdal_translate(src_dataset=xml.download,
-                 dst_dataset=file.out,
-                 tr=c(250,250),
-                 projwin=as.vector(t(.bb.igh)),
-                 projwin_srs=.crs.igh,
-                 co=c("TILED=YES","COMPRESS=DEFLATE",
-                      "PREDICTOR=2","BIGTIFF=YES"),
-                 verbose=TRUE)
-} else {
-  print("Local copy of file already exists")
-}
-```
-
-The downloaded file can then be read into R. 
 
 ## Read into R
 
-We use the `terra` package to read the GeoTIFF.
+We use the `terra` package to read the GeoTIFF. This must have been previously imported with script `SoilGrids250_import.Rmd`, into this directory structure.
 
 ```{r get-sg}
-r.sg <- terra::rast(file.out)
+voi_layer <- paste(voi, depth, quantile, sep="_")
+file.in <- paste0(base.dir.sg.import, "/", 
+                  AOI.dir.prefix, "/", 
+                  voi, "/",
+                  quantile, "/",
+                  depth, "/",
+                  voi_layer, '.tif')
+r.sg <- terra::rast(file.in)
 ```
 
 The 0 values are masked urban and water. Convert these to `NA`.
@@ -318,7 +214,7 @@ This is the ground overlay.
 
 ```{r dest.dir.local}
 # local storage
-dest.dir.sg <-  paste0(base.dir.sg, "/",
+dest.dir.sg <-  paste0(base.dir.sg.kml, "/",
                        AOI.dir.prefix, "/",
                        voi, "/", 
                        quantile, "/", 
@@ -370,10 +266,9 @@ This function has the side effect of saving the ground overlay (PNG and KML spec
 make.ground.overlay <- function(voi, depth, quantile, tile.lrc=c(52, 6), d.long=1, d.lat=1) {
   
   # local storage
-  base.dir <- "/Users/rossiter/ds/"
-  base.dir.import <- "/Volumes/Pythagoras/ds/"
-  base.dir.sg <- paste0(base.dir, "SoilGrids250")
-  base.dir.sg.import <- paste0(base.dir.import, "SoilGrids250")
+  base.dir <- "/Volumes/Pythagoras/ds"
+  base.dir.sg.kml <- paste0(base.dir, "/SoilGrids250_kml") 
+  base.dir.sg.import <- paste0(base.dir, "/DSM_export/SoilGrids250")
 
   # packages   
   library(XML)            # various XML utilities
@@ -387,25 +282,6 @@ make.ground.overlay <- function(voi, depth, quantile, tile.lrc=c(52, 6), d.long=
   library(maptools)       # create KML overlays, among others
   
   # check arguments
-  if (length(tile.lrc) != 2)  {
-    print("Lower-right corner of tile must be two integers"); stop("Bad specification")
-  }
-  if (((abs(as.integer(d.long)) != d.long) || (abs(as.integer(d.lat)) != d.lat)))  {
-    print("Tile must have positive integer dimensions"); stop("Bad specification")
-  }
-  voi.list <- c("bdod", "clay", "phh2o", "sand", "silt", "soc")
-  quantile.list <- c("Q0.05", "Q0.5", "Q0.95", "mean")
-  depth.list <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
-  if (!(voi %in% voi.list)) { 
-    print(paste("No property", voi)); stop("Bad specification")
-  }
-  if (!(depth %in% 
-        paste0(depth.list,"cm"))) { 
-    print(paste("No depth slice", depth)); stop("Bad specification")
-  }
-  if (!(quantile %in% c("Q0.05", "Q0.5", "Q0.95", "mean"))) { 
-    print(paste("No quantile", quantile)); stop("Bad specification")
-  }
   
   # setup
   voi_layer <- paste(voi, depth, quantile, sep="_")
@@ -423,39 +299,22 @@ make.ground.overlay <- function(voi, depth, quantile, tile.lrc=c(52, 6), d.long=
                            "_lon", .tile.ulc[1], tile.lrc[1])
   
   # local storage for imported tile
-  dest.dir.sg.import <-  paste0(base.dir.sg.import, "/",
-                         AOI.dir.prefix, "/",
-                         voi, "/", 
-                         quantile, "/", 
-                         depth)
-  if (!dir.exists(dest.dir.sg.import)) {
-    dir.create(dest.dir.sg.import, recursive = TRUE)
+  voi_layer <- paste(voi, depth, quantile, sep="_")
+  file.in <- paste0(base.dir.sg.import, "/", 
+                    AOI.dir.prefix, "/", 
+                    voi, "/",
+                    quantile, "/",
+                    depth, "/",
+                    voi_layer, '.tif')
+  
+  ## check that this SG tile has been imported
+  if (!file.exists(file.in)) {
+    print("SoilGrids250 tile has not been imported")
+    return(NULL)
   }
-
-  # WCS access to SG250 GeoTIFF
-  wcs_path_base <- "https://maps.isric.org/mapserv?map=/map/"
-  wcs_service <- "SERVICE=WCS"
-  wcs_version <- "VERSION=2.0.1"
-  wcs_path <- paste0(wcs_path_base ,voi,".map")
-  wcs <- paste(wcs_path, wcs_service, wcs_version, sep="&")
-  .l1 <- newXMLNode("WCS_GDAL")
-  .l1.s <- newXMLNode("ServiceURL", wcs, parent=.l1)
-  .l1.l <- newXMLNode("CoverageName", voi_layer, parent=.l1)
-  xml.download <- paste0(base.dir.sg, "/sg_download.xml")
-  saveXML(.l1, file = xml.download)
-  file.out <- paste0(dest.dir.sg.import, "/", voi_layer, '.tif')
-  ## download SoilGrids tile
-  gdal_translate(src_dataset=xml.download,
-                 dst_dataset=file.out,
-                 tr=c(250,250),
-                 projwin=as.vector(t(.bb.igh)),
-                 projwin_srs=.crs.igh,
-                 co=c("TILED=YES","COMPRESS=DEFLATE",
-                      "PREDICTOR=2","BIGTIFF=YES"),
-                 verbose=FALSE)
   
   ## read SoilGrids tile into R, replace 0 with NA
-  r.sg <- terra::rast(file.out)
+  r.sg <- terra::rast(file.in)
   r.sg <- classify(r.sg, matrix(c(0, NA), nrow=1), include.lowest=TRUE)
   
   # resameple to WGS84
@@ -467,7 +326,7 @@ make.ground.overlay <- function(voi, depth, quantile, tile.lrc=c(52, 6), d.long=
   GRD <- maptools::GE_SpatialGrid(r.sp.84, maxPixels=4800) # high resolution
   
   # local storage for ground overlay
-  dest.dir.sg <-  paste0(base.dir.sg, "/",
+  dest.dir.sg <-  paste0(base.dir.sg.kml, "/",
                          AOI.dir.prefix, "/",
                          voi, "/", 
                          quantile, "/", 
@@ -500,10 +359,10 @@ make.ground.overlay <- function(voi, depth, quantile, tile.lrc=c(52, 6), d.long=
 
 Here are some examples. 
 
-A single property, depth, quantile, $2 \times 2^\circ$ AOI:
+A single property, depth, quantile, $1 \times 1^\circ$ AOI:
 
 ```{r eval=FALSE}
-make.ground.overlay("sand", "0-5cm", "mean", c(-76, 41), 2, 2)
+make.ground.overlay("clay", "30-60cm", "mean", c(-76, 42), 1, 1)
 ```
 
 The 5% and 95% quantiles of two properties at two depth slices, $1 \times 1^\circ$ AOI:
