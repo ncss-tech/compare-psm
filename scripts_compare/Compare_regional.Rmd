@@ -787,7 +787,8 @@ Make a nice correlation plot:
 
 ```{r corrplot, fig.width=(n.figs.col*2), fig.height=n.figs.col*2}
 library(corrplot)
-corrplot(cor.all, method="circle", type="upper", diag=FALSE)
+corrplot.mixed(cor.all, upper="ellipse", lower="number", diag="n",
+               lower.col = "black")
 ```
 
 

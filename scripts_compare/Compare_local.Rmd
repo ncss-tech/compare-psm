@@ -5,14 +5,14 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -86
-   lrc_lat: 38
+   lrc_long: -76
+   lrc_lat: 42
    size: 1
-   voi.n: 6
+   voi.n: 4
    quantile.n: NA
    depth.n: 1
    test.tile.size: 0.15  # degrees
-   test.tile.x.offset: 0.61  # west from right edge
+   test.tile.x.offset: 0.30  # west from right edge
    test.tile.y.offset: 0.45  # north from bottom edge
 output:
   html_document:
@@ -134,9 +134,9 @@ Set base directories, specific to the local file system.
 
 ```{r base.dir}
 base.dir <- "/Volumes/Pythagoras/ds/DSM_export"
-base.dir.gssurgo <- paste0(base.dir, "gSSURGO")
-base.dir.polaris <- paste0(base.dir, "POLARIS")
-base.dir.sg <- paste0(base.dir, "SoilGrids250")
+base.dir.gssurgo <- paste0(base.dir, "/gSSURGO")
+base.dir.polaris <- paste0(base.dir, "/POLARIS")
+base.dir.sg <- paste0(base.dir, "/SoilGrids250")
 ```
 
 2. `base.dir.import`: This is where downloaded large GeoTIFF are located. Because of their size they may be on a separate file system, e.g., removable or networked drive. Files may have been downloaded here by an import script, or by direct download from the data provider.
@@ -371,7 +371,7 @@ df <- data.frame(property=voi.list.sg,
                  p=c("%","%", "%","pH","", "log10(1.724 * %)", "g/cm3", ""))  # POLARIS
  knitr::kable(
   df, caption = 'Properties and units of measure',
-  col.names=c("Property", "SoilGrids", "gSSURGO",  "POLARIS"),
+  col.names=c("Property", "SG2", "gSSURGO",  "PSP"),
   booktabs = TRUE)
 ```  
 
@@ -388,8 +388,8 @@ conversions <- data.frame(property=voi.list.sg,
                  )
 conversions <- format(conversions, digits=4, nsmall=0, scientific=FALSE)
 knitr::kable(
-  conversions, caption = 'Conversion factors, multiply by these to match SoilGrids250',
-  col.names=c("Property", "gSSURGO", "POLARIS"),
+  conversions, caption = 'Conversion factors, multiply by these to match SG2',
+  col.names=c("Property", "gSSURGO", "PSP"),
   booktabs = TRUE,
   align = "r")
 ```
@@ -558,9 +558,9 @@ Use this y-axis to show all the histograms together:
 par(mfrow=c(n.figs.row, n.figs.col))
 hist(r.gssurgo.p, breaks=24, main="gSSURGO",
      xlim=zlim, xlab="", freq = FALSE, ylim=yl)
-hist(r.p, breaks=24, main="POLARIS",
+hist(r.p, breaks=24, main="PSP",
      xlim=zlim, xlab="", freq = FALSE, ylim=yl)
-hist(r.sg, breaks=24, main="SoilGrids25O",
+hist(r.sg, breaks=24, main="SG2",
      xlim=zlim, xlab="", freq = FALSE, ylim=yl)
 par(mfrow=c(1,1))
 ```
@@ -571,8 +571,8 @@ par(mfrow=c(1,1))
 ```{r map.sg.props, fig.width=map.fig.width, fig.height=map.fig.height}
 par(mfrow=c(n.figs.row, n.figs.col))
 terra::plot(r.gssurgo.p, main="gSSURGO", range=zlim)
-terra::plot(r.p, main="POLARIS", range=zlim)
-terra::plot(r.sg.p, main="SoilGrids", range=zlim)
+terra::plot(r.p, main="PSP", range=zlim)
+terra::plot(r.sg.p, main="SG2", range=zlim)
 par(mfrow=c(1,1))
 ```
 
@@ -584,6 +584,7 @@ Pairwise Pearson correlations. Note the distributions are fairly symmetric/quasi
 v.all <- data.frame(gssurgo=values(r.gssurgo.p),
                     sg=values(r.sg.p),
                     polaris=values(r.p))
+names(v.all) <- c("gSSURGO", "SG2", "PSP")
 summary(v.all)
 cor.all <- cor(v.all, use="pairwise.complete.obs")
 cor.upper <- cor.all; cor.upper[lower.tri(cor.upper)] <- NA
@@ -594,7 +595,8 @@ Make a nice correlation plot:
 
 ```{r corrplot, fig.width=(n.figs.col*1.5), fig.height=n.figs.col*1.5}
 library(corrplot)
-corrplot(cor.all, method="circle", type="upper", diag=FALSE)
+corrplot.mixed(cor.all, upper="ellipse", lower="number", diag="n",
+               lower.col = "black")
 ```
 
 
@@ -626,12 +628,12 @@ rmse.adj <- function(v1, v2) {   # RMSE adjusted for ME (bias)
   v2.adj <- v2 + me
   round(sqrt(mean((v1-v2.adj)^2, na.rm=TRUE)),3)
 }
-stats.compare[1, ] <- c("SoilGrids250",
+stats.compare[1, ] <- c("SG2",
                         me(values(r.gssurgo.p),values(r.sg.p)),
                         rmse(values(r.gssurgo.p),values(r.sg.p)),
                         rmse.adj(values(r.gssurgo.p),values(r.sg.p))
 )
-stats.compare[2, ] <- c("POLARIS",
+stats.compare[2, ] <- c("PSP",
                         me(values(r.gssurgo.p),values(r.p)),
                         rmse(values(r.gssurgo.p),values(r.p)),
                         rmse.adj(values(r.gssurgo.p),values(r.p))
@@ -674,9 +676,9 @@ Use this y-axis to show all the histograms together:
 
 ```{r hist.diff.sg, fig.width=map.fig.width.diff, fig.height=map.fig.height.diff}
 par(mfrow=c(n.figs.row.diff, n.figs.col.diff))
-hist(diff.gssurgo.p, main="gSSURGO - POLARIS", xlab="",
+hist(diff.gssurgo.p, main="gSSURGO - PSP", xlab="",
      xlim=zlim,  breaks=24, freq = FALSE, ylim=yl)
-hist(diff.gssurgo.sg, main="gSSURGO - SoilGrids250", xlab="",
+hist(diff.gssurgo.sg, main="gSSURGO - SG2", xlab="",
      xlim=zlim,  breaks=24, freq = FALSE, ylim=yl)
 par(mfrow=c(1,1))
 ```
@@ -686,9 +688,9 @@ par(mfrow=c(1,1))
 
 ```{r plot.diff.sg, fig.width=map.fig.width.diff, fig.height=map.fig.height.diff}
 par(mfrow=c(n.figs.row.diff, n.figs.col.diff))
-terra::plot(diff.gssurgo.p, main="Difference gSSURGO - POLARIS",
+terra::plot(diff.gssurgo.p, main="Difference gSSURGO - PSP",
             range=zlim, col=bpy.colors(64))
-terra::plot(diff.gssurgo.sg, main="Difference gSSURGO - SoilGrids250",
+terra::plot(diff.gssurgo.sg, main="Difference gSSURGO - SG2",
             range=zlim, col=bpy.colors(64))
 par(mfrow=c(1,1))
 ```
