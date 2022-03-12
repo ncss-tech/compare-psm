@@ -5,10 +5,10 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -77
-   lrc_lat: 35
+   lrc_long: -76
+   lrc_lat: 42
    size: NA
-   voi.n: 1
+   voi.n: 4
    quantile.n: NA
    depth.n: 1
 output:
@@ -362,7 +362,7 @@ df <- data.frame(property=voi.list.sg,
 )
 knitr::kable(
   df, caption = 'Properties and units of measure',
-  col.names=c("Property", "SoilGrids","POLARIS", "gNATSGO"),
+  col.names=c("Property", "SoilGrids250","POLARIS", "gNATSGO"),
   booktabs = TRUE)
 ```  
 
@@ -417,20 +417,20 @@ if (voi=="soc") {
 
 ## SoilGrids250
 
-Display the SG250 quantile maps side-by-side:
+Display the SoilGrids250 quantile maps side-by-side:
 
-```{r display.quantiles.sg, fig.width=15, fig.height=5}
+```{r display.quantiles.sg, fig.width=12, fig.height=4}
 zlim = c(floor(min(values(r.sg.05), na.rm=TRUE)),
          ceiling(max(values(r.sg.95), na.rm=TRUE)))
 par(mfrow=c(1,3))
 terra::plot(r.sg.05, col=rev(hcl.colors(64)),
-     main=paste0("Q05, SoilGrids250, ",
+     main=paste0("Q05, SG2, ",
                 voi, ", ", depth), range=zlim)
 terra::plot(r.sg.50, col=rev(hcl.colors(64)),
-     main=paste0("Q50, SoilGrids250, ",
+     main=paste0("Q50, SG2, ",
                 voi, ", ", depth), range=zlim)
 terra::plot(r.sg.95, col=rev(hcl.colors(64)),
-     main=paste0("Q95, SoilGrids250, ",
+     main=paste0("Q95, SG2, ",
                 voi, ", ", depth), range=zlim)
 par(mfrow=c(1,1))
 ```
@@ -439,18 +439,18 @@ par(mfrow=c(1,1))
 
 Display the POLARIS quantile maps side-by-side:
 
-```{r display.quantiles.polaris, fig.width=15, fig.height=5}
+```{r display.quantiles.polaris, fig.width=12, fig.height=4}
 zlim = c(floor(min(values(r.p.05), na.rm=TRUE)),
          ceiling(max(values(r.p.95), na.rm=TRUE)))
 par(mfrow=c(1,3))
 terra::plot(r.p.05, col=rev(hcl.colors(64)),
-     main=paste0("Q05, POLARIS, ",
+     main=paste0("Q05, PSP, ",
                 voi, ", ", depth), range=zlim)
 terra::plot(r.p.50, col=rev(hcl.colors(64)),
-     main=paste0("Q50, POLARIS, ",
+     main=paste0("Q50, PSP, ",
                 voi, ", ", depth), range=zlim)
 terra::plot(r.p.95, col=rev(hcl.colors(64)),
-     main=paste0("Q95, POLARIS, ",
+     main=paste0("Q95, PSP, ",
                 voi, ", ", depth), range=zlim)
 par(mfrow=c(1,1))
 ```
@@ -459,7 +459,7 @@ par(mfrow=c(1,1))
 
 Display the gNATSGO limit maps side-by-side:
 
-```{r display.quantiles.gnatsgo, fig.width=15, fig.height=5}
+```{r display.quantiles.gnatsgo, fig.width=12, fig.height=4}
 zlim = c(floor(min(values(r.gn.05), na.rm=TRUE)),
          ceiling(max(values(r.gn.95), na.rm=TRUE)))
 par(mfrow=c(1,3))
@@ -489,7 +489,7 @@ Compare summary statistics of the ranges:
 
 ```{r iqr.summary}
 df <- cbind(summary(r.iqr.sg), summary(r.iqr.p), summary(r.iqr.gn))
-colnames(df) <- c("SoilGrids", "POLARIS", "gNATSGO")
+colnames(df) <- c("SG2", "PSP", "gNATSGO")
 print(df)
 ```
 
@@ -497,12 +497,12 @@ print(df)
 
 Show the IQR/range histograms side-by-side:
 
-```{r iqr.hist, fig.width=15, fig.height=5}
+```{r iqr.hist, fig.width=12, fig.height=4}
 zlim = c(floor(min(values(r.iqr.sg), values(r.iqr.p), values(r.iqr.gn), na.rm=TRUE)),
          ceiling(max(values(r.iqr.sg), values(r.iqr.p), values(r.iqr.gn), na.rm=TRUE)))
 par(mfrow=c(1,3))
-hist(r.iqr.sg, main="SoilGrids250", xlim=zlim, xlab="IQR 5/95%")
-hist(r.iqr.p, main="POLARIS", xlim=zlim, xlab="IQR 5/95%")
+hist(r.iqr.sg, main="SG2", xlim=zlim, xlab="IQR 5/95%")
+hist(r.iqr.p, main="PSP", xlim=zlim, xlab="IQR 5/95%")
 hist(r.iqr.gn, main="gNATSGO", xlim=zlim, xlab="range low/high estimate")
 par(mfrow=c(1,1))
 ```
@@ -510,12 +510,12 @@ par(mfrow=c(1,1))
 Show the IQR/range maps side-by-side:
 
 
-```{r iqr.maps, fig.width=15, fig.height=5}
+```{r iqr.maps, fig.width=12, fig.height=4}
 par(mfrow=c(1,3))
 terra::plot(r.iqr.sg, col=rev(topo.colors(64)),
-     main="SoilGrids250 IQR 5/95%", range=zlim)
+     main="SG2 IQR 5/95%", range=zlim)
 terra::plot(r.iqr.p, col=rev(topo.colors(64)),
-     main="POLARIS IQR 5/95%", range=zlim)
+     main="PSP IQR 5/95%", range=zlim)
 terra::plot(r.iqr.gn, col=rev(topo.colors(64)),
      main="gNATSGO range low/high", range=zlim)
 par(mfrow=c(1,1))
@@ -526,32 +526,32 @@ par(mfrow=c(1,1))
 ```{r iqr.diff.hist, fig.width=6, fig.height=4}
 r.iqr.diff <- (r.iqr.sg - r.iqr.p)
 summary(r.iqr.diff)
-hist(r.iqr.diff, main="IQR difference  5/95%, SG250-POLARIS")
+hist(r.iqr.diff, main="IQR difference  5/95%, SG2-PSP")
 ```
 
 ```{r iqr.diff.map}
 terra::plot(r.iqr.diff, col=rev(bpy.colors(64)),
-     main="IQR difference  5/95%, SG250-POLARIS")
+     main="IQR difference  5/95%, SG2-PSP")
 ```
 
 ```{r range.diff.hist.sg, fig.width=6, fig.height=4}
 r.iqr.diff <- (r.iqr.sg - r.iqr.gn)
 summary(r.iqr.diff)
-hist(r.iqr.diff, main="IQR/range  5/95% vs. low/high, SG250-gNATSGO")
+hist(r.iqr.diff, main="IQR/range  5/95% vs. low/high, SG2-gNATSGO")
 ```
 
 ```{r range.diff.map.sg}
 terra::plot(r.iqr.diff, col=rev(bpy.colors(64)),
-     main="IQR/range  5/95% vs. low/high, SG250-gNATSGO")
+     main="IQR/range  5/95% vs. low/high, SG2-gNATSGO")
 ```
 
 ```{r range.diff.hist.p, fig.width=6, fig.height=4}
 r.iqr.diff <- (r.iqr.p - r.iqr.gn)
 summary(r.iqr.diff)
-hist(r.iqr.diff, main="IQR/range  5/95% vs. low/high, POLARIS-gNATSGO")
+hist(r.iqr.diff, main="IQR/range  5/95% vs. low/high, PSP-gNATSGO")
 ```
 
 ```{r range.diff.map.p}
 terra::plot(r.iqr.diff, col=rev(bpy.colors(64)),
-     main="IQR/range  5/95% vs. low/high, POLARIS-gNATSGO")
+     main="IQR/range  5/95% vs. low/high, PSP-gNATSGO")
 ```

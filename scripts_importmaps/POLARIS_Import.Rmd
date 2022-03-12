@@ -9,7 +9,7 @@ params:
    lrc_lat: 42
    size: 1
    voi.n: 4
-   quantile.n: 4 
+   quantile.n: 1 
    depth.n: 1
 output:
   html_document:
