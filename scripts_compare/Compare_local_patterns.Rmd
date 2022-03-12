@@ -11,6 +11,9 @@ params:
    voi.n: 4
    quantile.n: NA
    depth.n: 1
+   test.tile.size: 0.15  # degrees
+   test.tile.x.offset: 0.30  # west from right edge
+   test.tile.y.offset: 0.45  # north from bottom edge
 output:
   html_document:
     fig_align: center
@@ -104,7 +107,7 @@ require(xtable)      # format tables for LaTeX
 library(dplyr)       # data wrangling
 library(ggplot2)     # ggplot graphics
 library(gridExtra)  # arrange multiple plots
-library(RColorBrewer)
+library(RColorBrewer) # colour pallettes
 library(sabre)       # compare polygon map spatial structure
 library(landscapemetrics)   # FRAGSTATS metrics
 library(landscapetools)
@@ -251,8 +254,8 @@ Now show the maps together:
 ```{r side.by.side, fig.width=map.fig.width, fig.height=map.fig.height}
 par(mfrow=c(n.figs.row, n.figs.col))
 plot(gssurgo, main="gSSURGO", range=zlim)
-plot(polaris, main="POLARIS", range=zlim)
-plot(sg, main="SoilGrids250", range=zlim)
+plot(polaris, main="PSP", range=zlim)
+plot(sg, main="SG2", range=zlim)
 par(mfrow=c(1,1))
 ```   
 
@@ -275,12 +278,12 @@ rmse.adj <- function(v1, v2) {   # RMSE adjusted for ME (bias)
 
 ```{r compare.stats}
 stats.compare <- data.frame(PSM_product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
-stats.compare[1, ] <- c("SoilGrids250",
+stats.compare[1, ] <- c("SG2",
                         me(values(gssurgo),values(sg)),
                         rmse(values(gssurgo),values(sg)),
                         rmse.adj(values(gssurgo),values(sg))
                         )
-stats.compare[2, ] <- c("POLARIS",
+stats.compare[2, ] <- c("PSP",
                         me(values(gssurgo),values(polaris)),
                         rmse(values(gssurgo),values(polaris)),
                         rmse.adj(values(gssurgo),values(polaris))
@@ -312,12 +315,12 @@ These are now similar in their ranges, but not in their patterns. Compare the st
 
 ```{r compare.stats.adj}
 stats.compare <- data.frame(PSM_product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
-stats.compare[1, ] <- c("SoilGrids250",
+stats.compare[1, ] <- c("SG2",
                         me(values(gssurgo),values(sg.adj)),
                         rmse(values(gssurgo),values(sg.adj)),
                         rmse.adj(values(gssurgo),values(sg.adj))
                         )
-stats.compare[2, ] <- c("POLARIS",
+stats.compare[2, ] <- c("PSP",
                         me(values(gssurgo),values(polaris.adj)),
                         rmse(values(gssurgo),values(polaris.adj)),
                         rmse.adj(values(gssurgo),values(polaris.adj))
@@ -411,7 +414,7 @@ vmeasure.compare[2,] <- c("SG2",
                        round(vmf.sg[2,"psill"], 2),
                        round(vmf.sg[1,"psill"]/sum(vmf.sg[,"psill"]), 2)
                        )
-  vmeasure.compare[3, ] <-  c("POLARIS", 
+  vmeasure.compare[3, ] <-  c("PSP", 
                        round(vmf.polaris[2,"range"], 0),
                        round(vmf.polaris[2,"psill"], 2),
                        round(vmf.polaris[1,"psill"]/sum(vmf.polaris[,"psill"]), 2))
@@ -441,8 +444,8 @@ capture.output(print(x, include.rownames=FALSE), file=
 ylims <- c(0, max(v.gssurgo$gamma, v.sg$gamma, 
                   max(v.polaris$gamma))*1.1)
 p0 <- plot(v.gssurgo, ylim=ylims, model=vmf.gssurgo, main="gSSURGO", xlab="separation (m)", pch=20)
-p1 <- plot(v.polaris, ylim=ylims, model=vmf.polaris, main="POLARIS", xlab="separation (m)", pch=20)
-p2 <- plot(v.sg, ylim=ylims, model=vmf.sg, main="SoilGrids250", xlab="separation (m)", pch=20)
+p1 <- plot(v.polaris, ylim=ylims, model=vmf.polaris, main="PSP", xlab="separation (m)", pch=20)
+p2 <- plot(v.sg, ylim=ylims, model=vmf.sg, main="SG2", xlab="separation (m)", pch=20)
 print(p0, split=c(1, 1, n.figs.col, n.figs.row), more=T) 
 print(p1, split=c(2, 1, n.figs.col, n.figs.row), more=T) 
 print(p2, split=c(3, 1, n.figs.col, n.figs.row), more=F)
@@ -486,13 +489,13 @@ We set up a colour ramp that covers the entire range, and then select the colour
 # make sure lowest value is included
 #
 # common colour ramp
-color.ramp <- bpy.colors(n.class)
+# color.ramp <- bpy.colors(n.class)
+color.ramp <- brewer.pal(n.class, "PuBu")  # safe for colour-blind viewers, from RColorBrewer
 #
 (class.limits <- c(zlim[1], cuts, zlim[2]))
 ```
 
 Save the limits in a table for the paper:
-
 
 ```{r}
 options(xtable.floating = FALSE)
@@ -533,7 +536,7 @@ table(values(polaris.class))
 # .l <- range(values(polaris.class), na.rm=TRUE)
 # terra::plot(polaris.class,
 #             col=color.ramp[.l[1]:.l[2]], type="classes",
-#             main="POLARIS")
+#             main="PSP")
 #
 ```
 
@@ -547,10 +550,10 @@ terra::plot(gssurgo.class,
 .l <- range(values(polaris.class), na.rm=TRUE)
 terra::plot(polaris.class,
             col=color.ramp[.l[1]:.l[2]], type="classes",
-            main="POLARIS")
+            main="PSP")
 terra::plot(sg.class,
             col=color.ramp[.l[1]:.l[2]], type="classes",
-            main="SoilGrids250")
+            main="SG2")
 par(mfrow=c(1,1))
 ```
 
@@ -595,23 +598,17 @@ polaris.poly <- terra::as.polygons(polaris.class, dissolve=TRUE, trunc=FALSE)
 
 Some of the methods require Simple Features representation of spatial objects.
 
-Convert the `terra::SpatVector` objects to Simple Features. As of 2021-01-02 there seems to be no direct way, so save as a vector file and read into `sf`:
+Convert the `terra::SpatVector` objects to Simple Features, using `st_as_sf`.
 
 ```{r convert.polygons.sf}
 #
-tmpf <- tempfile()
-terra::writeVector(gssurgo.poly, tmpf, overwrite=TRUE)
-gssurgo.sf <- st_read(tmpf, quiet = TRUE); unlink(tmpf)
+gssurgo.sf <- st_as_sf(gssurgo.poly)
 names(gssurgo.sf)[1] <- "class"
 #
-tmpf <- tempfile()
-terra::writeVector(sg.poly, tmpf, overwrite=TRUE)
-sg.sf <- st_read(tmpf, quiet = TRUE); unlink(tmpf)
+sg.sf <- st_as_sf(sg.poly)
 names(sg.sf)[1] <- "class"
 #
-tmpf <- tempfile()
-terra::writeVector(polaris.poly, tmpf, overwrite=TRUE)
-polaris.sf <- st_read(tmpf, quiet = TRUE); unlink(tmpf)
+polaris.sf <- st_as_sf(polaris.poly)
 names(polaris.sf)[1] <- "class"
 #
 ```
@@ -698,8 +695,8 @@ These maps are too complicated to be useful visualizations (unlike the 250 m map
 
 ```{r vmaps.gssurgo.sg, fig.width=4, fig.height=6, eval=FALSE}
   ## produced maps -- the homogeneity of the regions.gssurgo.sg
-terra::plot(regions.gssurgo.sg$map1["rih"], main = "Homogeneity --  SG250 vs. gSSURGO")
-terra::plot(regions.gssurgo.sg$map2["rih"], main = "Completeness -- SG250 vs. gSSURGO")
+terra::plot(regions.gssurgo.sg$map1["rih"], main = "Homogeneity --  SG2 vs. gSSURGO")
+terra::plot(regions.gssurgo.sg$map2["rih"], main = "Completeness -- SG2 vs. gSSURGO")
 ```
 
 
@@ -718,8 +715,8 @@ names(regions.gssurgo.polaris$map1)
 These maps are too complicated to be useful visualizations (unlike the 250 m maps), so set `EVAL=FALSE`.
 
 ```{r vmaps.gssurgo.polaris, fig.width=4, fig.height=6, eval=FALSE}
-terra::plot(regions.gssurgo.polaris$map1["rih"], main = "Homogeneity -- POLARIS vs. gSSURGO")
-terra::plot(regions.gssurgo.polaris$map2["rih"], main = "Completeness -- POLARIS vs. gSSURGO")
+terra::plot(regions.gssurgo.polaris$map1["rih"], main = "Homogeneity -- PSP vs. gSSURGO")
+terra::plot(regions.gssurgo.polaris$map2["rih"], main = "Completeness -- PSP vs. gSSURGO")
 par(mfrow=c(1, 1))
 ```
 
@@ -740,8 +737,8 @@ These maps are too complicated to be useful visualizations (unlike the 250 m map
   
 ```{r vmaps.sg.polaris, fig.width=4, fig.height=6, eval=FALSE}
 par(mfrow=c(1, 2))
-terra::plot(regions.sg.polaris$map1["rih"], main = "Homogeneity -- POLARIS -- SoilGrids250")
-terra::plot(regions.sg.polaris$map2["rih"], main = "Completeness -- POLARIS -- SoilGrids250")
+terra::plot(regions.sg.polaris$map1["rih"], main = "Homogeneity -- PSP -- SG2")
+terra::plot(regions.sg.polaris$map2["rih"], main = "Completeness -- PSP -- SG2")
 par(mfrow=c(1, 1))
 ```
 
@@ -750,15 +747,15 @@ par(mfrow=c(1, 1))
 ```{r}
 str(regions.gssurgo.sg, max.level = 1)
 vmeasure.compare <- data.frame(PSM_products = "", V_measure = 0, Homogeneity = 0, Completeness = 0)
-vmeasure.compare[1,] <- c("SG250 vs. gSSURGO", 
+vmeasure.compare[1,] <- c("SG2 vs. gSSURGO", 
                        round(regions.gssurgo.sg$v_measure, 4),
                        round(regions.gssurgo.sg$homogeneity, 4),
                        round(regions.gssurgo.sg$completeness, 4))
-vmeasure.compare[2,] <- c("POLARIS vs. gSSURGO", 
+vmeasure.compare[2,] <- c("PSP vs. gSSURGO", 
                           round(regions.gssurgo.polaris$v_measure, 4),
                           round(regions.gssurgo.polaris$homogeneity, 4),
                           round(regions.gssurgo.polaris$completeness, 4))
-vmeasure.compare[3,] <- c("POLARIS vs. SG250", 
+vmeasure.compare[3,] <- c("PSP vs. SG2", 
                           round(regions.sg.polaris$v_measure, 4),
                           round(regions.sg.polaris$homogeneity, 4),
                           round(regions.sg.polaris$completeness, 4))
@@ -820,7 +817,7 @@ show.landscape <- function(r.map, r.title) {
   g <- show_landscape(r.map, discrete = TRUE) +
     # use the positions in the palette corresponding to the class numbers
     # force the NA to the last entry in the palette
-    scale_fill_manual(values=c(my.pal[l[1]:l[2]], my.pal[n.class+1])) +
+    scale_fill_manual(values=c(my.pal[(l[1]+1):(l[2]+1)], my.pal[n.class+1])) +
     theme(legend.position = "bottom",
           axis.text.x = element_blank(),
           axis.text.y = element_blank(),
@@ -834,8 +831,9 @@ Show the landscapes of each product:
 
 ```{r show.landscape, fig.width=map.fig.width, fig.height=map.fig.height}
 g1<- show.landscape(r.gssurgo, "gSSURGO")
-g2 <- show.landscape(r.polaris, "POLARIS")
-g3 <- show.landscape(r.sg, "SoilGrids250")
+g2 <- show.landscape(r.polaris, "PSP")
+g3 <- show.landscape(r.sg, "SG2")
+g3
 grid.arrange(g1, g2, g3, nrow=1, ncol=3)
 ```
 
@@ -882,7 +880,7 @@ ls.metrics.polaris <- calculate_lsm(r.polaris, what=lst)
 Make a table with the metrics for the several products.
 
 ```{r}
-metrics.table <- data.frame(product=c("gSSURGO", "SoilGrids", "POLARIS"),
+metrics.table <- data.frame(product=c("gSSURGO", "SG2", "PSP"),
                             rbind(round(ls.metrics.gssurgo$value, 3),
                                   round(ls.metrics.sg$value, 3),
                                   round(ls.metrics.polaris$value, 3)))
@@ -924,7 +922,7 @@ Compute the Jensen-Shannon distances between signatures:
 cove.df <- data.frame(cove.gssurgo)$signature[[1]][1,]
 cove.df <- rbind(cove.df, cove.sg$signature[[1]][1,])
 cove.df <- rbind(cove.df, cove.polaris$signature[[1]][1,])
-row.names(cove.df) <- c( "gSSURGO", "SoilGrids", "POLARIS")
+row.names(cove.df) <- c( "gSSURGO", "SG2", "PSP")
 # compute the distances
 #
 # philentropy::getDistMethods()
