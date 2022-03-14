@@ -235,6 +235,32 @@ image(r.sp.84, xlim=GRD$xlim, ylim=GRD$ylim,
 dev.off()
 ```
 
+# create a colour scale to add to the KML display
+
+```{r color.bar}
+.min <- floor(min(r.sp.84@data))
+.max <- ceiling(max(r.sp.84@data))
+.ramp <- heat.colors(256, alpha=1)
+.scale <-  (length(.ramp)-1)/(.max-.min)
+.ticks <- seq(.min, .max, len = 11)
+.filename <- paste0(dest.dir.sg, "/", 
+                    voi_layer, '_colorbar.png')
+png(.filename, width=GRD$width/16, 
+    height=GRD$height/6,
+    pointsize = 14,
+    type = "quartz",
+    units = "px")
+plot(c(0,30), c(.min,.max), type='n', bty='n', 
+     xaxt='n', xlab='', yaxt='n', ylab='', main="")
+axis(2, .ticks, las=1)
+for (.i in 1:(length(.ramp)-1)) {
+  .y = (.i-1)/.scale + .min
+  rect(0,.y,30,.y+1/.scale, col = .ramp[.i], border = NA)
+}
+dev.off()
+```
+
+
 ## Create KML
 
 This specifies the ground overlay to display (a separate file from the KML) and its position. The filename is identical to that for the PNG, but with a different extension.
