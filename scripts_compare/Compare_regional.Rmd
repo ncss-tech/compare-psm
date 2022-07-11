@@ -5,12 +5,12 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -76
-   lrc_lat: 42
+   lrc_long: -120
+   lrc_lat: 37
    size: 1 
-   voi.n: 4
+   voi.n: 3
    quantile.n: NA
-   depth.n: 1
+   depth.n: 3
 output:
   html_document:
     fig_align: center
@@ -784,7 +784,7 @@ print(round(cor.upper, 3))
 
 Make a nice correlation plot:
 
-```{r corrplot, fig.width=(n.figs.col*2), fig.height=n.figs.col*2}
+```{r corrplot, fig.width=(n.figs.col*2+1), fig.height=n.figs.col*2+1}
 library(corrplot)
 corrplot.mixed(cor.all, upper="ellipse", lower="number", diag="n",
                lower.col = "black")

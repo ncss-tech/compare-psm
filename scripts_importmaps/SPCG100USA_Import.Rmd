@@ -5,12 +5,12 @@ author:
   - "d.g.rossiter@cornell.edu"
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -86
-   lrc_lat: 38
+   lrc_long: -120
+   lrc_lat: 37
    size: 1
-   voi.n: 7
+   voi.n: 3
    quantile.n: NA 
-   depth.n: 1
+   depth.n: 2
 output:
   html_document:
     fig_align: center
@@ -73,7 +73,7 @@ Make sure the import directory exists:
 
 ```{r}
 if (!dir.exists(base.dir.psu.import)) {
-   dir.create(dbase.dir.psu.import, recursive = TRUE)
+   dir.create(base.dir.psu.import, recursive = TRUE)
 }
 ```
 

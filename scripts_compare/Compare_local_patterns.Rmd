@@ -600,15 +600,20 @@ Some of the methods require Simple Features representation of spatial objects.
 
 Convert the `terra::SpatVector` objects to Simple Features, using `st_as_sf`.
 
+Sometimes these may have some simple POLYGONs, so ensure all are MULTIPOLYGON for `vmeasure_calc`.
+
 ```{r convert.polygons.sf}
 #
 gssurgo.sf <- st_as_sf(gssurgo.poly)
+gssursgo.sf <- st_cast(gssurgo.sf, "MULTIPOLYGON")
 names(gssurgo.sf)[1] <- "class"
 #
 sg.sf <- st_as_sf(sg.poly)
+sg.sf <- st_cast(sg.sf, "MULTIPOLYGON")
 names(sg.sf)[1] <- "class"
 #
 polaris.sf <- st_as_sf(polaris.poly)
+polaris.sf <- st_cast(polaris.sf, "MULTIPOLYGON")
 names(polaris.sf)[1] <- "class"
 #
 ```

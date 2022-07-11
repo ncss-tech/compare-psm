@@ -5,15 +5,15 @@ author:
 - d.g.rossiter@cornell.edu
 date: "`r format(Sys.Date(), '%d-%B-%Y')`"
 params:
-   lrc_long: -76
-   lrc_lat: 42
+   lrc_long: -120
+   lrc_lat: 37
    size: 1
-   voi.n: 4
+   voi.n: 3
    quantile.n: NA
-   depth.n: 1
+   depth.n: 3
    test.tile.size: 0.20  # degrees
-   test.tile.x.offset: 0.6  # west from right edge
-   test.tile.y.offset: 0.2  # north from bottom edge
+   test.tile.x.offset: 0.54  # west from right edge
+   test.tile.y.offset: 0.77  # north from bottom edge
 output:
   html_document:
     fig_align: center
@@ -1002,29 +1002,38 @@ Some of the methods require Simple Features representation of spatial objects.
 
 Convert the `terra::SpatVector` objects to Simple Features. 
 
+Sometimes these may have some simple POLYGONs, so ensure all are MULTIPOLYGON for `vmeasure_calc`.
+
 ```{r convert.polygons.sf}
 #
 gnatsgo.sf <- st_as_sf(gnatsgo.poly)
+gnatsgo.sf <- st_cast(gnatsgo.sf, "MULTIPOLYGON")
 #
 sg.sf <- st_as_sf(sg.poly)
+sg.sf <- st_cast(sg.sf, "MULTIPOLYGON")
 #
 if (exists("gsm.class")) { 
   gsm.sf <- st_as_sf(gsm.poly)
+  gsm.sf <- st_cast(gsm.sf, "MULTIPOLYGON")
 }
 #
 if (exists("psu.class")) {
   psu.sf <- st_as_sf(psu.poly)
+  psu.sf <- st_cast(psu.sf, "MULTIPOLYGON")
 }
 #
 if (exists("polaris.class")) {
   polaris.sf <- st_as_sf(polaris.poly)
+  polaris.sf <- st_cast(polaris.sf, "MULTIPOLYGON")
 }
 #
 if (exists("issr8.class")) { 
   issr8.sf <- st_as_sf(issr8.poly)
+  issr8.sf <- st_cast(issr8.sf, "MULTIPOLYGON")
 }
 if (exists("landgis.class")) {
   landgis.sf <- st_as_sf(landgis.poly)
+  landgis.sf <- st_cast(landgis.sf, "MULTIPOLYGON")
 }
 #
 ```
@@ -1214,7 +1223,7 @@ attr(regions.gnatsgo.sg, "precision")  # NULL, means a system default
 Here we leave it as the default `NULL`.
 
 ```{r vmaps.gnatsgo.sg, fig.width=4, fig.height=6}
-  ## produced maps -- the homogeneity of the regions.gnatsgo.sg
+## produced maps -- the homogeneity of the regions.gnatsgo.sg
 terra::plot(regions.gnatsgo.sg$map1["rih"], main = "Inhomogeneity -- SG2 vs. gNATSGO")
 terra::plot(regions.gnatsgo.sg$map2["rih"], main = "Incompleteness -- SG2 vs. gNATSGO")
 ```

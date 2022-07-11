@@ -56,9 +56,9 @@ compare.one <- function(lrc_long, lrc_lat, voi.n, depth.n, test.tile.size, test.
 
 # North Carolina coastal plain clay, 0-5, 30-60
 # for (d.n in c(1,4)) {
-#   compare.one(lrc_long=-77, lrc_lat=35, 
-#               voi.n=1,  
-#               depth.n=d.n, 
+#   compare.one(lrc_long=-77, lrc_lat=35,
+#               voi.n=1,
+#               depth.n=d.n,
 #               test.tile.size=0.2,
 #               test.tile.x.offset=0.6,
 #               test.tile.y.offset=0.4
@@ -67,9 +67,9 @@ compare.one <- function(lrc_long, lrc_lat, voi.n, depth.n, test.tile.size, test.
 
 # Central NY State pH, 0-5, 30-60
 # for (d.n in c(1,4)) {
-#   compare.one(lrc_long=-76, lrc_lat=42, 
-#               voi.n=4,  
-#               depth.n=d.n, 
+#   compare.one(lrc_long=-76, lrc_lat=42,
+#               voi.n=4,
+#               depth.n=d.n,
 #               test.tile.size=0.2,
 #               test.tile.x.offset=0.6,
 #               test.tile.y.offset=0.2
@@ -82,14 +82,14 @@ compare.one <- function(lrc_long, lrc_lat, voi.n, depth.n, test.tile.size, test.
 # SW Indiana SOC and BD, 0-5, 5-15
 # for (voi in c(6, 7)) {
 #   for (d.n in c(1,2)) {
-#     compare.one(lrc_long=-86, lrc_lat=38, 
-#                 voi.n=voi,  
-#                 depth.n=d.n, 
+#     compare.one(lrc_long=-86, lrc_lat=38,
+#                 voi.n=voi,
+#                 depth.n=d.n,
 #                 test.tile.size=0.2,
 #                 test.tile.x.offset=0.58,
 #                 test.tile.y.offset=0.37
 #     )
-#   } 
+#   }
 # }
 
 # California sand 5-15, 15-30

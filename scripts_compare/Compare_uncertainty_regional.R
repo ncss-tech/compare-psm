@@ -43,18 +43,18 @@ compare.one <- function(lrc_long, lrc_lat, voi.n, depth.n) {
 # }
 
 # NC clay
-for (v in c(1)) {
-  for (d in c(1,4)) {
-    compare.one(lrc_long=-77, lrc_lat=35, voi.n=v, depth.n=d)
-  }
-}
+# for (v in c(1)) {
+#   for (d in c(1,4)) {
+#     compare.one(lrc_long=-77, lrc_lat=35, voi.n=v, depth.n=d)
+#   }
+# }
 
-# Indiana soc
-for (v in c(6)) {
-  for (d in c(1,2)) {
-    compare.one(lrc_long=-86, lrc_lat=38, voi.n=v, depth.n=d)
-  }
-}
+# # Indiana soc
+# for (v in c(6,7)) {
+#   for (d in c(1,2)) {
+#     compare.one(lrc_long=-86, lrc_lat=38, voi.n=v, depth.n=d)
+#   }
+# }
 
 ## California sand 5-15, 15-30
 for (v in c(3)) {
