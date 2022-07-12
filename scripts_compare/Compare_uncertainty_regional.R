@@ -57,9 +57,9 @@ compare.one <- function(lrc_long, lrc_lat, voi.n, depth.n) {
 # }
 
 ## California sand 5-15, 15-30
-for (v in c(3)) {
-  for (d in c(2,3)) {
-    compare.one(lrc_long=-120, lrc_lat=37, voi.n=v, depth.n=d)
-  }
-}
+# for (v in c(3)) {
+#   for (d in c(2,3)) {
+#     compare.one(lrc_long=-120, lrc_lat=37, voi.n=v, depth.n=d)
+#   }
+# }
 

@@ -93,12 +93,12 @@ compare.one <- function(lrc_long, lrc_lat, voi.n, depth.n, test.tile.size, test.
 # }
 
 # California sand 5-15, 15-30
-for (d.n in c(2, 3)) {
-  compare.one(lrc_long=-120, lrc_lat=37,
-              voi.n=3,
-              depth.n=d.n,
-              test.tile.size=0.2,
-              test.tile.x.offset=0.54,
-              test.tile.y.offset=0.77
-  )
-}
+# for (d.n in c(2, 3)) {
+#   compare.one(lrc_long=-120, lrc_lat=37,
+#               voi.n=3,
+#               depth.n=d.n,
+#               test.tile.size=0.2,
+#               test.tile.x.offset=0.54,
+#               test.tile.y.offset=0.77
+#   )
+# }
