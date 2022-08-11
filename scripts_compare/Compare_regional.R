@@ -1,118 +1,12 @@
----
-title: "Comparing DSM products at regional resolution"
-author:
-- D G Rossiter
-- d.g.rossiter@cornell.edu
-date: "`r format(Sys.Date(), '%d-%B-%Y')`"
-params:
-   lrc_long: -120
-   lrc_lat: 37
-   size: 1 
-   voi.n: 3
-   quantile.n: NA
-   depth.n: 3
-output:
-  html_document:
-    fig_align: center
-    fig_height: 6
-    fig_width: 6
-    number_section: yes
-    theme: spacelab
-    df_print: paged
-    code_folding: hide
-    toc: yes
-    toc_float: yes
-  word_document:
-    toc: yes
----
+params <-
+list(lrc_long = -120L, lrc_lat = 37L, size = 1L, voi.n = 3L, 
+    quantile.n = "NA", depth.n = 3L)
 
-```{r setup, include=FALSE, purl=FALSE}
-knitr::opts_chunk$set(echo = TRUE,
-                      message = FALSE,
-                      warning = FALSE,
-                      purl=FALSE,
-                      fig.align = 'center',
-                      fig.path = './figs/compare_sg/')
-knitr::opts_chunk$set(cache.extra = R.version.string)
-```
-
-# Introduction
-
-This script compares DSM products at 250 m grid resolution, which is used by SoilGrids250.
-We consider this an appropriate resolution for regional studies.
-
-Depending on the [property of interest](#voi), the following can be compared:
-
-These two are always compared:
-
-* [gNATSGO](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/survey/geo/?cid=nrcseprd1464625);
-* [SoiLGrids250](https://www.isric.org/explore/soilgrids)  from ISRIC further abbreviated as _SG2_;
-
-And these can be added:
-
-* POLARIS Soil Properties, further abbreviatied as _PSP_;
-* [Global Soil Map v0.5 for the USA](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/research/?cid=nrcseprd1321715), further abbreviated as _GSMv05_;
-* [Intermediate-scale gridded soil property and interpretation maps from averaged and aggregated SSURGO and STATSGO data](https://github.com/ncss-tech/ISSR-800), further abbreviated as _ISSR-800_;
-* [Soil Properties and Class 100m Grids USA](https://doi.org/10.18113/S1KW2H), further abbreviated as _SPCG_;
-* [LandGIS](https://opengeohub.org/about-landgis) from the private company [EnvirometriX](http://envirometrix.nl/).
-
-The DSM products must have been previously imported and restricted to the same area of interest (AOI), typically $1 \times 1^\circ$, to the locations indicated in the directory list. These can be somewhat larger, in this script the CRS are made compatible (WGS84 geographic) and cropped to exactly a 1 degree tile.
-
-We use gNATSGO as the reference map, since it is a composite product based directly on field survey (SSURGO and STATSGO). So this script requires, at a minimum, SoilGrids250 and gNATSGO products to have been imported.
-
-This script must follow the import of the various products; these are in directory `../scripts_im    portmaps`.
-
-To use this script:
-
-1. Ajust the [directory structure](#dirs) to your system.
-
-2. [Select a property](#voi) and [select a depth slice](#depth), using the YAML header or by knitting with parameters..
-
-3. [Select an Area of Interest](#aoi), using the YAML header or by knitting with parameters.
-
-These three can be adjusted in the YAML header; these include the default parameters and look like:
-
-```
----
-   params:
-   lrc_long: -76
-   lrc_lat: 42 
-   size: 1
-   voi.n: 4
-   quantile.n: NA 
-   depth.n: 4
----
-```
-
-These can also be specified with the `params` argument in a call to `rmarkdown::render`.
-
-4. Select the [maps to compare](#which); default (always included) are gNATSGO (the base product from NRCS) and SoilGrids250 (the globally-consistent product from ISRIC).
-Other independent USA products are SPCG100USA, and POLARIS. This is because ISSR-800 is derived from gNATSGO and at coarser resolution, and GSM v0.5 is based on older field data (2015) than gNATSGO (current) at the same resolution ($\approx 90$) m.
-
-5. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
-
-Results:
-
-1. Generated figures will be in directory `./figs/compare_sg/`. These will be specific to the AOI, property and depth slice. So to save them from over-writing by other runs, move them to another directory.
-
-2. Generated tables in \LaTeX format will be in directory `../LaTeX_tables`. The table names include AOI, property and depth slice and so are not over-written.
-
-3. Generated harmonized maps will be [saved](#save) to directory `Compare_PSM` under the base directory, in a subdirectory named for the AOI. The file name includes the DSM method, property and depth slice.
-
-
-# Setup
-
-## Maps to compare {#which}
-
-This vector names the products, other than gNATSGO and SoilGrids250, to include in the comparison. This string will be checked before importing a product; if the product is either not named here or not imported at all, it will not be included in the analysis.
-
-```{r compare.which}
+## ----compare.which-----------------------------------------------------------------------------------------------
 products <- c("POLARIS", "SPCG100USA") #, "LandGIS", "ISSR-800", "GSM v0.5"
-```
 
-Based on the number of products, set some variables to be used in formatting figures:
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 n.products <- 2 + length(products)
 n.figs.row <- ceiling(sqrt(n.products))
 n.figs.col <- ceiling(n.products/n.figs.row)
@@ -123,27 +17,18 @@ n.figs.row.diff <- n.figs.row-1
 n.figs.col.diff <- n.figs.col+1
 map.fig.width.diff <- n.figs.col.diff*4
 map.fig.height.diff <- n.figs.row.diff*4
-```
 
 
-## Packages
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 library(rgdal)      # R interface to GDAL
 library(terra)      # for raster maps
 library(sf)         # Simple Features spatial data
 # library(gridExtra)  # arrange multiple plots
 library(knitr)      # for fancy tables
 library(xtable)     # (same)
-```
 
-## Base directory paths {#dirs}
 
-Set base directories, specific to the local file system. 
-
-1. `base.dir`: This is the location of the DSM tiles that have been cropped to an AOI by an import script.
-
-```{r base.dir}
+## ----base.dir----------------------------------------------------------------------------------------------------
 base.dir <- "/Volumes/Pythagoras/ds/DSM_export/"
 base.dir.gnatsgo <- paste0(base.dir, "gNATSGO")
 base.dir.sg <- paste0(base.dir, "SoilGrids250")
@@ -152,39 +37,23 @@ base.dir.issr8 <- paste0(base.dir, "ISSR8")
 base.dir.polaris <- paste0(base.dir, "POLARIS")
 base.dir.psu <- paste0(base.dir, "SPCG100USA")
 base.dir.landgis <- paste0(base.dir, "LandGIS")
-```
 
-2. `base.dir.import`: This is where downloaded large GeoTIFF are located. Because of their size they may be on a separate file system, e.g., removable or networked drive. Files may have been downloaded here by an import script, or by direct download from the data provider.
 
-In this script this location is only used for POLARIS, since these large files (15-30Mb) are imported directly as $1 \times 1^\circ$ tiles by script `./scripts_importmaps/POLARIS_import.Rmd`.
-
-```{r base.dir.import}
+## ----base.dir.import---------------------------------------------------------------------------------------------
 base.dir.import <- "/Volumes/Pythagoras/ds/DSM_import/"
 base.dir.polaris.import <- paste0(base.dir.import, "POLARIS")
-```
 
-3. `base.dir.compare`: This is where generated harmonized maps will be saved for further processing, e.g., comparing patterns.
 
-```{r base.dir.compare}
+## ----base.dir.compare--------------------------------------------------------------------------------------------
 base.dir.compare <- paste0("/Volumes/Pythagoras/ds/Compare_PSM")
-```
 
-# Parameters
 
-Parameters for this run:
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat, "; size:", params$size))
 print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
-```
 
-## Property of interest {#voi}
 
-Property names in various systems. Note that all except GSM v0.5 and SoilGrids250 are missing one or more properties. Such products will be omitted from comparisons for those properties.
-
-Properties that be compared are: clay, silt, sand weight concentrations; pH in 1:1 water; CEC; SOC; bulk density of the fine earth; coarse fragment volume proportion. See the import script for each product for a link to a description of the properties and their units of measure.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 voi.list.gnatsgo <- c("claytotal_r", "silttotal_r", "sandtotal_r",
                   "ph1to1h2o_r", "cec7_r", "om_r",   # note SOM not SOC
                   "dbthirdbar_r", "sieveno10_r") # passing 2.0 mm sieve, complement is coarse fragments
@@ -203,11 +72,9 @@ voi.list.landgis <- c("clay.wfraction_usda.3a1a1a",
                       "organic.carbon_usda.6a1c",
                       "bulkdens.fineearth_usda.4a1h",
                       "coarsefrag.vfraction_usda_3b1")
-```
 
-Select the position in these lists
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 voi.n <- params$voi.n   # variable of interest, SoilGrids name
 voi.gnatsgo <- voi.list.gnatsgo[voi.n]
 voi.sg <- voi.list.sg[voi.n]
@@ -215,13 +82,9 @@ voi.issr8 <- voi.list.issr8[voi.n]
 voi.polaris <- voi.list.polaris[voi.n]
 voi.psu <- voi.list.psu[voi.n]
 voi.gsm <- voi.list.gsm[voi.n]
-```
 
-## Depth of interest {#depth}
 
-Depth slices:
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 depth.list.gnatsgo <- c("05", "515", "1530", "3060", "60100", "100200")
 depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
 # SPCGUSA100 predicts at points, these were averaged to GSM slices during import
@@ -231,83 +94,53 @@ depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
 depth.list.polaris <- gsub("-", "_", depth.list.sg)
 depth.list.issr8 <- gsub("-", "", depth.list.sg)
 depth.list.gsm <- c("000_005", "005_015", "015_030", "030_060", "060_100", "100_200")
-```
 
-Select the depth slice:
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 depth <- params$depth.n
-```
 
 
-## Area of Interest (AOI) {#aoi}
-
-We use a $1 \times 1^\circ$ tile, because that is how POLARIS data is served.
-
-Specify the _lower-right corner_ and _tile size_ from the YAML or rendering parameters:
-
-```{r lrc}
+## ----lrc---------------------------------------------------------------------------------------------------------
 tile.lrc <- c(params$lrc_long, params$lrc_lat) # lower-right corner
 tile.size <- params$size                # tile dimensions
-```
 
-Compute the upper-right corner $1^\circ$ west and north:
 
-```{r ulc}
+## ----ulc---------------------------------------------------------------------------------------------------------
 tile.ulc <- c(tile.lrc[1]-tile.size, tile.lrc[2]+tile.size) # upper-left corner
-```
 
-A prefix for directories and file names, to keep AOI results separate.
 
-```{r aoi.dir.prefix}
+## ----aoi.dir.prefix----------------------------------------------------------------------------------------------
 AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
                          "_lon", tile.ulc[1], tile.lrc[1])
-```
 
-Change the location of figures generated by this script: put in subdirectories by area, 
 
-```{r adjust.fig.path}
+## ----adjust.fig.path---------------------------------------------------------------------------------------------
 knitr::opts_chunk$set(fig.path = paste0(knitr::opts_chunk$get("fig.path"), 
                                         AOI.dir.prefix, "/",
                                         voi.sg, "_", depth.list.sg[depth], "_"))
-```
 
-Bounding box:
 
-```{r bbox.4326}
+## ----bbox.4326---------------------------------------------------------------------------------------------------
 m <- matrix(c(tile.ulc[1],tile.lrc[1],  #ulc
               tile.ulc[2], tile.lrc[2]), nrow=2) #lrc
 bb.ll <- st_sfc(st_multipoint(m))
 st_crs(bb.ll) <- 4326   # ESPG code for WGS84 long/lat
-```
 
-Project the bounding box to Goode Interrupted Homolosine (IGH) used by SoilGrids:
 
-```{r bbox.igh}
+## ----bbox.igh----------------------------------------------------------------------------------------------------
 # convert to Homolosine. Note epsg=152160 is not in PROJ4 database
 crs.igh <- '+proj=igh +lat_0=0 +lon_0=0 +datum=WGS84 +units=m +no_defs'
 (bb.igh <- st_transform(bb.ll, crs.igh))
 (bb.igh <- st_coordinates(bb.igh)[,1:2])
 (bb <- as.vector(t(bb.igh)))
-```
 
-Project the bounding box to the CONUS AEA. This is the CRS used by gNATSGO, ISSR-800 and SPCG100USA:
 
-```{r bbox.aea}
+## ----bbox.aea----------------------------------------------------------------------------------------------------
 crs.aea <- "+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"
 (bb.aea <- st_transform(bb.ll, crs.aea))
-```
 
 
-# Products to compare
-
-Load the tiles in their native CRS, as processed in the import scripts.
-
-## gNATSGO
-
-This is the reference product.
-
-```{r get.tiles.gnatsgo}
+## ----get.tiles.gnatsgo-------------------------------------------------------------------------------------------
 src.dir <-  paste0(base.dir.gnatsgo ,"/", 
                    AOI.dir.prefix)
 (voi.depth.name <- paste0(voi.gnatsgo, "_", depth.list.gnatsgo[depth]))
@@ -318,14 +151,9 @@ if (file.exists(file.name)) {
   print(r.gnatsgo)
   summary(r.gnatsgo)
 } else { stop("No gNATSGO tile, stopping") }
-```
 
 
-## SoilGrids250
-
-This is required; all the properties to compare are mapped by SoilGrids250.
-
-```{r get.tiles.sg}
+## ----get.tiles.sg------------------------------------------------------------------------------------------------
 # SoilGrids250 -- only the mean prediction in this script
 # Use the EPSG:4326 version
 src.dir <-  paste0(base.dir.sg ,"/", 
@@ -340,11 +168,9 @@ if (file.exists(file.name)) {
   print(r.sg)
   summary(r.sg)
 } else { stop("No SoilGrids250 tile, stopping") }
-```
 
-## GSM
 
-```{r get.tiles.gsm}
+## ----get.tiles.gsm-----------------------------------------------------------------------------------------------
 # GSM
 if ("GSM v0.5" %in% products) {
   src.dir <-  paste0(base.dir.gsm ,"/", AOI.dir.prefix)
@@ -357,12 +183,9 @@ if ("GSM v0.5" %in% products) {
     summary(r.gsm)
   } 
 }
-```
 
 
-## SPCG100USA
-
-```{r get.tiles.psu}
+## ----get.tiles.psu-----------------------------------------------------------------------------------------------
 # SPCG100USA
 if ("SPCG100USA" %in% products) {
   src.dir <-  paste0(base.dir.psu ,"/", AOI.dir.prefix)
@@ -374,11 +197,9 @@ if ("SPCG100USA" %in% products) {
     summary(r.psu)
   }
 }
-```
 
-## POLARIS
 
-```{r get.tiles.polaris}
+## ----get.tiles.polaris-------------------------------------------------------------------------------------------
 # POLARIS -- only the mean prediction in this script
 if ("POLARIS" %in% products) {
   (file.name <- paste0(base.dir.polaris.import, "/",
@@ -393,11 +214,9 @@ if ("POLARIS" %in% products) {
     summary(r.p)
   }
 }
-```
 
-## LandGIS
 
-```{r get.tiles.landgis}
+## ----get.tiles.landgis-------------------------------------------------------------------------------------------
 # LandGIS -- only the mean prediction in this script
 if ("LandGIS" %in% products) {
   (file.name <- paste0(base.dir.landgis, "/",
@@ -412,12 +231,9 @@ if ("LandGIS" %in% products) {
     summary(r.landgis)
   }
 }
-```
-
-## ISSR-800
 
 
-```{r get.tiles.issr8}
+## ----get.tiles.issr8---------------------------------------------------------------------------------------------
 if ("ISSR-800" %in% products) {
   (file.name <- paste0(base.dir.issr8, "/",
                        AOI.dir.prefix, "/",
@@ -431,13 +247,9 @@ if ("ISSR-800" %in% products) {
     summary(r.issr8)
   }
 }
-```
 
-# Make the units compatible
 
-Depending on the property, data in some coverages need to be converted to the units used in SoilGrids250; we choose this as the base units; note these are integers. Here are the units:
-
-```{r show.conversions}
+## ----show.conversions--------------------------------------------------------------------------------------------
 df <- data.frame(property=voi.list.sg, 
                  #"clay"  "silt"  "sand"  "phh2o" "cec"   "soc"   "bdod"  "cfvo" 
                  sg=c("%%","%%","%%","pHx10","mmol(c)/kg","dg/kg","cg/cm3", "cm3/dm3"),  #SG
@@ -456,13 +268,9 @@ knitr::kable(
   col.names=c("Property", "SoilGrids", "gNATSGO", "GlobalSoilMap",
               "POLARIS", "SPCG100USA", "LandGIS", "ISSR-800"),
   booktabs = TRUE)
-```  
 
-Make a matrix with the conversions to SoilGrids250 units. These factors *multiply* the source, to match SoilGrids250. `NA` values indicate that the property is not included in the source, or that its conversion can not be handled by multiplication.
 
-Some conversions are given [here](https://www.isric.org/explore/soilgrids/faq-soilgrids#What_do_the_filename_codes_mean).
-
-```{r make.conversion.matrix}
+## ----make.conversion.matrix--------------------------------------------------------------------------------------
 som.to.soc <- 1/1.724138 # this was used in the lab, I know it has been heavily criticized
 conversions <- data.frame(property=voi.list.sg, 
                  # sg=c("%%","%%","%%","pHx10","mmol(c)/kg","dg/kg","cg/cm3", "cm3/dm3"), #SG
@@ -480,31 +288,21 @@ knitr::kable(
               "POLARIS", "SPCG100USA", "LandGIS", "ISSR-800"),
   booktabs = TRUE,
   align = "r")
-```
 
-Convert units as necessary.
 
-SOC for POLARIS is a special case, because of the log10-scale, and because it is SOM, not SOC. Use the conventional conversion factor 0.58 = 1/1.724138.
-
-```{r polaris.soc}
+## ----polaris.soc-------------------------------------------------------------------------------------------------
 if (exists("r.p") && (voi.sg=="soc")) {
     r.p <- (10^r.p)*som.to.soc*1000 
 }
-```
 
-Coarse fragments for gNATSGO is another special case:
 
-```{r gnatsgo.cfvo}
+## ----gnatsgo.cfvo------------------------------------------------------------------------------------------------
 if (voi.sg == "cfvo") {
   r.gnatsgo <- (100 - r.natsgo)*0.1
 }
-```
 
 
-All other conversions:
-
-
-```{r convert}
+## ----convert-----------------------------------------------------------------------------------------------------
 # this property's factors
 (factors <- conversions[match(voi.sg, conversions$property),])
 
@@ -541,76 +339,55 @@ if (exists("r.issr8")) {
   fact <- as.numeric(factors["issr"])
   if (!is.na(fact) && (fact != 1)) { r.issr8 <- r.issr8*fact }
 }
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 summary(r.gnatsgo)
 summary(r.p)
 summary(r.psu)
 summary(r.sg)
-```
 
 
-# Match resolution and CRS
-
-SoilGrids250, GSM v0.5, POLARIS and LandGIS are in EPSG:4326 (WGS84 long/lat), at different grid resolutions.
-
-```{r crs.show.1}
+## ----crs.show.1--------------------------------------------------------------------------------------------------
 rgdal::showP4(crs(r.sg))
 data.frame(sg=res(r.sg)[1], 
            polaris=ifelse(exists("r.p"), res(r.p)[1], ""),
            gsm=ifelse(exists("r.gsm"), res(r.gsm)[1], ""),
            landgis=ifelse(exists("r.landgis"), res(r.landgis)[1], ""))
-```
 
-gNATSGO, ISSR-800 and SPCG100USA are in a CONUS Albers Equal Area, but with slightly different definitions of the datums, also with different resolutions (800 and 100 m, respectively). The GRS80 ellipsoid is the basis of the NAD83 datum, and centred with WGS84, so there effectively no difference.
 
-```{r crs.show.2}
+## ----crs.show.2--------------------------------------------------------------------------------------------------
 rgdal::showP4(crs(r.gnatsgo))
 if (exists("r.psu")) rgdal::showP4(crs(r.psu))
 if (exists("r.issr8")) rgdal::showP4(crs(r.issr8))
-```
 
-Resample products into SoilGrids250 WGS84 250m nominal pixels, using cubic interpolation.
 
-```{r crs.resample}
+## ----crs.resample------------------------------------------------------------------------------------------------
 r.gnatsgo.sg <- terra::resample(r.gnatsgo, r.sg, method="cubic")
 if (exists("r.gsm")) { r.gsm.sg <- terra::resample(r.gsm, r.sg, method="cubic") }
 if (exists("r.p")) { r.p.sg <- terra::resample(r.p, r.sg, method="cubic") }
 if (exists("r.psu")) { r.psu.sg <- terra::resample(r.psu, r.sg, method="cubic") }
-```
 
-For LandGIS and ISSR-800 the CRS must be changed, not just the resolution:
 
-```{r crs.project}
+## ----crs.project-------------------------------------------------------------------------------------------------
 if (exists("r.landgis")) { 
   r.landgis.sg <- terra::project(r.landgis, r.sg, method="cubic") 
   }
 if (exists("r.issr8")) { 
   r.issr8.sg <- terra::project(r.issr8, r.sg, method="cubic") 
   }
-```
 
 
-# Make all maps cover the same area
-
-POLARIS predicts in the lakes, the USA products predict in built-up areas. Mask these out with SoilGrids250, which does not.
-
-```{r mask.lakes}
+## ----mask.lakes--------------------------------------------------------------------------------------------------
 r.gnatsgo.sg <- mask(r.gnatsgo.sg, r.sg)
 if (exists("r.gsm.sg")) { r.gsm.sg <- mask(r.gsm.sg, r.sg) }
 if (exists("r.p.sg")) { r.p.sg <- mask(r.p.sg, r.sg) }
 if (exists("r.issr8.sg")) { r.issr8.sg <- mask(r.issr8.sg, r.sg) }
 if (exists("r.psu.sg")) { r.psu.sg <- mask(r.psu.sg, r.sg) }
 if (exists("r.landgis.sg")) { r.landgis.sg <- mask(r.landgis.sg, r.sg) }
-```
 
-Make a true 1 degree tile raster and use it to mask the other coverages, to get consistent coverage.
-SoilGrids is larger and so are the two originally in AEA projection.
 
-To be used for cropping it must be a `Spatial` class from which a `terra::SpatExtent` can be extracted.
-
-```{r make.polygon}
+## ----make.polygon------------------------------------------------------------------------------------------------
 m <- matrix(c(tile.ulc[1],tile.ulc[2],  #ulc
               tile.lrc[1],tile.ulc[2],  #urc
               tile.lrc[1],tile.lrc[2],  #lrc
@@ -621,9 +398,9 @@ st_crs(bb.poly) <- 4326
 bb.poly <- st_polygonize(bb.poly)
 bb.poly <- as_Spatial(bb.poly)
 ext(bb.poly)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 r.gnatsgo.sg <- crop(r.gnatsgo.sg, bb.poly)
 r.sg <- crop(r.sg, bb.poly)
 if (exists("r.gsm.sg")) { r.gsm.sg <- crop(r.gsm.sg, bb.poly) }
@@ -631,11 +408,9 @@ if (exists("r.p.sg")) { r.p.sg <- crop(r.p.sg, bb.poly) }
 if (exists("r.issr8.sg")) { r.issr8.sg <- crop(r.issr8.sg, bb.poly) }
 if (exists("r.psu.sg")) { r.psu.sg <- crop(r.psu.sg, bb.poly) }
 if (exists("r.landgis.sg")) { r.landgis.sg <- crop(r.landgis.sg, bb.poly) }
-```
 
-Check that the maps cover the same area and have the same units, ignore different stretches for now:
 
-```{r plot.resampled, fig.width=map.fig.width, fig.height=map.fig.height}
+## ----plot.resampled, fig.width=map.fig.width, fig.height=map.fig.height------------------------------------------
 par(mfrow=c(n.figs.row, n.figs.col))
 plot(r.gnatsgo.sg, main="gNATSGO")
 plot(r.sg, main="SG2")
@@ -645,13 +420,9 @@ if (exists("r.psu.sg")) { plot(r.psu.sg, main="SPCG") }
 if (exists("r.landgis.sg")) { plot(r.landgis.sg, main="LandGIS") }
 if (exists("r.issr8.sg")) { plot(r.issr8.sg, main="ISSR-800") }
 par(mfrow=c(1, 1))
-```
 
-# Compare
 
-## Compute common range for all products
-
-```{r compare.zlim}
+## ----compare.zlim------------------------------------------------------------------------------------------------
 zlim <- c(min(values(r.sg)*10, na.rm = TRUE),
           max(values(r.sg)*10, na.rm = TRUE))/10
 zlim <- c(floor(min(zlim[1]*10, values(r.gnatsgo.sg)*10, na.rm=TRUE)),
@@ -676,15 +447,9 @@ if (exists("r.issr8.sg")) {
   zlim <- c(floor(min(zlim[1]*10, values(r.issr8.sg)*10, na.rm=TRUE)),
             ceiling(max(zlim[2]*10, values(r.issr8.sg)*10, na.rm=TRUE)))/10
 }
-```
 
-## Histograms
-    
-The property and depth will be given in the caption, if this is used in a publication.
 
-First, compute the maximum density, to have a common y-axis:
-
-```{r hist.densities}
+## ----hist.densities----------------------------------------------------------------------------------------------
 max.dens <- function(r.map) {  # argument: the raster map
   h <- hist(r.map,  breaks=24, plot = FALSE)
   max(h$counts/(diff(h$breaks[1:2]))/sum(h$counts))
@@ -696,11 +461,9 @@ if (exists("r.psu.sg")) { yl <- max(yl, max.dens(r.psu.sg))}
 if (exists("r.landgis.sg")) { yl <- max(yl, max.dens(r.landgis.sg))}
 if (exists("r.issr8.sg")) { yl <- max(yl, max.dens(r.issr8.sg))}
 yl <- c(0, yl) # standardize the density axis
-```
 
-Use this y-axis to show all the histograms together:
 
-```{r hist.sg.props, fig.width=map.fig.width, fig.height=map.fig.height}
+## ----hist.sg.props, fig.width=map.fig.width, fig.height=map.fig.height-------------------------------------------
 par(mfrow=c(n.figs.row, n.figs.col))
 hist(r.sg, breaks=24, main="SG2",
      xlim=zlim, xlab="", freq = FALSE, ylim=yl)
@@ -727,12 +490,9 @@ if (exists("r.issr8.sg")) {
        xlim=zlim, xlab="", freq = FALSE, ylim=yl)
 }
 par(mfrow=c(1,1))
-```
-
-## Maps
 
 
-```{r map.sg.props, fig.width=map.fig.width, fig.height=map.fig.height}
+## ----map.sg.props, fig.width=map.fig.width, fig.height=map.fig.height--------------------------------------------
 par(mfrow=c(n.figs.row, n.figs.col))
 terra::plot(r.gnatsgo.sg, main="gNATSGO", range=zlim)
 terra::plot(r.sg, main="SG2", range=zlim)
@@ -752,13 +512,9 @@ if (exists("r.issr8.sg")) {
   terra::plot(r.issr8.sg, main="ISSR-800", range=zlim)
 }
 par(mfrow=c(1,1))
-```
 
-## Correlations
 
-Pairwise Pearson correlations. Note the distributions are fairly symmetric/quasi-normal so Pearson's correlations are valid.
-
-```{r pairwise}
+## ----pairwise----------------------------------------------------------------------------------------------------
 v.all <- data.frame(gNATSGO=values(r.gnatsgo.sg),
                     SG2=values(r.sg),
                     GSM=NA,
@@ -780,37 +536,24 @@ cor.all <- cor(v.all, use="pairwise.complete.obs")
 cor.upper <- cor.all
 cor.upper[lower.tri(cor.upper)] <- NA
 print(round(cor.upper, 3))
-```
 
-Make a nice correlation plot:
 
-```{r corrplot, fig.width=(n.figs.col*2+1), fig.height=n.figs.col*2+1}
+## ----corrplot, fig.width=(n.figs.col*2+1), fig.height=n.figs.col*2+1---------------------------------------------
 library(corrplot)
 corrplot.mixed(cor.all, upper="ellipse", lower="number", diag="n",
                lower.col = "black")
-```
 
 
-# Differences 
-
-## Compute all differences
-
-Relative to gNATSGO, as the base product closest to the field soil survey.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 diff.gnatsgo.sg <- r.gnatsgo.sg - r.sg
 if (exists("r.gsm.sg")) { diff.gnatsgo.gsm <- r.gnatsgo.sg - r.gsm.sg }
 if (exists("r.p.sg")) {  diff.gnatsgo.p <-  r.gnatsgo.sg - r.p.sg }
 if (exists("r.psu.sg")) {  diff.gnatsgo.psu <-  r.gnatsgo.sg - r.psu.sg }
 if (exists("r.landgis.sg")) {  diff.gnatsgo.landgis <-  r.gnatsgo.sg - r.landgis.sg }
 if (exists("r.issr8.sg")) { diff.gnatsgo.issr8 <-  r.gnatsgo.sg - r.issr8.sg }
-```
 
-## Statistics
 
-RMSE, ME, RMSE adjusted to ME, for all products compared to gNATSGO:
-
-```{r stats.compare.sg, warning=FALSE}
+## ----stats.compare.sg, warning=FALSE-----------------------------------------------------------------------------
 stats.compare <- data.frame(Product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
 rmse <- function(v1, v2) {
   round(sqrt(mean((v1-v2)^2, na.rm=TRUE)),3)
@@ -863,11 +606,9 @@ if (exists("r.issr8.sg")) {
                         rmse.adj(values(r.gnatsgo.sg),values(r.issr8.sg))
                         )
 }
-```
 
-Save this table for incorporation in a LaTeX document:
 
-```{r save.stats.compare.sg}
+## ----save.stats.compare.sg---------------------------------------------------------------------------------------
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 x <- xtable(stats.compare, row.names=FALSE, digits=3)
@@ -875,11 +616,9 @@ autoformat(x)
 capture.output(print(x, include.rownames=FALSE), 
                file=paste0("../LaTeX_tables/SoilGrids250_compare_statistics_",
                            AOI.dir.prefix, "_", voi.sg, "_", depth.list.sg[depth], ".tex"))
-```
 
-## Compute common range for all differences
 
-```{r zlim.diff.sg}
+## ----zlim.diff.sg------------------------------------------------------------------------------------------------
 zlim <- c(NA, NA)
 zlim <- c(floor(min(zlim[1]*10, values(diff.gnatsgo.sg)*10, na.rm=TRUE)),
           ceiling(max(zlim[2]*10, values(diff.gnatsgo.sg)*10, na.rm=TRUE)))/10
@@ -903,25 +642,18 @@ if (exists("diff.gnatsgo.issr8")) {
   zlim <- c(floor(min(zlim[1]*10, values(diff.gnatsgo.issr8)*10, na.rm=TRUE)),
             ceiling(max(zlim[2]*10, values(diff.gnatsgo.issr8)*10, na.rm=TRUE)))/10
 }
-```
 
-## Histograms
 
-First, compute the maximum density, to have a common y-axis:
-
-```{r diff.hist.densities}
+## ----diff.hist.densities-----------------------------------------------------------------------------------------
 yl <- max(max.dens(diff.gnatsgo.sg))
 if (exists("r.gsm.sg")) { yl <- max(yl, max.dens(diff.gnatsgo.gsm))}
 if (exists("r.p.sg")) { yl <- max(yl, max.dens(diff.gnatsgo.p))}
 if (exists("r.psu.sg")) { yl <- max(yl, max.dens(diff.gnatsgo.psu))}
 if (exists("r.landgis.sg")) { yl <- max(yl, max.dens(diff.gnatsgo.landgis))}
 if (exists("r.issr8.sg")) { yl <- max(yl, max.dens(diff.gnatsgo.issr8))}
-```
-
-Use this y-axis to show all the histograms together:
 
 
-```{r hist.diff.sg, fig.width=map.fig.width.diff, fig.height=map.fig.height.diff}
+## ----hist.diff.sg, fig.width=map.fig.width.diff, fig.height=map.fig.height.diff----------------------------------
 yl <- c(0, yl) # Standardize density axis
 par(mfrow=c(n.figs.row.diff, n.figs.col.diff))
 hist(diff.gnatsgo.sg, main="gNATSGO - SG2", xlab="",
@@ -947,12 +679,9 @@ if (exists("r.issr8.sg")) {
      xlim=zlim,  breaks=24, freq = FALSE, ylim=yl)
 }
 par(mfrow=c(1,1))
-```
 
 
-## Maps
-
-```{r plot.diff.sg, fig.width=map.fig.width.diff, fig.height=map.fig.height.diff}
+## ----plot.diff.sg, fig.width=map.fig.width.diff, fig.height=map.fig.height.diff----------------------------------
 par(mfrow=c(n.figs.row.diff, n.figs.col.diff))
   terra::plot(diff.gnatsgo.sg, main="Difference gNATSGO - SG2",
             range=zlim, col=bpy.colors(64))
@@ -977,23 +706,17 @@ if (exists("diff.gnatsgo.issr8")) {
             range=zlim, col=bpy.colors(64))
 }
 par(mfrow=c(1,1))
-```
 
-# Save harmonized maps {#save}
 
-Set up a directory for these, based on the AOI:
-
-```{r save.dir}
+## ----save.dir----------------------------------------------------------------------------------------------------
 dest.dir.save <-  file.path(base.dir.compare,
                        AOI.dir.prefix)
 if (!dir.exists(dest.dir.save)) {
    dir.create(dest.dir.save, recursive = TRUE)
 }
-```
 
-Same AOI, CRS, resolution, units of measure:
 
-```{r save.tiles}
+## ----save.tiles--------------------------------------------------------------------------------------------------
 # gNATSGO
 voi.depth.sg <- paste0(voi.sg, "_", depth.list.sg[depth])
 dest.name <- paste0(dest.dir.save,"/gnatsgo_tile_250_",  voi.depth.sg, ".tif")
@@ -1061,4 +784,4 @@ if (exists("r.issr8.sg")) {
   #  GDALinfo(dest.name)
   print(paste("Wrote ", dest.name))
 }
-```
+

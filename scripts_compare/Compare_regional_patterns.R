@@ -1,120 +1,21 @@
----
-title: "Comparing spatial patterns of DSM maps at regional resolution"
-author:
-- D G Rossiter
-- d.g.rossiter@cornell.edu
-date: "`r format(Sys.Date(), '%d-%B-%Y')`"
-params:
-   lrc_long: -77
-   lrc_lat: 35
-   size: 1
-   voi.n: 1
-   quantile.n: NA
-   depth.n: 4
-   test.tile.size: 0.20  # degrees
-   test.tile.x.offset: 0.6  # lrc west from right edge
-   test.tile.y.offset: 0.2  # lrc north from bottom edge
-output:
-  html_document:
-    fig_align: center
-    fig_height: 5
-    fig_width: 10
-    number_section: yes
-    theme: spacelab
-    df_print: paged
-    code_folding: hide
-    toc: yes
-    toc_float: yes
----
+params <-
+list(lrc_long = -77L, lrc_lat = 35L, size = 1L, voi.n = 1L, quantile.n = "NA", 
+    depth.n = 4L, test.tile.size = 0.2, test.tile.x.offset = 0.6, 
+    test.tile.y.offset = 0.2)
 
-```{r setup, include=FALSE, purl=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, purl = FALSE,
-                      fig.align = 'center', fig.path = './figs/compare_maps/')
-knitr::opts_chunk$set(cache.extra = R.version.string)
-```
-
-# Introduction
-
-This script compares DSM products at 250 m grid resolution, which is used by SoilGrids250.
-We consider this an appropriate resolution for regional studies.
-
-In this script we quantify the *spatial* agreement between soil maps, using several methods: (1) ["V metrics"](#vmetrics) (2) [Landscape metrics](#landscapemetrics) similar to FRAGSTATS, as used in ecology.
-
-Depending on the [property of interest](#voi), the following can be compared.
-
-These two are always compared:
-
-* [gNATSGO](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/survey/geo/?cid=nrcseprd1464625);
-* [SoiLGrids250](https://www.isric.org/explore/soilgrids)  from ISRIC further abbreviated as _SG2_;
-
-These can be included:
-
-* [Global Soil Map v0.5 for the USA](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/research/?cid=nrcseprd1321715), further abbreviated as _GSMv05_;
-* [Intermediate-scale gridded soil property and interpretation maps from averaged and aggregated SSURGO and STATSGO data](https://github.com/ncss-tech/ISSR-800), further abbreviated as _ISSR-800_;
-* POLARIS Soil Properties;
-* [Soil Properties and Class 100m Grids USA](https://doi.org/10.18113/S1KW2H), further abbreviated as _SPCG_;
-* [LandGIS](https://opengeohub.org/about-landgis) from the private company [EnvirometriX](http://envirometrix.nl/).
-
-This script must follow script `Compare_regional.Rmd` "Comparing DSM products at regional resolution". That script harmonizes the area of interest and resolution of these sources, and stores the harmonized products for this analysis.
-
-To use this script:
-
-1. Ajust the [directory structure](#dirs) to your system.
-
-2. [Select a property](#voi) and [select a depth slice](#depth), using the YAML header or by knitting with parameters..
-
-3. [Select an Area of Interest](#aoi), using the YAML header or by knitting with parameters.
-
-These three can be adjusted in the YAML header; these include the default parameters and look like:
-
-```
----
-   params:
-   lrc_long: -76
-   lrc_lat: 42 
-   size: 1
-   voi.n: 4
-   quantile.n: NA 
-   depth.n: 4
-   test.tile.size: 0.2  # degrees
-   test.tile.x.offset: 0.61  # west from right edge
-   test.tile.y.offset: 0.44  # north from bottom edge
----
-```
-
-4. [Select a sub-area](#sub_aoi), by default 0.2 x 0.2 degrees, within the 1 x 1 degree tile.
-
-5. Select the [maps to compare](#which); default (always included) are gNATSGO (the base product from NRCS) and SoilGrids250 (the globally-consistent product from ISRIC).
-
-6. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
-
-Generated figures will be in directory `./figs/compare_maps/`, in a subdirectory named for the AOI. The file name includes the DSM method, property and depth slice.
-
-Generated tables in \LaTeX format will be in directory `../LaTeX_tables`. The table names include AOI, property and depth slice.
-
-# Setup
-
-## Maps to compare {#which}
-
-This vector names the products, other than gNATSGO and SoilGrids250, to include in the comparison. This string will be checked before importing a product; if the product is either not named here or not imported at all, it will not be included in the analysis.
-
-```{r compare.which}
+## ----compare.which-----------------------------------------------------------------------------------------------
 products <- c("POLARIS", "SPCG100USA") #, "LandGIS", "ISSR-800", "GSM v0.5"
-```
 
-Based on the number of products, set some variables to be used in formatting figures:
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 n.products <- 2 + length(products)
 n.figs.row <- ceiling(sqrt(n.products))
 n.figs.col <- ceiling(n.products/n.figs.row)
 map.fig.width <- n.figs.col*5
 map.fig.height <- n.figs.row*5
-```
 
-## Packages
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 library(raster, warn.conflicts=FALSE)      # previous version of raster classes now in `terra`
                      #   needed for landscape metrics
 library(terra, warn.conflicts=FALSE)       # Robert Hijmans raster and vector data
@@ -130,106 +31,57 @@ library(sabre)       # compare polygon map spatial structure
 library(landscapemetrics)   # FRAGSTATS metrics
 library(landscapetools)
 library(gstat)      # variogram modelling
-```
 
-# Local storage {#dirs}
 
-Set the directory on the local file system, under which local files were stored by `Compare_regional.Rmd`, and where this script will store its results.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 base.dir <- "/Volumes/Pythagoras/ds/Compare_PSM/"
-```
 
-# Parameters
 
-Parameters for this run:
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat, "; size:", params$size))
 print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
 print(paste("test.tile.size:", params$test.tile.size, 
             "test.tile.x.offset:", params$test.tile.x.offset,
             "test.tile.y.offset:", params$test.tile.y.offset))
-```
 
 
-## Area of interest {#aoi}
-
-We use a $1 \times 1^\circ$ tile, because that is how POLARIS data is served.
-
-Specify the _lower-right corner_ and _tile size_ from the YAML or rendering parameters:
-
-```{r lrc}
+## ----lrc---------------------------------------------------------------------------------------------------------
 tile.lrc <- c(params$lrc_long, params$lrc_lat) # lower-right corner
 tile.size <- params$size                # tile dimensions
-```
 
-Compute the upper-right corner $1^\circ$ west and north:
 
-```{r ulc}
+## ----ulc---------------------------------------------------------------------------------------------------------
 tile.ulc <- c(tile.lrc[1]-tile.size, tile.lrc[2]+tile.size) # upper-left corner
-```
 
-Set part of a file path using the AOI and property to be compared.
-These names correspond to files stored by script `Compare_regional.Rmd`, which incorporate the AOI `aoi` and the property of interest and depth slice `voi`.
 
-AOI prefix:
-
-```{r aoi.set.dir.prefix}
+## ----aoi.set.dir.prefix------------------------------------------------------------------------------------------
 (AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
                          "_lon", tile.ulc[1], tile.lrc[1]))
-```
 
 
-## Test area {#sub_aoi}
-
-Because the full tile is so large, here we can choose to test on a smaller area, e.g., 0.2 x 0.2 degrees
-
-Set the size and offset from the lower-right corner. The test area will be to the north and west of this.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 test.tile.size <- params$test.tile.size  # degrees
 test.tile.x.offset <- params$test.tile.x.offset  # west from right edge
 test.tile.y.offset <- params$test.tile.y.offset  # north from bottom edge
-```
 
 
-## Property of interest {#voi}
-
-Set the property of interest from the YAML or rendering parameters:
-
-```{r voi}
+## ----voi---------------------------------------------------------------------------------------------------------
 voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
 voi.sg <- voi.list.sg[params$voi.n]
-```
 
-## Depth slice of interest {#depth}
 
-Set the depth slice from the YAML or rendering parameters::
-
-```{r depth}
+## ----depth-------------------------------------------------------------------------------------------------------
 depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
 voi.depth <- paste0(voi.sg, "_", depth.list.sg[params$depth.n])
-```
 
-## Adjust directory for figures
 
-Change the location of figures generated by this script: put in subdirectories by area. 
-
-```{r adjust.fig.path}
+## ----adjust.fig.path---------------------------------------------------------------------------------------------
 knitr::opts_chunk$set(fig.path = paste0(knitr::opts_chunk$get("fig.path"), 
                                         AOI.dir.prefix, "/",
                                         voi.depth, "_"))
-```
 
 
-# Source rasters
-
-## Import full tiles
-
-Load the rasters and name the data item generically as `voi`, so it can be used in expressions.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 (gnatsgo <- rast(paste0(base.dir, AOI.dir.prefix, "/gnatsgo_tile_250_", voi.depth, ".tif")))
 names(gnatsgo) <- "voi"
 (sg <- rast(paste0(base.dir, AOI.dir.prefix, "/sg_tile_250_", voi.depth, ".tif")))
@@ -254,19 +106,13 @@ if ("LandGIS" %in% products) {
   file.name <- paste0(base.dir, AOI.dir.prefix, "/landgis_tile_250_", voi.depth, ".tif")
   if (file.exists(file.name)) { print(landgis <- rast(file.name)); names(landgis) <- "voi" }
 }
-```
 
-```{r show.crs}
+
+## ----show.crs----------------------------------------------------------------------------------------------------
 rgdal::showP4(crs(sg))
-```
-
-These are all in WGS84 geographic coordinates, cover the same area, and have the same no-data areas.
 
 
-## Crop to test area
-
-
-```{r crop.test.area}
+## ----crop.test.area----------------------------------------------------------------------------------------------
 (tmp <- as.vector(ext(sg)))
 tmp["xmax"] <- tmp["xmax"] - test.tile.x.offset
 tmp["xmin"] <- tmp["xmax"] - test.tile.size
@@ -280,26 +126,18 @@ if (exists("issr8")) { issr8.crop <- crop(issr8, ext(tmp)) }
 if (exists("psu")) { psu.crop <- crop(psu, ext(tmp)) }
 if (exists("polaris")) { polaris.crop <- crop(polaris, ext(tmp)) }
 if (exists("landgis")) { landgis.crop <- crop(landgis, ext(tmp)) }
-```
 
-## Project to metric CRS
 
-For area calculations, we need a metric CRS, not geographic.
-
-Determine the UTM zone and appropriate EPSG code:
-
-```{r get.utm}
+## ----get.utm-----------------------------------------------------------------------------------------------------
 long2UTM <- function(long) { (floor((long + 180)/6) %% 60) + 1 }
 utm.zone <- long2UTM(params$lrc_long+0.5)
 epsg.db <- rgdal::make_EPSG()
 ix <- grep(paste0("WGS 84 / UTM zone ", utm.zone, "N"), epsg.db$note)
 epsg.db[ix,]
 epsg.code <- epsg.db[ix, "code"]
-```
 
-Use this to resample:
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 crs.utm <- paste0("+init=epsg:", epsg.code)
 gnatsgo.crop <- terra::project(gnatsgo.crop, crs.utm)
 sg.crop <- terra::project(sg.crop, crs.utm)
@@ -308,13 +146,9 @@ if (exists("issr8")) { issr8.crop <- terra::project(issr8.crop, crs.utm) }
 if (exists("psu")) { psu.crop <- terra::project(psu.crop, crs.utm) }
 if (exists("polaris")) { polaris.crop <- terra::project(polaris.crop, crs.utm) }
 if (exists("landgis")) { landgis.crop <- terra::project(landgis.crop, crs.utm) }
-```
 
-## Determine property range
 
-Determine the full range of the property across all maps, to one decimal place:
-
-```{r zlim}
+## ----zlim--------------------------------------------------------------------------------------------------------
 values.all <- c(values(gnatsgo.crop),
                 values(sg.crop))
 if (exists("psu.crop")) values.all <- c(values.all, values(psu.crop))
@@ -328,13 +162,9 @@ if (exists("landgis.crop")) values.all <- c(values.all, values(landgis.crop))
 
 (zlim <- c(min(values.all, na.rm = TRUE),
                 max(values.all, na.rm=TRUE)))
-```
 
-## Display maps
 
-Now show the maps together:
-
-```{r side.by.side, fig.width=map.fig.width, fig.height=map.fig.height}
+## ----side.by.side, fig.width=map.fig.width, fig.height=map.fig.height--------------------------------------------
 par(mfrow=c(n.figs.row, n.figs.col))
 plot(gnatsgo.crop, main="gNATSGO", range=zlim)
 plot(sg.crop, main="SG2", range=zlim)
@@ -344,12 +174,9 @@ if (exists("polaris.crop")) plot(polaris.crop, main="PSP", range=zlim)
 if (exists("landgis.crop")) plot(landgis.crop, main="LandGIS", range=zlim)
 if (exists("issr8.crop")) plot(issr8.crop, main="ISSR-800", range=zlim)
 par(mfrow=c(1,1))
-```   
 
 
-## Statistical differences (non-spatial)
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 rmse <- function(v1, v2) {
   round(sqrt(mean((v1-v2)^2, na.rm=TRUE)),3)
 }
@@ -361,9 +188,9 @@ rmse.adj <- function(v1, v2) {   # RMSE adjusted for ME (bias)
   v2.adj <- v2 + me
   round(sqrt(mean((v1-v2.adj)^2, na.rm=TRUE)),3)
 }
-```
 
-```{r compare.stats}
+
+## ----compare.stats-----------------------------------------------------------------------------------------------
 stats.compare <- data.frame(DSM_product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
 stats.compare[1, ] <- c("SG2",
                         me(values(gnatsgo.crop),values(sg.crop)),
@@ -396,27 +223,18 @@ if (exists("issr8.crop")) stats.compare[5, ] <- c("ISSR8",
                         rmse.adj(values(gnatsgo.crop),values(issr8.crop))
                         )
 print(stats.compare)
-```
-
-Any bias in the three will affect the cross-classification and spatial statistics. 
-
-So also make a bias-adjusted version of the DSM products, using gNATSGO as the basis.
-
-## Adjust for bias (systematic error)
 
 
-```{r side.by.side.unbiased}
+## ----side.by.side.unbiased---------------------------------------------------------------------------------------
 sg.adj <- sg.crop + me(values(gnatsgo.crop),values(sg.crop))
 if (exists("gsm.crop")) gsm.adj <- gsm.crop + me(values(gnatsgo.crop),values(gsm.crop))
 if (exists("psu.crop")) psu.adj <- psu.crop + me(values(gnatsgo.crop),values(psu.crop))
 if (exists("polaris.crop")) polaris.adj <- polaris.crop + me(values(gnatsgo.crop),values(polaris.crop))
 if (exists("landgis.crop")) landgis.adj <- landgis.crop + me(values(gnatsgo.crop),values(landgis.crop))
 if (exists("issr8.crop")) issr8.adj <- issr8.crop + me(values(gnatsgo.crop),values(issr8.crop))
-```
 
-Recompute limits:
 
-```{r zlim.adj}
+## ----zlim.adj----------------------------------------------------------------------------------------------------
 values.all.adj <- c(values(gnatsgo.crop),
                 values(sg.adj))
 if (exists("psu.adj")) values.all.adj <- c(values.all.adj, values(psu.adj))
@@ -430,11 +248,9 @@ if (exists("landgis.adj")) values.all.adj <- c(values.all.adj, values(landgis.ad
 
 (zlim.adj <- c(min(values.all.adj, na.rm = TRUE),
                 max(values.all.adj, na.rm=TRUE)))
-```
 
-These are now similar in their ranges, but not in their patterns. Compare the statistics:
 
-```{r compare.stats.adj}
+## ----compare.stats.adj-------------------------------------------------------------------------------------------
 stats.compare <- data.frame(DSM_product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
 stats.compare[1, ] <- c("SG2",
                         me(values(gnatsgo.crop),values(sg.adj)),
@@ -467,22 +283,9 @@ if (exists("issr8.adj")) stats.compare[5, ] <- c("ISSR8",
                         rmse.adj(values(gnatsgo.crop),values(issr8.adj))
                         )
 print(stats.compare)
-```
-
-Removing bias changes the spatial statistics only slightly, because the cut points in classification are the same so some pixels change classes.
-
-So for now, _do not adjust_, use the original cropped images.
-
-# Local spatial structure
-
-The variogram (equivalent to correlogram) can be used to characterize the degree of spatial continuity and the "roughness" of a continuous property map. 
-
-In this section we compute and compare the short-range variograms, these reveal the local structure. In these maps the variogram is typically unbounded, but we don't care about the long-range structure.
-
-Convert the `terra::SpatRaster` objects to `raster::raster` and then to `sp:SpatialPointsDataFrame` in order to compute variograms. Note that there is (so far) no direct conversion. Note that `gstat::variogram` must be applied to an object of class `sp` or `sf`, not directly to a `terra::SpatRaster`.
 
 
-```{r make.sp}
+## ----make.sp-----------------------------------------------------------------------------------------------------
 gnatsgo.sp <- as(raster(gnatsgo.crop), "SpatialPointsDataFrame")
 sg.sp <- as(raster(sg.crop), "SpatialPointsDataFrame")
 if (exists("gsm.crop")) {
@@ -495,24 +298,15 @@ if (exists("polaris.crop")) {
   polaris.sp <- as(raster(polaris.crop), "SpatialPointsDataFrame") }
 if (exists("landgis.crop")) {
   landgis.sp <- as(raster(landgis.crop), "SpatialPointsDataFrame") }
-```
 
-## Compute and model empirical variograms
 
-Initial parameters for empirical variograms and models. The bin width is the resolution, so we get one-grid-cell relations.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 range.init <- 1000  # m 
 cutoff.init <- range.init*5  # m
 width.init <- 250
-```
-
-Compute and model variograms. Note the estimated sill is the maximum $\gamma$ in the empirical variogram.
-
-Compute the empirical variograms.
 
 
-```{r compute.variogram, fig.height=6, fig.width=8}
+## ----compute.variogram, fig.height=6, fig.width=8----------------------------------------------------------------
 system.time(
   v.gnatsgo <- gstat::variogram(voi ~ 1, loc = gnatsgo.sp, 
                                 cutoff=cutoff.init, width=width.init)
@@ -554,14 +348,9 @@ if (exists("landgis.sp")) {
   )
   #  plot(v.landgis, pl=T)
 }
-```
-
-Model the variograms with the exponential model; the range parameter is 1/3 of the effective range. Initial estimate of total sill is 80% of maximum semivariance of the empirical variogram; initial nugget is 0.
-
-Note that these may not converge with the automatic initial model selection; if not, adjust by hand based on the plot of the empirical variogram (just above), or change the empirical variogram parameters.
 
 
-```{r model.variogram, fig.height=6, fig.width=8}
+## ----model.variogram, fig.height=6, fig.width=8------------------------------------------------------------------
 vm.gnatsgo <- vgm(0.8*max(v.gnatsgo$gamma), "Exp", range.init, 0)
 vmf.gnatsgo <- fit.variogram(v.gnatsgo, model=vm.gnatsgo)
 # plot(v.gnatsgo, pl=T, model=vmf.gnatsgo)
@@ -595,13 +384,9 @@ if (exists("r.landgis")) {
   vmf.landgis <- fit.variogram(v.landgis, model=vm.landgis)
 #  plot(v.landgis, pl=T, model=vmf.landgis)
 }
-```
 
-## Table of variogram parameters
 
-Make a table of the variogram parameters:
-
-```{r table.compare.variograms}
+## ----table.compare.variograms------------------------------------------------------------------------------------
 vmeasure.compare <- data.frame(product = "", Range = 0, StructSill = 0, PropNugget = 0)
 vmeasure.compare[1,] <- c("gNATSGO", 
                        round(vmf.gnatsgo[2,"range"], 0),
@@ -648,11 +433,9 @@ if(exists("vmf.landgis")) {
 vmeasure.compare[, 2:4] <- apply(vmeasure.compare[, 2:4],  2, as.numeric)
 vmeasure.compare[, "Range"] <- vmeasure.compare[, "Range"]*3
 print(vmeasure.compare)
-```
 
-Export the results to a \LaTex{} table:
 
-```{r write.table.compare.variograms}
+## ----write.table.compare.variograms------------------------------------------------------------------------------
 names(vmeasure.compare) <- c("Product", "Effective range", 
                              "Structural Sill", "Proportional Nugget")
 options(xtable.floating = FALSE)
@@ -662,24 +445,16 @@ autoformat(x)
 capture.output(print(x, include.rownames=FALSE), file=
                  paste0("../LaTeX_tables/compare_variograms_",
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
-```
 
-## Plot fitted variograms
 
-Plot the variograms with the fitted models. 
-
-A helper function:
-
-```{r compute.position}
+## ----compute.position--------------------------------------------------------------------------------------------
 rc.pos <- function(r, c) {
   if (c == 0) { r <- r + 1; c <- 1} # go to the next row if this one is full
   return(c(r, c))
 }
-```
 
-Plot:
 
-```{r plot.vgms, fig.width=map.fig.width, fig.height=map.fig.height}
+## ----plot.vgms, fig.width=map.fig.width, fig.height=map.fig.height-----------------------------------------------
 ylims <- c(0, max(v.gnatsgo$gamma, v.sg$gamma, 
                   ifelse(exists("v.gsm"), max(v.gsm$gamma), 0),
                   ifelse(exists("v.psu"), max(v.psu$gamma), 0),
@@ -717,25 +492,9 @@ if(exists("vmf.landgis")) {
   print(p6, split=c(c, r, n.figs.col, n.figs.row), more=T); c <- c + 1
 } 
 print(NULL, split=c(c, r, n.figs.col, n.figs.row), more=F) # force the end of the figure
-```
 
 
-# Classify
-
-The metrics used require classified maps, so we must classify into ranges. These can be of several types:
-
-1. fixed, set by analyst. E.g., pH in 0.5 increments. These classes should have some application significance, e.g., limits in Soil Taxonomy or land capability systems.
-
-2. "natural" classes from histograms or k-means,
-
-In both cases using sharp class boundaries can lead to artefacts caused by the DSM method.
-
-## Histogram equalization   
-
-A better method is histogram equalization, with a user-defined number of classes. This avoids subjectivity and will work on any property.
-
-
-```{r hist.equal.cuts, fig.width=8, fig.height=4}
+## ----hist.equal.cuts, fig.width=8, fig.height=4------------------------------------------------------------------
 n.class <- 8
 #
 # values.all computed above
@@ -746,12 +505,9 @@ n <- length(values.all) - sum(is.na(values.all))
 (cuts <- values.all.sort[cut.positions * 1:(n.class-1)])
 hist(values.all, breaks=36, main="Histogram equalization")
 abline(v=cuts, col="blue", lwd=2)
-```
 
 
-We set up a colour ramp that covers the entire range, and then select the colours out of it that match the actual value range.
-
-```{r classify.setup}
+## ----classify.setup----------------------------------------------------------------------------------------------
 (cut.names <- cut(zlim, breaks=c(zlim[1], cuts, zlim[2]),
                   ordered_result=TRUE, include.lowest = TRUE)) 
 # make sure lowest value is included
@@ -760,12 +516,9 @@ We set up a colour ramp that covers the entire range, and then select the colour
 color.ramp <- bpy.colors(n.class)
 #
 (class.limits <- c(zlim[1], cuts, zlim[2]))
-```
-
-Save the limits in a table for the paper:
 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 x <- xtable(data.frame(quantiles=c("minimum", paste0("q", 1:3), 
@@ -777,14 +530,9 @@ autoformat(x)
 capture.output(print(x, include.rownames=FALSE), file=
                  paste0("../LaTeX_tables/class_limits_",
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
-```
 
-## Classification
 
-Reclassify according to the histogram-equalized limits.
-Note that `terra::classify` keeps a record of the classification method, in this case, the vector of cutpoints, although the values of the reclassified raster are integer class numbers. These are found with `levels()[[1]]`.
-
-```{r classify.raster}
+## ----classify.raster---------------------------------------------------------------------------------------------
 gnatsgo.class <- classify(gnatsgo.crop, rcl=class.limits)
 # gnatsgo.class <- as.factor(gnatsgo.class)
 table(values(gnatsgo.class))
@@ -859,9 +607,9 @@ if (exists("landgis.crop")) {
   #             main="LandGIS")
   #
 }
-```
 
-```{r show.classified, fig.width=map.fig.width, fig.height=map.fig.height}
+
+## ----show.classified, fig.width=map.fig.width, fig.height=map.fig.height-----------------------------------------
 par(mfrow=c(n.figs.row, n.figs.col))
 .l <- range(values(gnatsgo.class), na.rm=TRUE)
 terra::plot(gnatsgo.class,
@@ -902,61 +650,42 @@ if (exists("issr8.class")) {
               main="ISSR-800")
 }
 par(mfrow=c(1,1))
-```
 
-## Cross-classification
 
-Cross-classification gNATSGO (rows) vs. SoilGrids250 (columns):
-
-```{r xclass.1}
+## ----xclass.1----------------------------------------------------------------------------------------------------
 table(as.vector(gnatsgo.class), as.vector(sg.class),
       useNA = "ifany")
-```
 
-Cross-classification gNATSGO (rows) vs. SPCG100USA (columns):
 
-```{r xclass.2}
+## ----xclass.2----------------------------------------------------------------------------------------------------
 if (exists("psu.class")) { 
   table(as.vector(gnatsgo.class), as.vector(psu.class),
       useNA = "ifany")
 }
-```
 
-Cross-classification gNATSGO (rows) vs. POLARIS (columns):
 
-```{r xclass.2a}
+## ----xclass.2a---------------------------------------------------------------------------------------------------
 if (exists("polaris.class")) {
   table(as.vector(gnatsgo.class), as.vector(polaris.class),
       useNA = "ifany")
 }
-```
 
-Cross-classification gNATSGO (rows) vs. LandGIS (columns):
 
-```{r xclass.2b}
+## ----xclass.2b---------------------------------------------------------------------------------------------------
 if (exists("landgis.class")) { 
   table(as.vector(gnatsgo.class), as.vector(landgis.class),
       useNA = "ifany")
 }
-```
 
-Cross-classification SoilGrids250 (rows) vs. SPCG100USA (columns):
 
-```{r xclass.3}
+## ----xclass.3----------------------------------------------------------------------------------------------------
 if (exists("psu.class")) { 
   table(as.vector(sg.class), as.vector(psu.class),
       useNA = "ifany")
 }
-```
 
 
-## Polygonize
-
-The V-metrics require polygon maps, not gridded maps of classes.
-
-Polygonize them and adjust the class names.
-
-```{r polygonize}
+## ----polygonize--------------------------------------------------------------------------------------------------
 gnatsgo.poly <- terra::as.polygons(gnatsgo.class,
                                    values = TRUE,
                                    dissolve = TRUE)
@@ -995,17 +724,9 @@ if (exists("polaris.class")) {
   landgis.poly$breaks <- cuts[-1]
   landgis.poly$class <- 1:n.class
 }  
-```
 
-## Simple Features
 
-Some of the methods require Simple Features representation of spatial objects.
-
-Convert the `terra::SpatVector` objects to Simple Features. 
-
-Sometimes these may have some simple POLYGONs, so ensure all are MULTIPOLYGON for `vmeasure_calc`.
-
-```{r convert.polygons.sf}
+## ----convert.polygons.sf-----------------------------------------------------------------------------------------
 #
 gnatsgo.sf <- st_as_sf(gnatsgo.poly)
 gnatsgo.sf <- st_cast(gnatsgo.sf, "MULTIPOLYGON")
@@ -1037,15 +758,9 @@ if (exists("landgis.class")) {
   landgis.sf <- st_cast(landgis.sf, "MULTIPOLYGON")
 }
 #
-```
 
-## Topology
 
-The topology is not correct, so `vmeasure_calc` throws an error. Clean up the topology with `sf::st_make_valid`.
-
-See https://www.r-spatial.org/r/2017/03/19/invalid.html. 
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 # st_is_valid(gnatsgo.sf, reason=TRUE)
 gnatsgo.sf.v <- sf::st_make_valid(gnatsgo.sf)
 # st_is_valid(gnatsgo.sf.v, reason=TRUE)
@@ -1078,16 +793,9 @@ if (exists("landgis.sf")) {
   landgis.sf.v <- sf::st_make_valid(landgis.sf)
   # st_is_valid(landgis.sf.v, reason=TRUE)
 }
-```
 
 
-Now the topology is correct.
-
-## Plot the polygonized class maps
-
-Display the maps. Compute each legend from the classes present in that map.
-
-```{r make_class_maps}
+## ----make_class_maps---------------------------------------------------------------------------------------------
 my.pal <- brewer.pal(n.class, "PuBu")  # safe for colour-blind viewers
 l.gnatsgo <- range(gnatsgo.sf.v$class, na.rm = TRUE)
 l.sg <- range(sg.sf.v$class, na.rm = TRUE)
@@ -1150,11 +858,9 @@ if (exists("landgis.sf")) {
     scale_fill_continuous(low=my.pal[l.landgis[1]], high=my.pal[l.landgis[2]]) +
     theme(legend.position = "bottom", legend.direction = "horizontal")
 }
-```
 
-Show the class maps:
 
-```{r class_maps, fig.width=map.fig.width, fig.height=map.fig.height}
+## ----class_maps, fig.width=map.fig.width, fig.height=map.fig.height----------------------------------------------
 tmp <- "list(g0, g1"
 if (exists("g2")) { tmp <- paste0(tmp, ", g2") }
 if (exists("g3")) { tmp <- paste0(tmp, ", g3") }
@@ -1163,47 +869,9 @@ if (exists("g5")) { tmp <- paste0(tmp, ", g5") }
 if (exists("g6")) { tmp <- paste0(tmp, ", g6") }
 tmp <- paste0(tmp, ")")
 grid.arrange(grobs = eval(parse(text=tmp)), nrow=n.figs.row, ncol=n.figs.col)
-```
 
 
-
-# Metrics from the `sabre` package
-
-These metrics are explained in:
-
-Nowosad, J., & Stepinski, T. F. (2018). Spatial association between regionalizations using the information-theoretical V-measure. International Journal of Geographical Information Science, 32(12), 2386–2401. https://doi.org/10.1080/13658816.2018.1511794
-
-and implemented in the `sabre` package:
-
-## V metrics {#vmetrics}
-
-The _V-measure_ originated in the field of computer science as a measure for comparison of different clusterings of the same domain.  It is a measure of an overall spatial correspondence between classified maps -- these are analogous to clusterings. So continuous maps (as in this study) must be classified into the same classes, and the two classified maps then compared.
-
-"The V-measure method has several advantages over the widely used Mapcurves method, it has clear interpretations in terms of mutual information as well as in terms of analysis of variance, 
-
-_Homogeneity_ shows an average homogeneity of the regions in the 2nd map with respect to the regions in the 1st, i.e., how close the 2nd map comes to reproducing the 1st
-
-_Completeness_ is a function of homogeneity of the regions in the 1st map with respect to the regions in the 2nd, i.e., how much the regions in the 1st map reproduce those of the 2nd 
-These do not depend on the class labels, only on the number/quantity of regions (classes) in the source map compared to given region of the target map. 
-
-This function uses the `sf::st_intersection()`,m which depends on the coordinates values precision.
-(For example, precision = 1000 rounds values to the third decimal places and precision = 0.001
-uses values rounded to the nearest 1000, see `sf::st_as_binary`).
-
-
-
-The `vmeasure_calc()` function calculates intersections of the input geometries.
-For this function we must specify the names of the columns with the region names; both x and y must contain `POLYGON`s or `MULTIPOLYGON`s and have the same CRS. 
-
-
-
-## Compute metrics
-
-Compute the metrics with the `sabre` package. The first-listed map is the map to evaluate, with respect to the second-listed (reference) map.
-
-### gNATSGO vs. SoilGrids
-
-```{r gNATSGO8.sg}
+## ----gNATSGO8.sg-------------------------------------------------------------------------------------------------
 regions.gnatsgo.sg <- vmeasure_calc(x = gnatsgo.sf.v, 
                                  y = sg.sf.v, 
                                  x_name = class, y_name = class)
@@ -1211,27 +879,19 @@ class(regions.gnatsgo.sg)
 print(regions.gnatsgo.sg)
 names(regions.gnatsgo.sg)
 names(regions.gnatsgo.sg$map1)
-```
 
-`rih` is the intersection map. Show these:
 
-Geometric precision is set by `st_as_binary`, default is `attr(x, "precision")`. Here we didn't change it and the intersection looks good.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 attr(regions.gnatsgo.sg, "precision")  # NULL, means a system default
-```
 
-Here we leave it as the default `NULL`.
 
-```{r vmaps.gnatsgo.sg, fig.width=4, fig.height=6}
+## ----vmaps.gnatsgo.sg, fig.width=4, fig.height=6-----------------------------------------------------------------
 ## produced maps -- the homogeneity of the regions.gnatsgo.sg
 terra::plot(regions.gnatsgo.sg$map1["rih"], main = "Inhomogeneity -- SG2 vs. gNATSGO")
 terra::plot(regions.gnatsgo.sg$map2["rih"], main = "Incompleteness -- SG2 vs. gNATSGO")
-```
 
-### gNATSGO vs. SPCG100USA
 
-```{r vmaps.gnatsgo.psu, fig.width=4, fig.height=6}
+## ----vmaps.gnatsgo.psu, fig.width=4, fig.height=6----------------------------------------------------------------
 if (exists("psu.sf.v")) {
   regions.gnatsgo.psu <- vmeasure_calc(x = gnatsgo.sf.v, 
                                        y = psu.sf.v, 
@@ -1244,12 +904,9 @@ if (exists("psu.sf.v")) {
   terra::plot(regions.gnatsgo.psu$map1["rih"], main = "Inhomogeneity -- SPCG vs. gNATSGO")
   terra::plot(regions.gnatsgo.psu$map2["rih"], main = "Incompleteness -- SPCGA vs. gNATSGO")
 }
-```
 
 
-### gNATSGO vs. POLARIS
-
-```{r vmaps.gnatsgo.polaris, fig.width=4, fig.height=6}
+## ----vmaps.gnatsgo.polaris, fig.width=4, fig.height=6------------------------------------------------------------
 par(mfrow=c(1, 2))
 regions.gnatsgo.polaris <- vmeasure_calc(x = gnatsgo.sf.v, 
                                       y = polaris.sf.v, 
@@ -1260,11 +917,9 @@ names(regions.gnatsgo.polaris)
 names(regions.gnatsgo.polaris$map1)
 terra::plot(regions.gnatsgo.psu$map1["rih"], main = "Inhomogeneity -- PSP vs. gNATSGO")
 terra::plot(regions.gnatsgo.psu$map2["rih"], main = "Incompleteness -- PSP vs. gNATSGO")
-```
 
-### SPCG100USA vs. SoilGrids250
 
-```{r vmaps.psu.sg, fig.width=4, fig.height=6}
+## ----vmaps.psu.sg, fig.width=4, fig.height=6---------------------------------------------------------------------
 if (exists("psu.sf.v")) {
   regions.psu.sg <- vmeasure_calc(x = psu.sf.v, 
                                   y = sg.sf.v, 
@@ -1277,11 +932,9 @@ if (exists("psu.sf.v")) {
   terra::plot(regions.psu.sg$map1["rih"], main = "Inhomogeneity -- SPCG vs. SG2")
   terra::plot(regions.psu.sg$map2["rih"], main = "Incompleteness -- SPCG vs. SG2")
 }
-```
 
-## Table with `vmeasure` statistics
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 str(regions.gnatsgo.sg, max.level = 1)
 vmeasure.compare <- data.frame(DSM_products = "", 
                                V_measure = 0, 
@@ -1316,12 +969,9 @@ if (exists("regions.gnatsgo.psu")) {
   
 }
 print(vmeasure.compare)
-```
-
-Save for paper, with proper \LaTeX names:
 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 names(vmeasure.compare)[1] <- "DSM\\hspace{1x}products"
@@ -1330,22 +980,9 @@ autoformat(x)
 capture.output(print(x, include.rownames=FALSE), file=
                  paste0("../LaTeX_tables/compare_vmeasure_",
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
-```
 
 
-# Landscape metrics (`landscapemetrics` package) {#landscapemetrics}
-
-This package implements a set of metrics as used in ecology and derived from the FRAGSTATS computer program.
-
-Package: https://r-spatialecology.github.io/landscapemetrics/index.html
-
-Reference: Hesselbarth, M. H. K., Sciaini, M., With, K. A., Wiegand, K., & Nowosad, J. (2019). landscapemetrics: An open-source R tool to calculate landscape metrics. Ecography, 42, 1648–1657. https://doi.org/10.1111/ecog.04617
-
-## Convert to `raster`
-
-These packages work with `raster` objects, so convert from `terra` structures.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 r.gnatsgo <- raster(gnatsgo.class)
 r.sg <- raster(sg.class)
 if (exists("gsm.class")) r.gsm <- raster(gsm.class)
@@ -1353,13 +990,9 @@ if (exists("issr8.class")) r.issr8 <- raster(issr8.class)
 if (exists("psu.class")) r.psu <- raster(psu.class)
 if (exists("polaris.class")) r.polaris <- raster(polaris.class)
 if (exists("landgis.class")) r.landgis <- raster(landgis.class)
-```
 
-"The first step of every analysis should be a check if the input raster is suitable for `landscapemetrics` using `check_landscape()`. The function checks if the coordinate reference system is projected, if the cell units are in meters, if the classes are decoded as integer values, and if the number of different values is reasonable (in other words if discrete land‐cover classes are present). In case the input is not or only partially suitable, a corresponding warning is produced. This means that a calculation of metrics is still possible, but some results must be interpreted with caution (e.g. area‐ and distance‐related metrics)."
 
-Check them:
-
-```{r check.landscape}
+## ----check.landscape---------------------------------------------------------------------------------------------
 check_landscape(r.gnatsgo)
 check_landscape(r.sg)
 if (exists("gsm.class")) check_landscape(r.gsm)
@@ -1367,12 +1000,9 @@ if (exists("issr8.class")) check_landscape(r.issr8)
 if (exists("psu.class")) check_landscape(r.psu)
 if (exists("polaris.class")) check_landscape(r.polaris)
 if (exists("landgis.class")) check_landscape(r.landgis)
-```
 
 
-A function to display the landscape with a consistent colour ramp:
-
-```{r show.landscape.function}
+## ----show.landscape.function-------------------------------------------------------------------------------------
 (my.pal <- c(brewer.pal(n.class, "RdYlGn"), "#FFFFFF"))
 show.landscape <- function(r.map, r.title) {
   check_landscape(r.map)
@@ -1384,11 +1014,9 @@ show.landscape <- function(r.map, r.title) {
     labs(title = r.title)
   return(g)
 }
-```
 
-Show the landscapes of each product:
 
-```{r show.landscape, fig.width=7, fig.height=5}
+## ----show.landscape, fig.width=7, fig.height=5-------------------------------------------------------------------
 (g <- show.landscape(r.gnatsgo, "gNATSGO"))
 (g <- show.landscape(r.sg, "SoilGrids250"))
 if (exists("r.psu")) (g <- show.landscape(r.psu, "SPCG"))
@@ -1396,46 +1024,28 @@ if (exists("r.polaris")) (g <- show.landscape(r.polaris, "PSP"))
 if (exists("r.landgis")) (g <- show.landscape(r.landgis, "LandGIS"))
 if (exists("r.gsm")) (g <- show.landscape(r.gsm, "GSM v0.5"))
 if (exists("r.issr8")) (g <- show.landscape(r.issr8, "ISSR-800"))
-```
 
 
-
-## Metrics list
-
-"All functions in `landscapemetrics` start with `lsm_`. The second part of the name specifies the level (patch - `p`, class - `c` or landscape - `l`). The last part of the function name is the abbreviation of the corresponding metric (e.g. `enn` for the euclidean nearest-neighbor distance)."
-
-Here are all the landscape-level metrics:
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 list_lsm(level="landscape") %>% print(n=Inf)
 ls.metrics <- calculate_lsm(r.sg, level = "landscape")
 (ls.metrics) %>% print(n=16)
 data.frame(ls.metrics)
-```
 
-All the class-level metrics, applied to SoilGrids250:
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 list_lsm(level="class")  %>% print(n=Inf)
 class.metrics <- calculate_lsm(r.sg, level = "class")
 (class.metrics)
-```
 
-All the patch-level metrics, applied to SoilGrids250:
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 list_lsm(level="patch")  %>% print(n=Inf)
 patch.metrics <- calculate_lsm(r.sg, level = "patch")
 (patch.metrics)
-```
 
 
-
-## Visualize class and patch metrics
-
-Core areas for each _class_. These are the "typical" areas, used mainly for habitats. Here they show where the class is concentrated. Here we just show gNATSGO as an example, these are not further used.
-
-```{r show.core.areas, fig.width=12, fig.height=12}
+## ----show.core.areas, fig.width=12, fig.height=12----------------------------------------------------------------
 show_cores(r.gnatsgo)
 # show_cores(r.sg)
 # if (exists("r.gsm")) show_cores(r.gsm)
@@ -1443,11 +1053,9 @@ show_cores(r.gnatsgo)
 # if (exists("r.psu")) show_cores(r.psu)
 # if (exists("r.polaris")) show_cores(r.polaris)
 # if (exists("r.landgis")) show_cores(r.landgis)
-```
 
-Show the landscape with a patch-level metric in each _patch_. For example, the contiguity of each patch of the gNATSGO class map:
 
-```{r show.patch.level.metrics, fig.width=4, fig.height=5}
+## ----show.patch.level.metrics, fig.width=4, fig.height=5---------------------------------------------------------
 show_lsm(r.gnatsgo, what="lsm_p_contig")
 # show_lsm(r.sg, what="lsm_p_contig")
 # if (exists("r.gsm")) show_lsm(r.gsm, what="lsm_p_contig")
@@ -1455,15 +1063,9 @@ show_lsm(r.gnatsgo, what="lsm_p_contig")
 # if (exists("r.psu")) show_lsm(r.psu, what="lsm_p_contig")
 # if (exists("r.polaris")) show_lsm(r.polaris, what="lsm_p_contig")
 # if (exists("r.landgis")) show_lsm(r.landgis, what="lsm_p_contig")
-```
 
-But we want landscape-level metrics, we are not interested in individual patches.
 
-## Table of landscape metrics
-
-Here are the landscape-level metrics we will report:
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 lst <- paste0("lsm_l_", c("shdi", "shei", "lsi", "ai",  "frac_mn"))
 ls.metrics.gnatsgo <- calculate_lsm(r.gnatsgo, what=lst)
 ls.metrics.sg <- calculate_lsm(r.sg, what=lst)
@@ -1472,11 +1074,9 @@ if(exists("r.polaris")) ls.metrics.polaris <- calculate_lsm(r.polaris, what=lst)
 if(exists("r.gsm")) ls.metrics.gsm <- calculate_lsm(r.gsm, what=lst)
 if(exists("r.issr8")) ls.metrics.issr8 <- calculate_lsm(r.issr8, what=lst)
 if(exists("r.landgis")) ls.metrics.landgis <- calculate_lsm(r.landgis, what=lst)
-```
 
-Make a table with the metrics for the several products.
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 metrics.table <- data.frame(product=c("gNATSGO", "SG2"),
                             rbind(round(ls.metrics.gnatsgo$value, 3),
                                   round(ls.metrics.sg$value, 3)))
@@ -1491,10 +1091,9 @@ if (exists("ls.metrics.issr8")) { metrics.table <- rbind(metrics.table,
 if (exists("ls.metrics.landgis")) { metrics.table <- rbind(metrics.table, 
                                                            c("LandGIS", round(ls.metrics.landgis$value, 3))) }  
 names(metrics.table)[2:6] <- ls.metrics.gnatsgo$metric
-```
 
 
-```{r metrics.table}
+## ----metrics.table-----------------------------------------------------------------------------------------------
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 x <- xtable(metrics.table, row.names=FALSE, digits=3)
@@ -1502,14 +1101,9 @@ autoformat(x)
 capture.output(print(x, include.rownames=FALSE), file=
                  paste0("../LaTeX_tables/landscape_metrics_",
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
-```
 
 
-# Distance between co-occurrence vectors
-
-Generate a "signature" of the landscapes, in this case, the co-occurrence vector:
-
-```{r metrics.cove}
+## ----metrics.cove------------------------------------------------------------------------------------------------
 library(motif) # `lsp_signature`
 library(stars) # `motif` functions require this format
 # normalized co-occurence vector 8 x 8
@@ -1523,11 +1117,9 @@ if (exists("r.polaris")) cove.polaris <- lsp_signature(st_as_stars(r.polaris), t
 if (exists("r.gsm")) cove.gsm <- lsp_signature(st_as_stars(r.gsm), type="cove")
 if (exists("r.issr8")) cove.issr8 <- lsp_signature(st_as_stars(r.issr8), type="cove")
 if (exists("r.landgis")) cove.landgis <- lsp_signature(st_as_stars(r.landgis), type="cove")
-```
 
-Compute the Jensen-Shannon distances between signatures:
 
-```{r distance.cove}
+## ----distance.cove-----------------------------------------------------------------------------------------------
 # combine the vectors into a dataframe, one row per vector
 cove.df <- data.frame(cove.gnatsgo)$signature[[1]][1,]
 cove.df <- rbind(cove.df, cove.sg$signature[[1]][1,])
@@ -1563,11 +1155,9 @@ cove.dists <- round(
                         diag = FALSE)
   ,4)
 print(cove.dists)
-```   
 
-Export the results to a \LaTex{} table:
 
-```{r table.cove}
+## ----table.cove--------------------------------------------------------------------------------------------------
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 x <- xtable(as.matrix(cove.dists), row.names=TRUE, digits=3)
@@ -1575,6 +1165,4 @@ autoformat(x)
 capture.output(print(x, include.rownames=TRUE), file=
                  paste0("../LaTeX_tables/compare_landscape_patterns_",
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
-```
-
 

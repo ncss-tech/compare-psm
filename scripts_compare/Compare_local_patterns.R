@@ -1,102 +1,17 @@
----
-title: "Comparing spatial patterns of DSM maps at local resolution"
-author:
-- D G Rossiter
-- d.g.rossiter@cornell.edu
-date: "`r format(Sys.Date(), '%d-%B-%Y')`"
-params:
-   lrc_long: -76
-   lrc_lat: 42
-   size: 1
-   voi.n: 4
-   quantile.n: NA
-   depth.n: 1
-   test.tile.size: 0.15  # degrees
-   test.tile.x.offset: 0.30  # west from right edge
-   test.tile.y.offset: 0.45  # north from bottom edge
-output:
-  html_document:
-    fig_align: center
-    fig_height: 5
-    fig_width: 10
-    number_section: yes
-    theme: spacelab
-    df_print: paged
-    code_folding: hide
-    toc: yes
-    toc_float: yes
----
+params <-
+list(lrc_long = -76L, lrc_lat = 42L, size = 1L, voi.n = 4L, quantile.n = "NA", 
+    depth.n = 1L, test.tile.size = 0.15, test.tile.x.offset = 0.3, 
+    test.tile.y.offset = 0.45)
 
-```{r setup, include=FALSE, purl=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, purl = FALSE,
-                      fig.align = 'center', fig.path = './figs/compare_maps_30m/')
-knitr::opts_chunk$set(cache.extra = R.version.string)
-```
-
-# Introduction
-
-This script compares DSM products at 30 m grid resolution, which is used by POLARIS and is the standard "fine resolution" for DSM.
-
-In this script we quantify the *spatial* agreement between soil maps, using several methods: (1) ["V metrics"](#vmetrics) (2) [Landscape metrics](#landscapemetrics) similar to FRAGSTATS, as used in ecology.
-
-Depending on the [property of interest](#voi), the following can be compared.
-
-These two are  compared:
-
-* [gSSURGO](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/survey/geo/?cid=nrcseprd1464625);
-* POLARIS Soil Properties;
-
-And this is added as a representative global product, downscaled to the local resolution:
-
-* [SoiLGrids250](https://www.isric.org/explore/soilgrids)  from ISRIC further abbreviated as _SG2_.
-
-This script must follow script `Compare_local.Rmd` "Comparing DSM products at local resolution". That script harmonizes the area of interest and resolution of these sources, and stores the harmonized products for this analysis.
-
-To use this script:
-
-1. Ajust the [directory structure](#dirs) to your system.
-
-2. [Select a property](#voi) and [select a depth slice](#depth), using the YAML header or by knitting with parameters..
-
-3. [Select an Area of Interest](#aoi), using the YAML header or by knitting with parameters.
-
-These three can be adjusted in the YAML header; these include the default parameters and look like:
-
-```
----
-   params:
-   lrc_long: -76
-   lrc_lat: 42 
-   size: 1
-   voi.n: 4
-   quantile.n: NA 
-   depth.n: 4
----
-```
-
-Note that a sub-area was specified by `Compare_local.Rmd`, which must be run before this, on the 1-degree tile specified in the YAML. This script will work on that subtile.
-
-4. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
-
-Generated figures will be in directory `./figs/compare_maps/`, in a subdirectory named for the AOI. The file name includes the DSM method, property and depth slice.
-
-Generated tables in \LaTeX format will be in directory `../LaTeX_tables`. The table names include AOI, property and depth slice.
-
-# Setup
-
-This is a simplified version of the code in `Compare_local.Rmd`.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 n.products <- 3
 n.figs.row <- 1
 n.figs.col <- 3
 map.fig.width <- n.figs.col*5
 map.fig.height <- n.figs.row*5
-```
 
-## Packages
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 library(raster, warn.conflicts=FALSE)      # previous version of raster classes now in `terra`
                      #   needed for landscape metrics
 library(terra, warn.conflicts=FALSE)       # Robert Hijmans raster and vector data
@@ -112,157 +27,93 @@ library(sabre)       # compare polygon map spatial structure
 library(landscapemetrics)   # FRAGSTATS metrics
 library(landscapetools)
 library(gstat)      # variogram modelling
-```
 
-# Local storage {#dirs}
 
-Set the directory on the local file system, under which local files were stored by `Compare_regional.Rmd`, and where this script will store its results. These are large files, about 50 Mb each.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 base.dir <- "/Volumes/Pythagoras/ds/Compare_PSM_local/"
-```
 
-# Parameters
 
-Parameters for this run:
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat, "; size:", params$size))
 print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
-```
 
 
-## Area of interest {#aoi}
-
-We use a $1 \times 1^\circ$ tile, because that is how POLARIS data is served.
-
-Specify the _lower-right corner_ and _tile size_ from the YAML or rendering parameters:
-
-```{r lrc}
+## ----lrc---------------------------------------------------------------------------------------------------------
 tile.lrc <- c(params$lrc_long, params$lrc_lat) # lower-right corner
 tile.size <- params$size                # tile dimensions
-```
 
-Compute the upper-right corner $1^\circ$ west and north:
 
-```{r ulc}
+## ----ulc---------------------------------------------------------------------------------------------------------
 tile.ulc <- c(tile.lrc[1]-tile.size, tile.lrc[2]+tile.size) # upper-left corner
-```
 
-Set part of a file path using the AOI and property to be compared.
-These names correspond to files stored by script `Compare_regional.Rmd`, which incorporate the AOI `aoi` and the property of interest and depth slice `voi`.
 
-AOI prefix:
-
-```{r aoi.set.dir.prefix}
+## ----aoi.set.dir.prefix------------------------------------------------------------------------------------------
 AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
                          "_lon", tile.ulc[1], tile.lrc[1])
-```
 
 
-## Property of interest {#voi}
-
-Set the property of interest from the YAML or rendering parameters:
-
-```{r voi}
+## ----voi---------------------------------------------------------------------------------------------------------
 voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
 voi.sg <- voi.list.sg[params$voi.n]
-```
 
-## Depth slice of interest {#depth}
 
-Set the depth slice from the YAML or rendering parameters::
-
-```{r depth}
+## ----depth-------------------------------------------------------------------------------------------------------
 depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
 voi.depth <- paste0(voi.sg, "_", depth.list.sg[params$depth.n])
-```
 
-## Adjust directory for figures
 
-Change the location of figures generated by this script: put in subdirectories by area. 
-
-```{r adjust.fig.path}
+## ----adjust.fig.path---------------------------------------------------------------------------------------------
 knitr::opts_chunk$set(fig.path = paste0(knitr::opts_chunk$get("fig.path"), 
                                         AOI.dir.prefix, "/",
                                         voi.depth, "_"))
-```
 
 
-# Source rasters
-
-## Import full tiles
-
-Load the rasters and name the data item generically as `voi`, so it can be used in expressions.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 (gssurgo <- rast(paste0(base.dir, AOI.dir.prefix, "/gssurgo_tile_30_", voi.depth, ".tif")))
 names(gssurgo) <- "voi"
 (sg <- rast(paste0(base.dir, AOI.dir.prefix, "/sg_tile_30_", voi.depth, ".tif")))
 names(sg) <- "voi"
 (polaris <- rast(paste0(base.dir, AOI.dir.prefix, "/polaris_tile_30_", voi.depth, ".tif")))
 names(polaris) <- "voi" 
-```
 
-```{r show.crs}
+
+## ----show.crs----------------------------------------------------------------------------------------------------
 rgdal::showP4(crs(sg))
-```
-
-These are all in WGS84 geographic coordinates, cover the same area, and have the same no-data areas.
 
 
-## Project to metric CRS
-
-For area calculations, we need a metric CRS, not geographic.
-
-Determine the UTM zone and appropriate EPSG code:
-
-```{r get.utm}
+## ----get.utm-----------------------------------------------------------------------------------------------------
 long2UTM <- function(long) { (floor((long + 180)/6) %% 60) + 1 }
 utm.zone <- long2UTM(params$lrc_long+0.5)
 epsg.db <- rgdal::make_EPSG()
 ix <- grep(paste0("WGS 84 / UTM zone ", utm.zone, "N"), epsg.db$note)
 epsg.db[ix,]
 epsg.code <- epsg.db[ix, "code"]
-```
 
-Use this to resample:
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 crs.utm <- paste0("+init=epsg:", epsg.code)
 gssurgo <- terra::project(gssurgo, crs.utm)
 sg <- terra::project(sg, crs.utm)
 polaris <- terra::project(polaris, crs.utm)
-```
 
-## Determine property range
 
-Determine the full range of the property across all maps, to one decimal place:
-
-```{r zlim}
+## ----zlim--------------------------------------------------------------------------------------------------------
 values.all <- c(values(gssurgo),
                 values(sg),
                 values(polaris))
 (zlim <- c(min(values.all, na.rm = TRUE),
                 max(values.all, na.rm=TRUE)))
-```
 
-## Display maps
 
-Now show the maps together:
-
-```{r side.by.side, fig.width=map.fig.width, fig.height=map.fig.height}
+## ----side.by.side, fig.width=map.fig.width, fig.height=map.fig.height--------------------------------------------
 par(mfrow=c(n.figs.row, n.figs.col))
 plot(gssurgo, main="gSSURGO", range=zlim)
 plot(polaris, main="PSP", range=zlim)
 plot(sg, main="SG2", range=zlim)
 par(mfrow=c(1,1))
-```   
 
 
-## Statistical differences (non-spatial)
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 rmse <- function(v1, v2) {
   round(sqrt(mean((v1-v2)^2, na.rm=TRUE)),3)
 }
@@ -274,9 +125,9 @@ rmse.adj <- function(v1, v2) {   # RMSE adjusted for ME (bias)
   v2.adj <- v2 + me
   round(sqrt(mean((v1-v2.adj)^2, na.rm=TRUE)),3)
 }
-```
 
-```{r compare.stats}
+
+## ----compare.stats-----------------------------------------------------------------------------------------------
 stats.compare <- data.frame(DSM_product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
 stats.compare[1, ] <- c("SG2",
                         me(values(gssurgo),values(sg)),
@@ -289,31 +140,20 @@ stats.compare[2, ] <- c("PSP",
                         rmse.adj(values(gssurgo),values(polaris))
 )
 print(stats.compare)
-```
-
-Any bias in the three will affect the cross-classification and spatial statistics. 
-
-So also make a bias-adjusted version of the DSM products, using gSSURGO as the basis.
-
-## Adjust for bias (systematic error)
 
 
-```{r side.by.side.unbiased}
+## ----side.by.side.unbiased---------------------------------------------------------------------------------------
 sg.adj <- sg + me(values(gssurgo),values(sg))
 polaris.adj <- polaris + me(values(gssurgo),values(polaris))
-```
 
-Recompute limits:
 
-```{r zlim.adj}
+## ----zlim.adj----------------------------------------------------------------------------------------------------
 values.all.adj <- c(values(gssurgo), values(sg.adj), values(polaris.adj))
 (zlim.adj <- c(min(values.all.adj, na.rm = TRUE),
                 max(values.all.adj, na.rm=TRUE)))
-```
 
-These are now similar in their ranges, but not in their patterns. Compare the statistics:
 
-```{r compare.stats.adj}
+## ----compare.stats.adj-------------------------------------------------------------------------------------------
 stats.compare <- data.frame(DSM_product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
 stats.compare[1, ] <- c("SG2",
                         me(values(gssurgo),values(sg.adj)),
@@ -326,43 +166,21 @@ stats.compare[2, ] <- c("PSP",
                         rmse.adj(values(gssurgo),values(polaris.adj))
                         )
 print(stats.compare)
-```
-
-Removing bias changes the spatial statistics only slightly, because the cut points in classification are the same so some pixels change classes.
-
-So for now, _do not adjust_, use the original cropped images.
-
-# Local spatial structure
-
-The variogram (equivalent to correlogram) can be used to characterize the degree of spatial continuity and the "roughness" of a continuous property map. 
-
-In this section we compute and compare the short-range variograms, these reveal the local structure. In these maps the variogram is typically unbounded, but we don't care about the long-range structure.
-
-Convert the `terra::SpatRaster` objects to `raster::raster` and then to `sp:SpatialPointsDataFrame` in order to compute variograms. Note that there is (so far) no direct conversion. Note that `gstat::variogram` must be applied to an object of class `sp` or `sf`, not directly to a `terra::SpatRaster`.
 
 
-```{r make.sp}
+## ----make.sp-----------------------------------------------------------------------------------------------------
 gssurgo.sp <- as(raster(gssurgo), "SpatialPointsDataFrame")
 sg.sp <- as(raster(sg), "SpatialPointsDataFrame")
 polaris.sp <- as(raster(polaris), "SpatialPointsDataFrame") 
-```
 
-## Compute and model empirical variograms
 
-The variograms are not always bounded within the subtile, we just want to model the close-range variation.
-
-Initial parameters for empirical variograms and models. These could be adjusted for different areas and properties.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 range.init <- 800  # m 
 cutoff.init <- range.init*3 # m
 width.init <- 100   # plenty of cells for narrow bins
-```
-
-Compute the empirical variograms.
 
 
-```{r compute.variogram, fig.height=6, fig.width=8}
+## ----compute.variogram, fig.height=6, fig.width=8----------------------------------------------------------------
 system.time(
   v.gssurgo <- gstat::variogram(voi ~ 1, loc = gssurgo.sp, 
                                 cutoff=cutoff.init, width=width.init)
@@ -378,13 +196,9 @@ system.time(
 v.polaris <- variogram(voi ~ 1, loc = polaris.sp, cutoff=cutoff.init, width=width.init)
 ) # system.time
 #  plot(v.polaris, pl=T)
-```
 
-Model the variograms with the exponential model; the range parameter is 1/3 of the effective range. Initial estimate of total sill is 80% of maximum semivariance of the empirical variogram; initial nugget is 0.
 
-Note that these may not converge with the automatic initial model selection; if not, adjust by hand based on the plot of the empirical variogram (just above).
-  
-```{r model.variogram, fig.height=6, fig.width=8}
+## ----model.variogram, fig.height=6, fig.width=8------------------------------------------------------------------
 vm.gssurgo <- vgm(0.8*max(v.gssurgo$gamma), "Exp", range.init, 0)
 vmf.gssurgo <- fit.variogram(v.gssurgo, model=vm.gssurgo)
 # plot(v.gssurgo, pl=T, model=vmf.gssurgo)
@@ -396,13 +210,9 @@ vmf.sg <- fit.variogram(v.sg, model=vm.sg)
 vm.polaris <- vgm(0.8*max(v.polaris$gamma), "Exp", range.init, 0)
 vmf.polaris <- fit.variogram(v.polaris, model=vm.polaris)
 # plot(v.polaris, pl=T, model=vmf.polaris)
-```
 
-## Table of variogram parameters
 
-Make a table of the variogram parameters:
-
-```{r table.compare.variograms}
+## ----table.compare.variograms------------------------------------------------------------------------------------
 vmeasure.compare <- data.frame(product = "", Range = 0, StructSill = 0, PropNugget = 0)
 vmeasure.compare[1,] <- c("gSSURGO", 
                        round(vmf.gssurgo[2,"range"], 0),
@@ -422,11 +232,9 @@ vmeasure.compare[3, ] <-  c("PSP",
 vmeasure.compare[, 2:4] <- apply(vmeasure.compare[, 2:4],  2, as.numeric)
 vmeasure.compare[, "Range"] <- vmeasure.compare[, "Range"]*3
 print(vmeasure.compare)
-```
 
-Save for paper:
 
-```{r write.table.compare.variograms}
+## ----write.table.compare.variograms------------------------------------------------------------------------------
 names(vmeasure.compare) <- c("Product", "Effective range", 
                              "Structural Sill", "Proportional Nugget")
 options(xtable.floating = FALSE)
@@ -436,12 +244,9 @@ autoformat(x)
 capture.output(print(x, include.rownames=FALSE), file=
                  paste0("../LaTeX_tables/compare_variograms_local_",
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
-```
-
-## Plot fitted variograms
 
 
-```{r plot.vgms, fig.width=map.fig.width, fig.height=map.fig.height}
+## ----plot.vgms, fig.width=map.fig.width, fig.height=map.fig.height-----------------------------------------------
 ylims <- c(0, max(v.gssurgo$gamma, v.sg$gamma, 
                   max(v.polaris$gamma))*1.1)
 p0 <- plot(v.gssurgo, ylim=ylims, model=vmf.gssurgo, main="gSSURGO", xlab="separation (m)", pch=20)
@@ -450,25 +255,9 @@ p2 <- plot(v.sg, ylim=ylims, model=vmf.sg, main="SG2", xlab="separation (m)", pc
 print(p0, split=c(1, 1, n.figs.col, n.figs.row), more=T) 
 print(p1, split=c(2, 1, n.figs.col, n.figs.row), more=T) 
 print(p2, split=c(3, 1, n.figs.col, n.figs.row), more=F)
-```
 
 
-# Classify
-
-The metrics used require classified maps, so we must classify into ranges. These can be of several types:
-
-1. fixed, set by analyst. E.g., pH in 0.5 increments. These classes should have some application significance, e.g., limits in Soil Taxonomy or land capability systems.
-
-2. "natural" classes from histograms or k-means,
-
-In both cases using sharp class boundaries can lead to artefacts caused by the DSM method.
-
-## Histogram equalization   
-
-A better method is histogram equalization, with a user-defined number of classes. This avoids subjectivity and will work on any property.
-
-
-```{r hist.equal.cuts, fig.width=8, fig.height=4}
+## ----hist.equal.cuts, fig.width=8, fig.height=4------------------------------------------------------------------
 n.class <- 8
 #
 # values.all computed above
@@ -479,12 +268,9 @@ n <- length(values.all) - sum(is.na(values.all))
 (cuts <- values.all.sort[cut.positions * 1:(n.class-1)])
 hist(values.all, breaks=36, main="Histogram equalization")
 abline(v=cuts, col="blue", lwd=2)
-```
 
 
-We set up a colour ramp that covers the entire range, and then select the colours out of it that match the actual value range.
-
-```{r classify.setup}
+## ----classify.setup----------------------------------------------------------------------------------------------
 (cut.names <- cut(zlim, breaks=c(zlim[1], cuts, zlim[2]),
                   ordered_result=TRUE, include.lowest = TRUE)) 
 # make sure lowest value is included
@@ -494,11 +280,9 @@ We set up a colour ramp that covers the entire range, and then select the colour
 color.ramp <- brewer.pal(n.class, "PuBu")  # safe for colour-blind viewers, from RColorBrewer
 #
 (class.limits <- c(zlim[1], cuts, zlim[2]))
-```
 
-Save the limits in a table for the paper:
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 x <- xtable(data.frame(quantiles=c("minimum", paste0("q", 1:3), 
@@ -510,11 +294,9 @@ autoformat(x)
 capture.output(print(x, include.rownames=FALSE), file=
                  paste0("../LaTeX_tables/class_limits_local_",
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
-```
 
-## Classification
 
-```{r classify.raster}
+## ----classify.raster---------------------------------------------------------------------------------------------
 gssurgo.class <- classify(gssurgo, rcl=class.limits)
 # gssurgo.class <- as.factor(gssurgo.class)
 table(values(gssurgo.class))
@@ -539,9 +321,9 @@ table(values(polaris.class))
 #             col=color.ramp[.l[1]:.l[2]], type="classes",
 #             main="PSP")
 #
-```
 
-```{r show.classified, fig.width=map.fig.width, fig.height=map.fig.height}
+
+## ----show.classified, fig.width=map.fig.width, fig.height=map.fig.height-----------------------------------------
 par(mfrow=c(n.figs.row, n.figs.col))
 .l <- range(values(gssurgo.class), na.rm=TRUE)
 terra::plot(gssurgo.class,
@@ -556,54 +338,30 @@ terra::plot(sg.class,
             col=color.ramp[.l[1]:.l[2]], type="classes",
             main="SG2")
 par(mfrow=c(1,1))
-```
 
-## Cross-classification
 
-Cross-classification gSSURGO (rows) vs. SoilGrids250 (columns):
-
-```{r xclass.1}
+## ----xclass.1----------------------------------------------------------------------------------------------------
 table(as.vector(gssurgo.class), as.vector(sg.class),
       useNA = "ifany")
-```
 
-Cross-classification gSSURGO (rows) vs. POLARIS (columns):
 
-```{r xclass.2a}
+## ----xclass.2a---------------------------------------------------------------------------------------------------
 table(as.vector(gssurgo.class), as.vector(polaris.class),
       useNA = "ifany")
-```
 
 
-Cross-classification SoilGrids250 (rows) vs. POLARIS (columns):
-
-```{r xclass.3}
+## ----xclass.3----------------------------------------------------------------------------------------------------
 table(as.vector(sg.class), as.vector(polaris.class),
       useNA = "ifany")
-```
 
 
-## Polygonize
-
-The V-metrics require polygon maps, not gridded maps of classes.
-
-Polygonize them:
-
-```{r polygonize}
+## ----polygonize--------------------------------------------------------------------------------------------------
 gssurgo.poly <- terra::as.polygons(gssurgo.class, dissolve=TRUE, trunc=FALSE)
 sg.poly <- terra::as.polygons(sg.class, dissolve=TRUE, trunc=FALSE)
 polaris.poly <- terra::as.polygons(polaris.class, dissolve=TRUE, trunc=FALSE)
-```
 
-## Simple Features
 
-Some of the methods require Simple Features representation of spatial objects.
-
-Convert the `terra::SpatVector` objects to Simple Features, using `st_as_sf`.
-
-Sometimes these may have some simple POLYGONs, so ensure all are MULTIPOLYGON for `vmeasure_calc`.
-
-```{r convert.polygons.sf}
+## ----convert.polygons.sf-----------------------------------------------------------------------------------------
 #
 gssurgo.sf <- st_as_sf(gssurgo.poly)
 gssursgo.sf <- st_cast(gssurgo.sf, "MULTIPOLYGON")
@@ -617,17 +375,9 @@ polaris.sf <- st_as_sf(polaris.poly)
 polaris.sf <- st_cast(polaris.sf, "MULTIPOLYGON")
 names(polaris.sf)[1] <- "class"
 #
-```
 
-This is a Simple feature collection with 4 features and 1 field (and the geometry).
 
-## Topology
-
-The topology is not correct, so `vmeasure_calc` throws an error. Clean up the topology with `sf::st_make_valid`.
-
-See https://www.r-spatial.org/r/2017/03/19/invalid.html. 
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 # st_is_valid(gssurgo.sf, reason=TRUE)
 gssurgo.sf.v <- sf::st_make_valid(gssurgo.sf)
 # st_is_valid(gssurgo.sf.v, reason=TRUE)
@@ -638,77 +388,28 @@ sg.sf.v <- sf::st_make_valid(sg.sf)
 st_is_valid(polaris.sf, reason=TRUE)
 polaris.sf.v <- sf::st_make_valid(polaris.sf)
 # st_is_valid(polaris.sf.v, reason=TRUE)
-```
-
-Now the topology is correct.
-
-# Metrics from the `sabre` package
-
-These metrics are explained in:
-
-Nowosad, J., & Stepinski, T. F. (2018). Spatial association between regionalizations using the information-theoretical V-measure. International Journal of Geographical Information Science, 32(12), 2386–2401. https://doi.org/10.1080/13658816.2018.1511794
-
-and implemented in the `sabre` package:
-
-## V metrics {#vmetrics}
-
-The _V-measure_ originated in the field of computer science as a measure for comparison of different clusterings of the same domain.  It is a measure of an overall spatial correspondence between classified maps -- these are analogous to clusterings. So continuous maps (as in this study) must be classified into the same classes, and the two classified maps then compared.
-
-"The V-measure method has several advantages over the widely used Mapcurves method, it has clear interpretations in terms of mutual information as well as in terms of analysis of variance, 
-
-_Homogeneity_ shows an average homogeneity of the regions in the 2nd map with respect to the regions in the 1st, i.e., how close the 2nd map comes to reproducing the 1st
-
-_Completeness_ is a function of homogeneity of the regions in the 1st map with respect to the regions in the 2nd, i.e., how much the regions in the 1st map reproduce those of the 2nd 
-These do not depend on the class labels, only on the number/quantity of regions (classes) in the source map compared to given region of the target map. 
-
-This function uses the `sf::st_intersection()`,m which depends on the coordinates values precision.
-(For example, precision = 1000 rounds values to the third decimal places and precision = 0.001
-uses values rounded to the nearest 1000, see `sf::st_as_binary`).
 
 
-
-The `vmeasure_calc()` function calculates intersections of the input geometries.
-For this function we must specify the names of the columns with the region names; both x and y must contain `POLYGON`s or `MULTIPOLYGON`s and have the same CRS. 
-
-
-
-## Compute metrics
-
-Compute the metrics with the `sabre` package.
-
-### SoilGrids vs. gSSURGO
-
-```{r vmaps.gssurgo.sg.compute}
+## ----vmaps.gssurgo.sg.compute------------------------------------------------------------------------------------
 regions.gssurgo.sg <- vmeasure_calc(x = gssurgo.sf.v, 
                                  y = sg.sf.v, 
                                  x_name = class, y_name = class)
 print(regions.gssurgo.sg)
 names(regions.gssurgo.sg)
 names(regions.gssurgo.sg$map1)
-```
 
-`rih` is the intersection map. Show these:
 
-Geometric precision is set by `st_as_binary`, default is `attr(x, "precision")`. Here we didn't change it and the intersection looks good.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 attr(regions.gssurgo.sg, "precision")  # NULL, means a system default
-```
-
-Here we leave it as the default `NULL`.
-
-These maps are too complicated to be useful visualizations (unlike the 250 m maps), so set `EVAL=FALSE`.
-
-```{r vmaps.gssurgo.sg, fig.width=4, fig.height=6, eval=FALSE}
-  ## produced maps -- the homogeneity of the regions.gssurgo.sg
-terra::plot(regions.gssurgo.sg$map1["rih"], main = "Homogeneity --  SG2 vs. gSSURGO")
-terra::plot(regions.gssurgo.sg$map2["rih"], main = "Completeness -- SG2 vs. gSSURGO")
-```
 
 
-### POLARIS vs. gSSURGO 
+## ----vmaps.gssurgo.sg, fig.width=4, fig.height=6, eval=FALSE-----------------------------------------------------
+##   ## produced maps -- the homogeneity of the regions.gssurgo.sg
+## terra::plot(regions.gssurgo.sg$map1["rih"], main = "Homogeneity --  SG2 vs. gSSURGO")
+## terra::plot(regions.gssurgo.sg$map2["rih"], main = "Completeness -- SG2 vs. gSSURGO")
 
-```{r vmaps.gssurgo.polaris, compute}
+
+## ----vmaps.gssurgo.polaris, compute------------------------------------------------------------------------------
 par(mfrow=c(1, 2))
 regions.gssurgo.polaris <- vmeasure_calc(x = gssurgo.sf.v, 
                                       y = polaris.sf.v, 
@@ -716,19 +417,15 @@ regions.gssurgo.polaris <- vmeasure_calc(x = gssurgo.sf.v,
 print(regions.gssurgo.polaris)
 names(regions.gssurgo.polaris)
 names(regions.gssurgo.polaris$map1)
-```
 
-These maps are too complicated to be useful visualizations (unlike the 250 m maps), so set `EVAL=FALSE`.
 
-```{r vmaps.gssurgo.polaris, fig.width=4, fig.height=6, eval=FALSE}
-terra::plot(regions.gssurgo.polaris$map1["rih"], main = "Homogeneity -- PSP vs. gSSURGO")
-terra::plot(regions.gssurgo.polaris$map2["rih"], main = "Completeness -- PSP vs. gSSURGO")
-par(mfrow=c(1, 1))
-```
+## ----vmaps.gssurgo.polaris, fig.width=4, fig.height=6, eval=FALSE------------------------------------------------
+## terra::plot(regions.gssurgo.polaris$map1["rih"], main = "Homogeneity -- PSP vs. gSSURGO")
+## terra::plot(regions.gssurgo.polaris$map2["rih"], main = "Completeness -- PSP vs. gSSURGO")
+## par(mfrow=c(1, 1))
 
-### SoilGrids250 vs. POLARIS
 
-```{r vmaps.sg.polaris.compute}
+## ----vmaps.sg.polaris.compute------------------------------------------------------------------------------------
 regions.sg.polaris <- vmeasure_calc(x = sg.sf.v, 
                                     y = polaris.sf.v, 
                                     x_name = class, y_name = class)
@@ -736,21 +433,16 @@ print(regions.sg.polaris)
 names(regions.sg.polaris)
 names(regions.sg.polaris$map1)
 ## produced maps -- the homogeneity of the regions
-```
 
-These maps are too complicated to be useful visualizations (unlike the 250 m maps), so set `EVAL=FALSE`.
 
-  
-```{r vmaps.sg.polaris, fig.width=4, fig.height=6, eval=FALSE}
-par(mfrow=c(1, 2))
-terra::plot(regions.sg.polaris$map1["rih"], main = "Homogeneity -- PSP -- SG2")
-terra::plot(regions.sg.polaris$map2["rih"], main = "Completeness -- PSP -- SG2")
-par(mfrow=c(1, 1))
-```
+## ----vmaps.sg.polaris, fig.width=4, fig.height=6, eval=FALSE-----------------------------------------------------
+## par(mfrow=c(1, 2))
+## terra::plot(regions.sg.polaris$map1["rih"], main = "Homogeneity -- PSP -- SG2")
+## terra::plot(regions.sg.polaris$map2["rih"], main = "Completeness -- PSP -- SG2")
+## par(mfrow=c(1, 1))
 
-## Table with `vmeasure` statistics
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 str(regions.gssurgo.sg, max.level = 1)
 vmeasure.compare <- data.frame(Products = "", V_measure = 0, Homogeneity = 0, Completeness = 0)
 vmeasure.compare[1,] <- c("SG2 vs. gSSURGO", 
@@ -766,12 +458,9 @@ vmeasure.compare[3,] <- c("PSP vs. SG2",
                           round(regions.sg.polaris$homogeneity, 4),
                           round(regions.sg.polaris$completeness, 4))
 print(vmeasure.compare)
-```
-
-Save for paper:
 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 x <- xtable(vmeasure.compare, row.names=FALSE, digits=2)
@@ -779,43 +468,21 @@ autoformat(x)
 capture.output(print(x, include.rownames=FALSE), file=
                  paste0("../LaTeX_tables/compare_vmeasure_local_",
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
-```
 
 
-# Landscape metrics (`landscapemetrics` package) {#landscapemetrics}
-
-This package implements a set of metrics as used in ecology and derived from the FRAGSTATS computer program.
-
-Package: https://r-spatialecology.github.io/landscapemetrics/index.html
-
-Reference: Hesselbarth, M. H. K., Sciaini, M., With, K. A., Wiegand, K., & Nowosad, J. (2019). landscapemetrics: An open-source R tool to calculate landscape metrics. Ecography, 42, 1648–1657. https://doi.org/10.1111/ecog.04617
-
-## Convert to `raster`
-
-These packages work with `raster` objects, so convert from `terra` structures.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 r.gssurgo <- raster(gssurgo.class)
 r.sg <- raster(sg.class)
 r.polaris <- raster(polaris.class)
-```
 
-"The first step of every analysis should be a check if the input raster is suitable for `landscapemetrics` using `check_landscape()`. The function checks if the coordinate reference system is projected, if the cell units are in meters, if the classes are decoded as integer values, and if the number of different values is reasonable (in other words if discrete land‐cover classes are present). In case the input is not or only partially suitable, a corresponding warning is produced. This means that a calculation of metrics is still possible, but some results must be interpreted with caution (e.g. area‐ and distance‐related metrics)."
 
-Check them:
-
-```{r check.landscape}
+## ----check.landscape---------------------------------------------------------------------------------------------
 check_landscape(r.gssurgo)
 check_landscape(r.sg)
 check_landscape(r.polaris)
-```
 
-## Display the landscapes
 
-A function to display the landscape with a consistent colour ramp.
-This returns a `ggplot2` object.
-
-```{r show.landscape.function}
+## ----show.landscape.function-------------------------------------------------------------------------------------
 (my.pal <- c(brewer.pal(n.class, "RdYlGn"), "#FFFFFF"))
 show.landscape <- function(r.map, r.title) {
   check_landscape(r.map)
@@ -831,24 +498,17 @@ show.landscape <- function(r.map, r.title) {
     labs(title = r.title)
   return(g)
 }
-```
 
-Show the landscapes of each product:
 
-```{r show.landscape, fig.width=map.fig.width, fig.height=map.fig.height}
+## ----show.landscape, fig.width=map.fig.width, fig.height=map.fig.height------------------------------------------
 g1<- show.landscape(r.gssurgo, "gSSURGO")
 g2 <- show.landscape(r.polaris, "PSP")
 g3 <- show.landscape(r.sg, "SG2")
 g3
 grid.arrange(g1, g2, g3, nrow=1, ncol=3)
-```
 
 
-## Visualize class and patch metrics
-
-Core areas for each _class_. These are the "typical" areas, used mainly for habitats. Here they show where the class is concentrated. Here we just show gSSURGO as an example, these are not further used.
-
-```{r show.core.areas, fig.width=12, fig.height=12}
+## ----show.core.areas, fig.width=12, fig.height=12----------------------------------------------------------------
 show_cores(r.gssurgo)
 # show_cores(r.sg)
 # if (exists("r.gsm")) show_cores(r.gsm)
@@ -856,11 +516,9 @@ show_cores(r.gssurgo)
 # if (exists("r.psu")) show_cores(r.psu)
 # if (exists("r.polaris")) show_cores(r.polaris)
 # if (exists("r.landgis")) show_cores(r.landgis)
-```
 
-Show the landscape with a patch-level metric in each _patch_. For example, the contiguity of each patch of the gSSURGO class map:
 
-```{r show.patch.level.metrics, fig.width=4, fig.height=5}
+## ----show.patch.level.metrics, fig.width=4, fig.height=5---------------------------------------------------------
 show_lsm(r.gssurgo, what="lsm_p_contig")
 # show_lsm(r.sg, what="lsm_p_contig")
 # if (exists("r.gsm")) show_lsm(r.gsm, what="lsm_p_contig")
@@ -868,34 +526,24 @@ show_lsm(r.gssurgo, what="lsm_p_contig")
 # if (exists("r.psu")) show_lsm(r.psu, what="lsm_p_contig")
 # if (exists("r.polaris")) show_lsm(r.polaris, what="lsm_p_contig")
 # if (exists("r.landgis")) show_lsm(r.landgis, what="lsm_p_contig")
-```
 
-But we want landscape-level metrics, we are not interested in individual patches.
 
-## Table of landscape metrics
-
-Here are the landscape-level metrics we will report:
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 lst <- paste0("lsm_l_", c("shdi", "shei", "lsi", "ai", "frac_mn"))
 ls.metrics.gssurgo <- calculate_lsm(r.gssurgo, what=lst)
 ls.metrics.sg <- calculate_lsm(r.sg, what=lst)
 ls.metrics.polaris <- calculate_lsm(r.polaris, what=lst)
-```
 
-Make a table with the metrics for the several products.
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 metrics.table <- data.frame(product=c("gSSURGO", "SG2", "PSP"),
                             rbind(round(ls.metrics.gssurgo$value, 3),
                                   round(ls.metrics.sg$value, 3),
                                   round(ls.metrics.polaris$value, 3)))
 names(metrics.table)[2:6] <- ls.metrics.gssurgo$metric
-```
 
-Export the results to a \LaTex{} table:
 
-```{r metrics.table}
+## ----metrics.table-----------------------------------------------------------------------------------------------
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 x <- xtable(metrics.table, row.names=FALSE, digits=3)
@@ -903,13 +551,9 @@ autoformat(x)
 capture.output(print(x, include.rownames=FALSE), file=
                  paste0("../LaTeX_tables/landscape_metrics_local_",
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
-```
 
-# Distance between co-occurrence vectors
 
-Generate a "signature" of the landscapes, in this case, the co-occurrence vector:
-
-```{r metrics.cove}
+## ----metrics.cove------------------------------------------------------------------------------------------------
 library(motif) # `lsp_signature`
 library(stars) # `motif` functions require this format
 # normalized co-occurence vector 8 x 8
@@ -920,11 +564,9 @@ library(stars) # `motif` functions require this format
 cove.sg <- lsp_signature(st_as_stars(r.sg), type="cove")
 cove.gssurgo <- lsp_signature(st_as_stars(r.gssurgo), type="cove")
 cove.polaris <- lsp_signature(st_as_stars(r.polaris), type="cove")
-```
 
-Compute the Jensen-Shannon distances between signatures:
 
-```{r distance.cove}
+## ----distance.cove-----------------------------------------------------------------------------------------------
 # combine the vectors into a dataframe, one row per vector
 cove.df <- data.frame(cove.gssurgo)$signature[[1]][1,]
 cove.df <- rbind(cove.df, cove.sg$signature[[1]][1,])
@@ -940,11 +582,9 @@ cove.dists <- round(
                         diag = FALSE)
   ,4)
 print(cove.dists)
-```   
 
-Export the results to a \LaTex{} table:
 
-```{r table.cove}
+## ----table.cove--------------------------------------------------------------------------------------------------
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 x <- xtable(as.matrix(cove.dists), row.names=TRUE, digits=3)
@@ -952,5 +592,4 @@ autoformat(x)
 capture.output(print(x, include.rownames=TRUE), file=
                  paste0("../LaTeX_tables/compare_landscape_patterns_local_",
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
-```
 

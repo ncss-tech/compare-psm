@@ -1,108 +1,9 @@
----
-title: "Comparing DSM products at local resolution"
-author:
-- D G Rossiter
-- d.g.rossiter@cornell.edu
-date: "`r format(Sys.Date(), '%d-%B-%Y')`"
-params:
-   lrc_long: -76
-   lrc_lat: 42
-   size: 1
-   voi.n: 4
-   quantile.n: NA
-   depth.n: 1
-   test.tile.size: 0.15  # degrees
-   test.tile.x.offset: 0.30  # west from right edge
-   test.tile.y.offset: 0.45  # north from bottom edge
-output:
-  html_document:
-    fig_align: center
-    fig_height: 6
-    fig_width: 6
-    number_section: yes
-    theme: spacelab
-    df_print: paged
-    code_folding: hide
-    toc: yes
-    toc_float: yes
-  word_document:
-    toc: yes
----
+params <-
+list(lrc_long = -76L, lrc_lat = 42L, size = 1L, voi.n = 4L, quantile.n = "NA", 
+    depth.n = 1L, test.tile.size = 0.15, test.tile.x.offset = 0.3, 
+    test.tile.y.offset = 0.45)
 
-```{r setup, include=FALSE, purl=FALSE}
-knitr::opts_chunk$set(echo = TRUE,
-                      message = FALSE,
-                      warning = FALSE,
-                      purl=FALSE,
-                      fig.align = 'center',
-                      fig.path = './figs/compare_30m/')
-knitr::opts_chunk$set(cache.extra = R.version.string)
-```
-
-# Introduction
-
-This script compares DSM products at 30 m grid resolution, which is used by POLARIS, and is a common resolution for local products. A grid cell is thus about 0.09 ha, sufficient for field-specific assessment even for small fields.
-
-These two are  compared:
-
-* [gSSURGO](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/soils/survey/geo/?cid=nrcseprd1464625);
-* POLARIS Soil Properties;
-
-And this is added as a representative global product, downscaled to the local resolution:
-
-* [SoiLGrids250](https://www.isric.org/explore/soilgrids)  from ISRIC further abbreviated as _SG2_.
-
-The DSM products must have been previously imported and restricted to the same area of interest (AOI), a $1 \times 1^\circ$, to the locations indicated in the directory list. These can be somewhat larger, in this script the CRS are made compatible (WGS84 geographic) and cropped to exactly a 1 degree tile.
-
-We use gSSURGO as the reference map.
-
-This script must follow the import of the various products; these are in directory `../scripts_importmaps`.
-
-To use this script:
-
-1. Ajust the [directory structure](#dirs) to your system.
-
-2. [Select a property](#voi) and [select a depth slice](#depth), using the YAML header or by knitting with parameters..
-
-3. [Select an Area of Interest](#aoi), using the YAML header or by knitting with parameters.
-
-4. [Set the sub-tile](#sub_aoi), if you want to compare a smaller area than a full tile; this makes sense since we want to see details at this resolution.
-
-The above can be adjusted in the YAML header; these include the default parameters and look like:
-
-```
----
-   params:
-   lrc_long: -76
-   lrc_lat: 42 
-   size: 1
-   voi.n: 4
-   quantile.n: NA 
-   depth.n: 4
-   test.tile.size: 0.15  # degrees
-   test.tile.x.offset: 0.32  # west from right edge
-   test.tile.y.offset: 0.68  # north from bottom edge
----
-```
-
-These can also be specified with the `params` argument in a call to `rmarkdown::render`.
-
-5. Either compile to HTML or PDF ("knit"), or "Run All" within R Markdown.
-
-Results:
-
-1. Generated figures will be in directory `./figs/compare_local/`. These will be specific to the AOI, property and depth slice. So to save them from over-writing by other runs, move them to another directory.
-
-2. Generated tables in \LaTeX format will be in directory `../LaTeX_tables`. The table names include AOI, property and depth slice and so are not over-written.
-
-3. Generated harmonized maps will be [saved](#save) to directory `Compare_30m` under the base directory, in a subdirectory named for the AOI. The file name includes the DSM method, property and depth slice.
-
-
-# Setup
-
-This is a simplified version of the code in `Compare_regional.Rmd`.
-
-```{r figure.setup}
+## ----figure.setup------------------------------------------------------------------------------------------------
 n.products <- 3
 n.figs.row <- 1
 n.figs.col <- 3
@@ -112,168 +13,107 @@ n.figs.row.diff <- 1
 n.figs.col.diff <- 2
 map.fig.width.diff <- n.figs.col.diff*5
 map.fig.height.diff <- n.figs.row.diff*5
-```
 
 
-## Packages
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 library(rgdal)      # R interface to GDAL
 library(terra)      # for raster maps
 library(sf)         # Simple Features spatial data
 # library(gridExtra)  # arrange multiple plots
 library(knitr)      # for fancy tables
 library(xtable)     # (same)
-```
 
-## Base directory paths {#dirs}
 
-Set base directories, specific to the local file system. 
-
-1. `base.dir`: This is the location of the DSM tiles that have been cropped to an AOI by an import script.
-
-```{r base.dir}
+## ----base.dir----------------------------------------------------------------------------------------------------
 base.dir <- "/Volumes/Pythagoras/ds/DSM_export"
 base.dir.gssurgo <- paste0(base.dir, "/gSSURGO")
 base.dir.polaris <- paste0(base.dir, "/POLARIS")
 base.dir.sg <- paste0(base.dir, "/SoilGrids250")
-```
 
-2. `base.dir.import`: This is where downloaded large GeoTIFF are located. Because of their size they may be on a separate file system, e.g., removable or networked drive. Files may have been downloaded here by an import script, or by direct download from the data provider.
 
-In this script this location is only used for POLARIS, since these large files (15-30Mb) are imported directly as $1 \times 1^\circ$ tiles by script `./scripts_importmaps/POLARIS_import.Rmd`.
-
-```{r base.dir.import}
+## ----base.dir.import---------------------------------------------------------------------------------------------
 base.dir.import <- "/Volumes/Pythagoras/ds/"
 base.dir.polaris.import <- paste0(base.dir.import, "POLARIS")
-```
 
-3. `base.dir.export`: This is where generated harmonized maps will be saved for further processing, e.g., comparing patterns.
 
-These are quite large files, about 50Mb for a 1-degree tile, so store on the external storage.
-
-```{r base.dir.export}
+## ----base.dir.export---------------------------------------------------------------------------------------------
 base.dir.export <- paste0(base.dir.import, "Compare_PSM_local")
-```
 
-# Parameters
 
-Parameters for this run:
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat, "; size:", params$size))
 print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
 print(paste("test.tile.size:", params$test.tile.size, 
             "test.tile.x.offset:", params$test.tile.x.offset,
             "test.tile.y.offset:", params$test.tile.y.offset))
-```
 
-## Property of interest {#voi}
 
-Property names in various systems. Note that all except GSM v0.5 and SoilGrids250 are missing one or more properties. Such products will be omitted from comparisons for those properties.
-
-Properties that be compared are: clay, silt, sand weight concentrations; pH in 1:1 water; CEC; SOC; bulk density of the fine earth; coarse fragment volume proportion. See the import script for each product for a link to a description of the properties and their units of measure.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 voi.list.gssurgo <- c("claytotal_r", "silttotal_r", "sandtotal_r",
                   "ph1to1h2o_r", "cec7_r", "om_r",   # note SOM not SOC
                   "dbthirdbar_r", "sieveno10_r") # passing 2.0 mm sieve, complement is coarse fragments
 voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
 voi.list.polaris <- c("clay", "silt", "sand", "ph", "", "om", "bd", "") 
-```
 
-Select the position in these lists
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 voi.n <- params$voi.n   # variable of interest, SoilGrids name
 voi.gssurgo <- voi.list.gssurgo[voi.n]
 voi.sg <- voi.list.sg[voi.n]
 voi.polaris <- voi.list.polaris[voi.n]
-```
 
-## Depth of interest {#depth}
 
-Depth slices:
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 depth.list.gssurgo <- c("05", "515", "1530", "3060", "60100", "100200")
 depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
 depth.list.polaris <- gsub("-", "_", depth.list.sg)
-```
 
-Select the depth slice:
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 depth <- params$depth.n
-```
 
 
-## Area of Interest (AOI) {#aoi}
-
-We use a $1 \times 1^\circ$ tile, because that is how POLARIS data is served.
-
-Specify the _lower-right corner_ and _tile size_ from the YAML or rendering parameters:
-
-```{r lrc}
+## ----lrc---------------------------------------------------------------------------------------------------------
 tile.lrc <- c(params$lrc_long, params$lrc_lat) # lower-right corner
 tile.size <- params$size                # tile dimensions
-```
 
-Compute the upper-right corner $1^\circ$ west and north:
 
-```{r ulc}
+## ----ulc---------------------------------------------------------------------------------------------------------
 tile.ulc <- c(tile.lrc[1]-tile.size, tile.lrc[2]+tile.size) # upper-left corner
-```
 
-A prefix for directories and file names, to keep AOI results separate.
 
-```{r aoi.dir.prefix}
+## ----aoi.dir.prefix----------------------------------------------------------------------------------------------
 AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
                          "_lon", tile.ulc[1], tile.lrc[1])
-```
 
-Change the location of figures generated by this script: put in subdirectories by area, 
 
-```{r adjust.fig.path}
+## ----adjust.fig.path---------------------------------------------------------------------------------------------
 knitr::opts_chunk$set(fig.path = paste0(knitr::opts_chunk$get("fig.path"), 
                                         AOI.dir.prefix, "/",
                                         voi.sg, "_", depth.list.sg[depth], "_"))
-```
 
-Bounding box:
 
-```{r bbox.4326}
+## ----bbox.4326---------------------------------------------------------------------------------------------------
 m <- matrix(c(tile.ulc[1],tile.lrc[1],  #ulc
               tile.ulc[2], tile.lrc[2]), nrow=2) #lrc
 bb.ll <- st_sfc(st_multipoint(m))
 st_crs(bb.ll) <- 4326   # ESPG code for WGS84 long/lat
-```
 
-Project the bounding box to Goode Interrupted Homolosine (IGH) used by SoilGrids:
 
-```{r bbox.igh}
+## ----bbox.igh----------------------------------------------------------------------------------------------------
 # convert to Homolosine. Note epsg=152160 is not in PROJ4 database
 crs.igh <- '+proj=igh +lat_0=0 +lon_0=0 +datum=WGS84 +units=m +no_defs'
 (bb.igh <- st_transform(bb.ll, crs.igh))
 (bb.igh <- st_coordinates(bb.igh)[,1:2])
 (bb <- as.vector(t(bb.igh)))
-```
 
-Project the bounding box to the CONUS AEA. This is the CRS used by gSSURGO:
 
-```{r bbox.aea}
+## ----bbox.aea----------------------------------------------------------------------------------------------------
 crs.aea <- "+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"
 (bb.aea <- st_transform(bb.ll, crs.aea))
-```
 
 
-## Test area {#sub_aoi}
-
-Because the full tile is so large, here we can choose to test on a smaller area, e.g., a quarter-tile 0.25 x 0.25 degrees.
-
-Set the size and offset from the lower-right corner. The test area will be to the north and west of this.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 tile.lrc <- c(params$lrc_long, params$lrc_lat) # lower-right corner
 tile.size <- params$size     
 test.tile.size <- params$test.tile.size  # degrees
@@ -291,18 +131,9 @@ test.tile.y.offset <- params$test.tile.y.offset  # north from bottom edge
 # test.tile.size <- 0.15  # degrees
 # test.tile.x.offset <- 0.61  # west from right edge
 # test.tile.y.offset <- 0.44  # north from bottom edge
-```
 
 
-# Products to compare
-
-Load the tiles in their native CRS, as processed in the import scripts.
-
-## gSSURGO
-
-This is the reference product.
-
-```{r get.tiles.gssurgo}
+## ----get.tiles.gssurgo-------------------------------------------------------------------------------------------
 src.dir <-  paste0(base.dir.gssurgo ,"/", 
                    AOI.dir.prefix)
 (voi.depth.name <- paste0(voi.gssurgo, "_", depth.list.gssurgo[depth]))
@@ -312,14 +143,9 @@ if (file.exists(file.name)) {
   names(r.gssurgo) <- "gssurgo"
   print(r.gssurgo)
 } else { stop("No gSSURGO tile, stopping") }
-```
 
 
-## SoilGrids250
-
-This is the globally-consistent product.
-
-```{r get.tiles.sg}
+## ----get.tiles.sg------------------------------------------------------------------------------------------------
 # SoilGrids250 -- only the mean prediction in this script
 # Use the EPSG:4326 version
 src.dir <-  paste0(base.dir.sg ,"/", 
@@ -333,12 +159,9 @@ if (file.exists(file.name)) {
   names(r.sg) <- "SoilGrids250"
   print(r.sg)
 } else { stop("No SoilGrids250 tile, stopping") }
-```
 
 
-## POLARIS
-
-```{r get.tiles.polaris}
+## ----get.tiles.polaris-------------------------------------------------------------------------------------------
 # POLARIS -- only the mean prediction in this script
 (file.name <- paste0(base.dir.polaris.import, "/",
                      AOI.dir.prefix, "/",
@@ -350,17 +173,9 @@ if (file.exists(file.name)) {
   names(r.p) <- "polaris"
   print(r.p)
 }  else { stop("No POLARIS tile, stopping") }
-```
 
 
-# Make maps compatible
-
-## Make the units compatible
-
-Depending on the property, data in some coverages need to be converted to the units used in SoilGrids250; we choose this as the base units; note these are integers. Here are the units:
-
- 
-```{r show.conversions}
+## ----show.conversions--------------------------------------------------------------------------------------------
 df <- data.frame(property=voi.list.sg, 
                  #"clay"  "silt"  "sand"  "phh2o" "cec"   "soc"   "bdod"  "cfvo" 
                  sg=c("%%","%%","%%","pHx10","mmol(c)/kg","dg/kg","cg/cm3", "cm3/dm3"),  #SG
@@ -373,13 +188,9 @@ df <- data.frame(property=voi.list.sg,
   df, caption = 'Properties and units of measure',
   col.names=c("Property", "SG2", "gSSURGO",  "PSP"),
   booktabs = TRUE)
-```  
 
-Make a matrix with the conversions to SoilGrids250 units. These factors *multiply* the source, to match SoilGrids250. `NA` values indicate that the property is not included in the source, or that its conversion can not be handled by multiplication.
 
-Some conversions are given [here](https://www.isric.org/explore/soilgrids/faq-soilgrids#What_do_the_filename_codes_mean).
-
-```{r make.conversion.matrix}
+## ----make.conversion.matrix--------------------------------------------------------------------------------------
 som.to.soc <- 1/1.724138 # this was used in the lab, I know it has been heavily criticized
 conversions <- data.frame(property=voi.list.sg, 
                  # sg=c("%%","%%","%%","pHx10","mmol(c)/kg","dg/kg","cg/cm3", "cm3/dm3"), #SG
@@ -392,31 +203,21 @@ knitr::kable(
   col.names=c("Property", "gSSURGO", "PSP"),
   booktabs = TRUE,
   align = "r")
-```
 
-Convert units as necessary.  Use SoilGrids as the default.
 
-SOC for POLARIS is a special case, because of the log10-scale, and because it is SOM, not SOC. Use the conventional conversion factor 0.58 = 1/1.724138.
-
-```{r polaris.soc}
+## ----polaris.soc-------------------------------------------------------------------------------------------------
 if (exists("r.p") && (voi.sg=="soc")) {
     r.p <- ((10^r.p)*som.to.soc*1000) 
 }
-```
 
-Coarse fragments for gSSURGO is another special case:
 
-```{r gssurgo.cfvo}
+## ----gssurgo.cfvo------------------------------------------------------------------------------------------------
 if (voi.sg == "cfvo") {
   r.gssurgo <- (100 - r.ssurgo)*0.1
 }
-```
 
 
-All other conversions:
-
-
-```{r convert}
+## ----convert-----------------------------------------------------------------------------------------------------
 # this property's factors
 (factors <- conversions[match(voi.sg, conversions$property),])
 
@@ -426,53 +227,29 @@ if (!is.na(fact) && (fact != 1)) { r.gssurgo <- r.gssurgo*fact }
 
 fact <- as.numeric(factors["p"])
 if (!is.na(fact) && (fact != 1)) { r.p <- r.p*fact }
-```
 
 
-
-## Match resolution and CRS
-
-SoilGrids250 and POLARIS are in EPSG:4326 (WGS84 long/lat), at different grid resolutions.
-
-```{r crs.show.1}
+## ----crs.show.1--------------------------------------------------------------------------------------------------
 rgdal::showP4(crs(r.sg))
 data.frame(sg=res(r.sg)[1], 
            polaris=res(r.p)[1])
-```
 
-gSSURGO is in a CONUS Albers Equal Area on the GRS80 ellipsoid, the basis of the NAD83 datum, and centred with WGS84, so there is effectively no difference in datums with the other products.
 
-```{r crs.show.2}
+## ----crs.show.2--------------------------------------------------------------------------------------------------
 rgdal::showP4(crs(r.gssurgo))
-```
 
-Resample SoilGrids nominal 250m into POLARIS WGS84 30m nominal pixels, using cubic interpolation -- this will only have effect near the edges of the large pixel being downscaled.
 
-```{r crs.resample}
+## ----crs.resample------------------------------------------------------------------------------------------------
 r.sg.p <- terra::resample(r.sg, r.p, method="cubic")
 # plot(r.sg.p)
-```
 
-For gSSURGO the CRS must be changed, not just the resolution.
-Since the resolutions are similar (30 m vs. 1 arc-second), use nearest-neighbour to avoid diffuse values along what had been polygon boundaries in the original map.The value range will not change.
 
-This avoids spurious very thin polygons, if the raster has to be polygonized, e.g., as class maps.
-
-```{r crs.project}
+## ----crs.project-------------------------------------------------------------------------------------------------
 r.gssurgo.p <- terra::project(r.gssurgo, r.p, method="near") 
 # plot(r.gssurgo.p)
-```
 
 
-## Make all maps cover the same area
-
-
-Make a true 1 degree tile raster and use it to mask the other coverages, to get consistent coverage.
-SoilGrids is larger and so are the two originally in AEA projection.
-
-To be used for cropping it must be a `Spatial` class from which a `terra::SpatExtent` can be extracted.
-
-```{r make.polygon}
+## ----make.polygon------------------------------------------------------------------------------------------------
 m <- matrix(c(tile.ulc[1],tile.ulc[2],  #ulc
               tile.lrc[1],tile.ulc[2],  #urc
               tile.lrc[1],tile.lrc[2],  #lrc
@@ -483,35 +260,25 @@ st_crs(bb.poly) <- 4326
 bb.poly <- st_polygonize(bb.poly)
 bb.poly <- as_Spatial(bb.poly)
 ext(bb.poly)
-```
 
-```{r}
+
+## ----------------------------------------------------------------------------------------------------------------
 r.gssurgo.p <- crop(r.gssurgo.p, bb.poly)
 r.p <- crop(r.p, bb.poly)
 r.sg.p <- crop(r.sg.p, bb.poly)
-```
 
-POLARIS predicts in the lakes, gNATSGO predict in some built-up areas. Mask these out with SoilGrids250, which does not.
 
-```{r mask.with.polaris}
+## ----mask.with.polaris-------------------------------------------------------------------------------------------
 r.gssurgo.p <- mask(r.gssurgo.p, r.sg.p)
 r.p <- mask(r.p, r.sg.p)
-```
 
-There are some areas not surveyed by gSSURGO, e.g., Indian reservations. Also their unsurveyed urban areas may differ. So mask the other products with gSSURGO.
 
-```{r mask.with.gssurgo}
+## ----mask.with.gssurgo-------------------------------------------------------------------------------------------
 r.p <- mask(r.p, r.gssurgo.p)
 r.sg.p <- mask(r.sg.p, r.gssurgo.p)
-```
 
 
-
-
-## Crop to test area
-
-
-```{r crop.test.area}
+## ----crop.test.area----------------------------------------------------------------------------------------------
 (tmp <- as.vector(ext(r.sg.p)))
 tmp["xmax"] <- tmp["xmax"] - test.tile.x.offset
 tmp["xmin"] <- tmp["xmax"] - test.tile.size
@@ -521,14 +288,9 @@ ext(tmp)
 r.gssurgo.p <- crop(r.gssurgo.p, ext(tmp))
 r.sg.p <- crop(r.sg.p, ext(tmp))
 r.p <- crop(r.p, ext(tmp))
-```
 
 
-# Compare
-
-## Compute common range for all products
-
-```{r compare.zlim}
+## ----compare.zlim------------------------------------------------------------------------------------------------
 zlim <- c(min(values(r.sg)*10, na.rm = TRUE),
           max(values(r.sg)*10, na.rm = TRUE))/10
 zlim <- c(floor(min(zlim[1]*10, values(r.gssurgo.p)*10, na.rm=TRUE)),
@@ -536,25 +298,17 @@ zlim <- c(floor(min(zlim[1]*10, values(r.gssurgo.p)*10, na.rm=TRUE)),
 zlim <- c(floor(min(zlim[1]*10, values(r.p)*10, na.rm=TRUE)),
           ceiling(max(zlim[2]*10, values(r.p)*10, na.rm=TRUE)))/10
 print(zlim)
-```
 
-## Histograms
-    
-The property and depth will be given in the caption, if this is used in a publication.
 
-First, compute the maximum density, to have a common y-axis:
-
-```{r hist.densities}
+## ----hist.densities----------------------------------------------------------------------------------------------
 max.dens <- function(r.map) {  # argument: the raster map
   h <- hist(r.map,  breaks=24, plot = FALSE)
   max(h$counts/(diff(h$breaks[1:2]))/sum(h$counts))
 }
 yl <- c(0, max(max.dens(r.gssurgo.p), max.dens(r.sg.p), max.dens(r.p)))
-```
 
-Use this y-axis to show all the histograms together:
 
-```{r hist.sg.props, fig.width=map.fig.width, fig.height=map.fig.height}
+## ----hist.sg.props, fig.width=map.fig.width, fig.height=map.fig.height-------------------------------------------
 par(mfrow=c(n.figs.row, n.figs.col))
 hist(r.gssurgo.p, breaks=24, main="gSSURGO",
      xlim=zlim, xlab="", freq = FALSE, ylim=yl)
@@ -563,24 +317,17 @@ hist(r.p, breaks=24, main="PSP",
 hist(r.sg, breaks=24, main="SG2",
      xlim=zlim, xlab="", freq = FALSE, ylim=yl)
 par(mfrow=c(1,1))
-```
-
-## Maps
 
 
-```{r map.sg.props, fig.width=map.fig.width, fig.height=map.fig.height}
+## ----map.sg.props, fig.width=map.fig.width, fig.height=map.fig.height--------------------------------------------
 par(mfrow=c(n.figs.row, n.figs.col))
 terra::plot(r.gssurgo.p, main="gSSURGO", range=zlim)
 terra::plot(r.p, main="PSP", range=zlim)
 terra::plot(r.sg.p, main="SG2", range=zlim)
 par(mfrow=c(1,1))
-```
 
-## Correlations
 
-Pairwise Pearson correlations. Note the distributions are fairly symmetric/quasi-normal so Pearson's correlations are valid.
-
-```{r pairwise}
+## ----pairwise----------------------------------------------------------------------------------------------------
 v.all <- data.frame(gssurgo=values(r.gssurgo.p),
                     sg=values(r.sg.p),
                     polaris=values(r.p))
@@ -589,33 +336,20 @@ summary(v.all)
 cor.all <- cor(v.all, use="pairwise.complete.obs")
 cor.upper <- cor.all; cor.upper[lower.tri(cor.upper)] <- NA
 print(round(cor.upper, 3))
-```
 
-Make a nice correlation plot:
 
-```{r corrplot, fig.width=(n.figs.col*1.5), fig.height=n.figs.col*1.5}
+## ----corrplot, fig.width=(n.figs.col*1.5), fig.height=n.figs.col*1.5---------------------------------------------
 library(corrplot)
 corrplot.mixed(cor.all, upper="ellipse", lower="number", diag="n",
                lower.col = "black")
-```
 
 
-# Differences 
-
-## Compute all differences
-
-Relative to gSSURGO, as the base product closest to the field soil survey.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 diff.gssurgo.sg <- r.gssurgo.p - r.sg.p
 diff.gssurgo.p <-  r.gssurgo.p - r.p
-```
 
-## Statistics
 
-RMSE, ME, RMSE adjusted to ME, for all products compared to gSSURGO:
-
-```{r stats.compare.sg, warning=FALSE}
+## ----stats.compare.sg, warning=FALSE-----------------------------------------------------------------------------
 stats.compare <- data.frame(DSM_product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
 rmse <- function(v1, v2) {
   round(sqrt(mean((v1-v2)^2, na.rm=TRUE)),3)
@@ -638,11 +372,9 @@ stats.compare[2, ] <- c("PSP",
                         rmse(values(r.gssurgo.p),values(r.p)),
                         rmse.adj(values(r.gssurgo.p),values(r.p))
 )
-```
 
-Save this table for incorporation in a LaTeX document, with proper \LaTeX names:
 
-```{r save.stats.compare.sg}
+## ----save.stats.compare.sg---------------------------------------------------------------------------------------
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 names(stats.compare)[1] <- "DSM\\hspace{1x}product"
@@ -651,66 +383,48 @@ autoformat(x)
 capture.output(print(x, include.rownames=FALSE), 
                file=paste0("../LaTeX_tables/gSSURGO_compare_statistics_",
                            AOI.dir.prefix, "_", voi.sg, "_", depth.list.sg[depth], ".tex"))
-```
 
-## Compute common range for all differences
 
-```{r zlim.diff.sg}
+## ----zlim.diff.sg------------------------------------------------------------------------------------------------
 zlim <- c(NA, NA)
 zlim <- c(floor(min(zlim[1]*10, values(diff.gssurgo.sg)*10, na.rm=TRUE)),
           ceiling(max(zlim[2]*10, values(diff.gssurgo.sg)*10, na.rm=TRUE)))/10
 zlim <- c(floor(min(zlim[1]*10, values(diff.gssurgo.p)*10, na.rm=TRUE)),
           ceiling(max(zlim[2]*10, values(diff.gssurgo.p)*10, na.rm=TRUE)))/10
 print(zlim)
-```
 
-## Histograms
 
-First, compute the maximum density, to have a common y-axis:
-
-```{r diff.hist.densities}
+## ----diff.hist.densities-----------------------------------------------------------------------------------------
 yl <- c(0, max(max.dens(diff.gssurgo.p), max.dens(diff.gssurgo.sg)))
-```
-
-Use this y-axis to show all the histograms together:
 
 
-```{r hist.diff.sg, fig.width=map.fig.width.diff, fig.height=map.fig.height.diff}
+## ----hist.diff.sg, fig.width=map.fig.width.diff, fig.height=map.fig.height.diff----------------------------------
 par(mfrow=c(n.figs.row.diff, n.figs.col.diff))
 hist(diff.gssurgo.p, main="gSSURGO - PSP", xlab="",
      xlim=zlim,  breaks=24, freq = FALSE, ylim=yl)
 hist(diff.gssurgo.sg, main="gSSURGO - SG2", xlab="",
      xlim=zlim,  breaks=24, freq = FALSE, ylim=yl)
 par(mfrow=c(1,1))
-```
 
 
-## Maps
-
-```{r plot.diff.sg, fig.width=map.fig.width.diff, fig.height=map.fig.height.diff}
+## ----plot.diff.sg, fig.width=map.fig.width.diff, fig.height=map.fig.height.diff----------------------------------
 par(mfrow=c(n.figs.row.diff, n.figs.col.diff))
 terra::plot(diff.gssurgo.p, main="Difference gSSURGO - PSP",
             range=zlim, col=bpy.colors(64))
 terra::plot(diff.gssurgo.sg, main="Difference gSSURGO - SG2",
             range=zlim, col=bpy.colors(64))
 par(mfrow=c(1,1))
-```
 
-# Save harmonized maps {#save}
 
-Set up a directory for these, based on the AOI:
-
-```{r save.dir}
+## ----save.dir----------------------------------------------------------------------------------------------------
 dest.dir.save <-  file.path(base.dir.export,
                        AOI.dir.prefix)
 if (!dir.exists(dest.dir.save)) {
    dir.create(dest.dir.save, recursive = TRUE)
 }
-```
 
-Same AOI, CRS, resolution, units of measure:
 
-```{r save.tiles}
+## ----save.tiles--------------------------------------------------------------------------------------------------
 # gSSURGO
 voi.depth.sg <- paste0(voi.sg, "_", depth.list.sg[depth])
 dest.name <- paste0(dest.dir.save,"/gssurgo_tile_30_",  voi.depth.sg, ".tif")
@@ -736,4 +450,4 @@ f <- terra::writeRaster(r.sg.p, file=dest.name,
                         filetype="GTiff")
 # GDALinfo(dest.name)
 print(paste("Wrote ", dest.name))
-```
+

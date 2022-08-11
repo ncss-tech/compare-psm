@@ -1,120 +1,49 @@
----
-title: "Comparing Uncertainty"
-author:
-- D G Rossiter
-- d.g.rossiter@cornell.edu
-date: "`r format(Sys.Date(), '%d-%B-%Y')`"
-params:
-   lrc_long: -120
-   lrc_lat: 37
-   size: NA
-   voi.n: 3
-   quantile.n: NA
-   depth.n: 3
-output:
-  html_document:
-    fig_align: center
-    fig_height: 6
-    fig_width: 6
-    number_section: yes
-    theme: spacelab
-    df_print: paged
-    code_folding: hide
-    toc: yes
-    toc_float: yes
-  word_document:
-    toc: yes
----
+params <-
+list(lrc_long = -120L, lrc_lat = 37L, size = "NA", voi.n = 3L, 
+    quantile.n = "NA", depth.n = 3L)
 
-```{r setup, include=FALSE}
+## ----setup, include=FALSE----------------------------------------------------------------------------------------
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.align = 'center', fig.path = './figs/uncert_sg_polaris/')
 knitr::opts_chunk$set(cache.extra = R.version.string)
-```
 
-This script follows scripts to import the two DSM products which provide uncertainty estimates:
 
-* SoilGrids250; import script `../scripts_importmaps/SoilGrids250_import.Rmd`
-* POLARIS; import script `../scripts_importmaps/POLARIS_import.Rmd`
-
-And also the expert-judgement "low/high limits" of gNATSGO:
-
-* gNATSGO; import script `../scripts_importmaps/gNATSGO_WCS_import.Rmd`
-
-Use this import for an AOI, variable of interest, depth slice, and three quantiles:
-
-For SoilGrids250:
-
-* `Q0.05` - 5% quantile from the Quantile Random Forest (QRF);
-* `Q0.5`  - median; 50% quantile from the QRF;
-* `Q0.95` - 95% quantile from the QRF.
-
-These have different names in POLARIS:
-
-* `p5`,`p50`, `p95`
-
-For gNATSGO these are the low, "representative", and high values.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 quantile.list <- c("Q0.05", "Q0.5", "Q0.95")
 quantile.list.polaris <- c("p5", "p5", "p95")
 quantile.list.gnatsgo <- paste0("_", c("l", "r", "h"))
-```
 
 
-Here are the properties that are in the three databases:
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
 voi.list.polaris <- c("clay", "silt", "sand", "ph", "", "om", "bd", "") 
 voi.list.gnatsgo <- c("claytotal", "silttotal", "sandtotal",
                   "ph1to1h2o", "cec7", "om",   # note SOM not SOC
                   "dbthirdbar", "sieveno10") # passing 2.0 mm sieve, complement is coarse fragments
-```
 
-For gNATSGO these property names are followed by `_l`, `_r` or `_h` for low, representative, high.
 
-Depth slices:
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 depth.list <- paste0(c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200"),"cm")
-```
 
-# Setup
 
-Packages:
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 library(rgdal)
 library(terra)
 library(sf)
-```
-
-## Directories
-
-Set base directory for the products, specific to the local file system.
 
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 base.dir <- "/Volumes/Pythagoras/ds/"
 base.dir.sg <- paste0(base.dir, "DSM_export/SoilGrids250")  # extracted tiles
 base.dir.polaris <- paste0(base.dir, "DSM_import/POLARIS")  # unprocessed tiles
 base.dir.gnatsgo <- paste0(base.dir, "DSM_export/gNATSGO")  # extracted tiles
-```
 
-# Parameters
 
-Parameters for this run, either from the YAML or a calling script:
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat))
 print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
-```
 
-## Define the property and depth
 
-Set the property and depth names for the products:
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 voi <- voi.list.sg[params$voi.n]   # variable of interest, SoilGrids name
 voi.polaris <- voi.list.polaris[params$voi.n]
 #
@@ -127,22 +56,14 @@ voi_layer_95 <- paste(voi, depth, "Q0.95", sep="_") # layer of interest, 95%
 #
 voi.gnatsgo <- voi.list.gnatsgo[params$voi.n]
 depth.gnatsgo <- gsub( "-", "", strsplit(depth, "cm")[[1]])
-```
 
-## Define Area of Interest (AOI) {#aoi}
 
-We use a $1 \times 1^\circ$ tile, because that is how POLARIS data is served.
-
-Specify the _lower-right corner_ and _tile size_ from the YAML or rendering parameters:
-
-```{r lrc}
+## ----lrc---------------------------------------------------------------------------------------------------------
 tile.lrc <- c(params$lrc_long, params$lrc_lat) # lower-right corner
 size <- params$size                # tile dimensions
-```
 
-Compute the upper-right corner $1^\circ$ west and north:
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 tile.ulc <- c(tile.lrc[1]-1, tile.lrc[2]+1) # upper-left corner
 m <- matrix(c(tile.ulc[1],tile.lrc[1],  #ulc
               tile.ulc[2], tile.lrc[2]  #lrc
@@ -150,33 +71,20 @@ m <- matrix(c(tile.ulc[1],tile.lrc[1],  #ulc
             nrow=2)
 bb.ll <- st_sfc(st_multipoint(m))
 st_crs(bb.ll) <- 4326
-```
 
-A prefix for directories, to keep AOI results separate.
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
                          "_lon", tile.ulc[1], tile.lrc[1])
-```
 
-Change the location of figures generated by this script: put in subdirectories by area, 
 
-```{r adjust.fig.path}
+## ----adjust.fig.path---------------------------------------------------------------------------------------------
 knitr::opts_chunk$set(fig.path = paste0(knitr::opts_chunk$get("fig.path"), 
                                         AOI.dir.prefix, "/",
                                         voi, "_", depth, "_"))
-```
 
 
-# Read the imported quantile maps
-
-
-## SoilGrids250
-
-We use the tiles in EPSG:4326 CRS (geographic coordinates, WGS84 datum).
-Note that this covers a larger area than just the $1 \times 1^\circ$ tile; we will mask it with POLARIS, below.
-
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 (dest.dir.sg <-  file.path(base.dir.sg,
                           AOI.dir.prefix,
                           voi))
@@ -202,17 +110,9 @@ if (file.exists(file.sg)) {
   print("No SoilGrids250 Q0.95 tile"); stop("Missing input file")
 }
 (cbind(summary(r.sg.05), summary(r.sg.50), summary(r.sg.95)))
-```
 
 
-
-## POLARIS
-
-Get the tile (nominal 30m resolution) and aggregate to SoilGrids250 resolution (nominal 250m).
-
-
-
-```{r get.tiles.polaris}
+## ----get.tiles.polaris-------------------------------------------------------------------------------------------
 (file.name <- paste0(base.dir.polaris, "/",
                      AOI.dir.prefix, "/",
                      voi.polaris, "/p5/",
@@ -247,23 +147,16 @@ Get the tile (nominal 30m resolution) and aggregate to SoilGrids250 resolution (
   print("No POLARIS p95 tile"); stop("Missing input file")
 }
 (cbind(summary(r.p.5), summary(r.p.50), summary(r.p.95)))
-```
 
-Change resolution to match SoilGrids:
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 (aggregation.factor <- res(r.sg.50)/res(r.p.50))
 r.p.5 <- terra::aggregate(r.p.5, fact=aggregation.factor, fun="mean")
 r.p.50 <- terra::aggregate(r.p.50, fact=aggregation.factor, fun="mean")
 r.p.95 <- terra::aggregate(r.p.95, fact=aggregation.factor, fun="mean")
-```
-
-## gNATSGO
-
-Get the tile (nominal 30m resolution) and aggregate to SoilGrids250 resolution (nominal 250m).
 
 
-```{r get.tiles.gnatsgo}
+## ----get.tiles.gnatsgo-------------------------------------------------------------------------------------------
 # low
 file.name <- paste0(base.dir.gnatsgo, "/",
                      AOI.dir.prefix, "/",
@@ -302,58 +195,39 @@ if (file.exists(file.name)) {
 }
 
 (cbind(summary(r.gn.05), summary(r.gn.50), summary(r.gn.95)))
-```
 
-Change CRS and resolution to match SoilGrids.
 
-```{r}
+## ----------------------------------------------------------------------------------------------------------------
 r.gn.05 <- terra::project(r.gn.05, r.sg.50)
 r.gn.50 <- terra::project(r.gn.50, r.sg.50)
 r.gn.95 <- terra::project(r.gn.95, r.sg.50)
-```
 
 
-# Trim SG and gNATSGO to match POLARIS tile.
-
-This makes a true $1 \times 1^\circ$ tile. Easiest way to do this is to resample into the *upscaled*) POLARIS grid. This has the same CRS and resolution as SoilGrids250.
-
-```{r trim.sg}
+## ----trim.sg-----------------------------------------------------------------------------------------------------
 r.sg.05 <- terra::resample(r.sg.05, r.p.5, method="near")
 r.sg.50 <- terra::resample(r.sg.50, r.p.5, method="near")
 r.sg.95 <- terra::resample(r.sg.95, r.p.5, method="near")
-```
 
-```{r trim.gn}
+
+## ----trim.gn-----------------------------------------------------------------------------------------------------
 r.gn.05 <- terra::resample(r.gn.05, r.p.5, method="near")
 r.gn.50 <- terra::resample(r.gn.50, r.p.5, method="near")
 r.gn.95 <- terra::resample(r.gn.95, r.p.5, method="near")
-```
 
 
-# Mask POLARIS with SoilGrids NA
-
-POLARIS predicts in lakes and cities, remove these to match SoilGrids.
-
-```{r mask.polaris}
+## ----mask.polaris------------------------------------------------------------------------------------------------
 r.p.05 <- mask(r.p.5, r.sg.05)
 r.p.50 <- mask(r.p.50, r.sg.50)
 r.p.95 <- mask(r.p.95, r.sg.95)
-```
 
-Same for gNATSGO:
- 
-```{r mask.natsgo}
+
+## ----mask.natsgo-------------------------------------------------------------------------------------------------
 r.gn.05 <- mask(r.gn.05, r.sg.05)
 r.gn.50 <- mask(r.gn.50, r.sg.50)
 r.gn.95 <- mask(r.gn.95, r.sg.95)
-```
 
 
-# Make the units compatible
-
-Depending on the property, data in some coverages need to be converted to the units used in SoilGrids250; we choose this as the base; note these are integers. Here are the units:
-
-```{r show.conversions}
+## ----show.conversions--------------------------------------------------------------------------------------------
 df <- data.frame(property=voi.list.sg, 
                  #"clay"  "silt"  "sand"  "phh2o" "cec"   "soc"   "bdod"  "cfvo" 
                  sg=c("%%","%%","%%","pHx10","mmol(c)/kg","dg/kg","cg/cm3", "cm3/dm3"),  #SG
@@ -364,13 +238,9 @@ knitr::kable(
   df, caption = 'Properties and units of measure',
   col.names=c("Property", "SoilGrids250","POLARIS", "gNATSGO"),
   booktabs = TRUE)
-```  
 
-Make a matrix with the conversions to SoilGrids250 units. These factors *multiply* the source, to match SoilGrids250. `NA` values indicate that the property is not included in the source.
 
-Some conversions are given [here](https://www.isric.org/explore/soilgrids/faq-soilgrids#What_do_the_filename_codes_mean).
-
-```{r make.conversion.matrix}
+## ----make.conversion.matrix--------------------------------------------------------------------------------------
 som.to.soc <- 1/1.724138 # this was used in the lab, I know it has been heavily criticized
 conversions <- data.frame(property=voi.list.sg, 
                  # sg=c("%%","%%","%%","pHx10","mmol(c)/kg","dg/kg","cg/cm3", "cm3/dm3"), #SG
@@ -381,11 +251,9 @@ knitr::kable(
   conversions, caption = 'Conversion factors, multiply by these to match SoilGrids250',
   col.names=c("Property","POLARIS", "gNATSGO"),
   booktabs = TRUE)
-```
 
-Convert units as necessary:
 
-```{r convert}
+## ----convert-----------------------------------------------------------------------------------------------------
 factors <- conversions[match(voi, conversions$property),]
 # POLARIS
 fact <- as.numeric(factors[2])
@@ -401,25 +269,17 @@ if (!is.na(fact) && (fact != 1)) {
   r.gn.50 <- r.gn.50*fact 
   r.gn.95 <- r.gn.95*fact 
 }
-```
 
-Note that SOC for POLARIS is a special case, because of the log10-scale, and because it is SOM, not SOC. Use the conventional conversion factor 0.58 = 1/1.724138.
 
-```{r polaris.soc}
+## ----polaris.soc-------------------------------------------------------------------------------------------------
 if (voi=="soc") {
     r.p.05 <- ((10^r.p.05)*0.58*1000) 
     r.p.50 <- ((10^r.p.50)*0.58*1000) 
     r.p.95 <- ((10^r.p.95)*0.58*1000) 
 }
-```
 
-# Display Q5/Q50/Q95 maps
 
-## SoilGrids250
-
-Display the SoilGrids250 quantile maps side-by-side:
-
-```{r display.quantiles.sg, fig.width=12, fig.height=4}
+## ----display.quantiles.sg, fig.width=12, fig.height=4------------------------------------------------------------
 zlim = c(floor(min(values(r.sg.05), na.rm=TRUE)),
          ceiling(max(values(r.sg.95), na.rm=TRUE)))
 par(mfrow=c(1,3))
@@ -433,13 +293,9 @@ terra::plot(r.sg.95, col=rev(hcl.colors(64)),
      main=paste0("Q95, SG2, ",
                 voi, ", ", depth), range=zlim)
 par(mfrow=c(1,1))
-```
 
-## POLARIS
 
-Display the POLARIS quantile maps side-by-side:
-
-```{r display.quantiles.polaris, fig.width=12, fig.height=4}
+## ----display.quantiles.polaris, fig.width=12, fig.height=4-------------------------------------------------------
 zlim = c(floor(min(values(r.p.05), na.rm=TRUE)),
          ceiling(max(values(r.p.95), na.rm=TRUE)))
 par(mfrow=c(1,3))
@@ -453,13 +309,9 @@ terra::plot(r.p.95, col=rev(hcl.colors(64)),
      main=paste0("Q95, PSP, ",
                 voi, ", ", depth), range=zlim)
 par(mfrow=c(1,1))
-```
 
-## gNATSGO
 
-Display the gNATSGO limit maps side-by-side:
-
-```{r display.quantiles.gnatsgo, fig.width=12, fig.height=4}
+## ----display.quantiles.gnatsgo, fig.width=12, fig.height=4-------------------------------------------------------
 zlim = c(floor(min(values(r.gn.05), na.rm=TRUE)),
          ceiling(max(values(r.gn.95), na.rm=TRUE)))
 par(mfrow=c(1,3))
@@ -473,31 +325,21 @@ terra::plot(r.gn.95, col=rev(hcl.colors(64)),
      main=paste0("high, gNATSGO, ",
                 voi, ", ", depth), range=zlim)
 par(mfrow=c(1,1))
-```
 
-# IQR/range histograms and maps
 
-Compute the ranges:
-
-```{r iqr}
+## ----iqr---------------------------------------------------------------------------------------------------------
 r.iqr.sg <- (r.sg.95 - r.sg.05)
 r.iqr.p <- (r.p.95 - r.p.05)
 r.iqr.gn <- (r.gn.95 - r.gn.05)
-```
 
-Compare summary statistics of the ranges:
 
-```{r iqr.summary}
+## ----iqr.summary-------------------------------------------------------------------------------------------------
 df <- cbind(summary(r.iqr.sg), summary(r.iqr.p), summary(r.iqr.gn))
 colnames(df) <- c("SG2", "PSP", "gNATSGO")
 print(df)
-```
 
 
-
-Show the IQR/range histograms side-by-side:
-
-```{r iqr.hist, fig.width=12, fig.height=4}
+## ----iqr.hist, fig.width=12, fig.height=4------------------------------------------------------------------------
 zlim = c(floor(min(values(r.iqr.sg), values(r.iqr.p), values(r.iqr.gn), na.rm=TRUE)),
          ceiling(max(values(r.iqr.sg), values(r.iqr.p), values(r.iqr.gn), na.rm=TRUE)))
 par(mfrow=c(1,3))
@@ -505,12 +347,9 @@ hist(r.iqr.sg, main="SG2", xlim=zlim, xlab="IQR 5/95%")
 hist(r.iqr.p, main="PSP", xlim=zlim, xlab="IQR 5/95%")
 hist(r.iqr.gn, main="gNATSGO", xlim=zlim, xlab="range low/high estimate")
 par(mfrow=c(1,1))
-```
-
-Show the IQR/range maps side-by-side:
 
 
-```{r iqr.maps, fig.width=12, fig.height=4}
+## ----iqr.maps, fig.width=12, fig.height=4------------------------------------------------------------------------
 par(mfrow=c(1,3))
 terra::plot(r.iqr.sg, col=rev(topo.colors(64)),
      main="SG2 IQR 5/95%", range=zlim)
@@ -519,39 +358,37 @@ terra::plot(r.iqr.p, col=rev(topo.colors(64)),
 terra::plot(r.iqr.gn, col=rev(topo.colors(64)),
      main="gNATSGO range low/high", range=zlim)
 par(mfrow=c(1,1))
-```
 
-# IQR/range difference histogram and map
 
-```{r iqr.diff.hist, fig.width=6, fig.height=4}
+## ----iqr.diff.hist, fig.width=6, fig.height=4--------------------------------------------------------------------
 r.iqr.diff <- (r.iqr.sg - r.iqr.p)
 summary(r.iqr.diff)
 hist(r.iqr.diff, main="IQR difference  5/95%, SG2-PSP")
-```
 
-```{r iqr.diff.map}
+
+## ----iqr.diff.map------------------------------------------------------------------------------------------------
 terra::plot(r.iqr.diff, col=rev(bpy.colors(64)),
      main="IQR difference  5/95%, SG2-PSP")
-```
 
-```{r range.diff.hist.sg, fig.width=6, fig.height=4}
+
+## ----range.diff.hist.sg, fig.width=6, fig.height=4---------------------------------------------------------------
 r.iqr.diff <- (r.iqr.sg - r.iqr.gn)
 summary(r.iqr.diff)
 hist(r.iqr.diff, main="IQR/range  5/95% vs. low/high, SG2-gNATSGO")
-```
 
-```{r range.diff.map.sg}
+
+## ----range.diff.map.sg-------------------------------------------------------------------------------------------
 terra::plot(r.iqr.diff, col=rev(bpy.colors(64)),
      main="IQR/range  5/95% vs. low/high, SG2-gNATSGO")
-```
 
-```{r range.diff.hist.p, fig.width=6, fig.height=4}
+
+## ----range.diff.hist.p, fig.width=6, fig.height=4----------------------------------------------------------------
 r.iqr.diff <- (r.iqr.p - r.iqr.gn)
 summary(r.iqr.diff)
 hist(r.iqr.diff, main="IQR/range  5/95% vs. low/high, PSP-gNATSGO")
-```
 
-```{r range.diff.map.p}
+
+## ----range.diff.map.p--------------------------------------------------------------------------------------------
 terra::plot(r.iqr.diff, col=rev(bpy.colors(64)),
      main="IQR/range  5/95% vs. low/high, PSP-gNATSGO")
-```
+
