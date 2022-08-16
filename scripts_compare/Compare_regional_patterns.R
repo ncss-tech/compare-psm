@@ -3,11 +3,11 @@ list(lrc_long = -77L, lrc_lat = 35L, size = 1L, voi.n = 1L, quantile.n = "NA",
     depth.n = 4L, test.tile.size = 0.2, test.tile.x.offset = 0.6, 
     test.tile.y.offset = 0.2)
 
-## ----compare.which-----------------------------------------------------------------------------------------------
+## ----compare.which------------------------------------------------------------------
 products <- c("POLARIS", "SPCG100USA") #, "LandGIS", "ISSR-800", "GSM v0.5"
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 n.products <- 2 + length(products)
 n.figs.row <- ceiling(sqrt(n.products))
 n.figs.col <- ceiling(n.products/n.figs.row)
@@ -15,7 +15,7 @@ map.fig.width <- n.figs.col*5
 map.fig.height <- n.figs.row*5
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 library(raster, warn.conflicts=FALSE)      # previous version of raster classes now in `terra`
                      #   needed for landscape metrics
 library(terra, warn.conflicts=FALSE)       # Robert Hijmans raster and vector data
@@ -33,11 +33,11 @@ library(landscapetools)
 library(gstat)      # variogram modelling
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 base.dir <- "/Volumes/Pythagoras/ds/Compare_PSM/"
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 print(paste("lrc_long:", params$lrc_long, "; lrc_lat:", params$lrc_lat, "; size:", params$size))
 print(paste("voi.n:", params$voi.n, "; depth.n:", params$depth.n))
 print(paste("test.tile.size:", params$test.tile.size, 
@@ -45,43 +45,43 @@ print(paste("test.tile.size:", params$test.tile.size,
             "test.tile.y.offset:", params$test.tile.y.offset))
 
 
-## ----lrc---------------------------------------------------------------------------------------------------------
+## ----lrc----------------------------------------------------------------------------
 tile.lrc <- c(params$lrc_long, params$lrc_lat) # lower-right corner
 tile.size <- params$size                # tile dimensions
 
 
-## ----ulc---------------------------------------------------------------------------------------------------------
+## ----ulc----------------------------------------------------------------------------
 tile.ulc <- c(tile.lrc[1]-tile.size, tile.lrc[2]+tile.size) # upper-left corner
 
 
-## ----aoi.set.dir.prefix------------------------------------------------------------------------------------------
+## ----aoi.set.dir.prefix-------------------------------------------------------------
 (AOI.dir.prefix <- paste0("lat", tile.lrc[2], tile.ulc[2],
                          "_lon", tile.ulc[1], tile.lrc[1]))
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 test.tile.size <- params$test.tile.size  # degrees
 test.tile.x.offset <- params$test.tile.x.offset  # west from right edge
 test.tile.y.offset <- params$test.tile.y.offset  # north from bottom edge
 
 
-## ----voi---------------------------------------------------------------------------------------------------------
+## ----voi----------------------------------------------------------------------------
 voi.list.sg <- c("clay", "silt", "sand", "phh2o", "cec", "soc", "bdod", "cfvo")
 voi.sg <- voi.list.sg[params$voi.n]
 
 
-## ----depth-------------------------------------------------------------------------------------------------------
+## ----depth--------------------------------------------------------------------------
 depth.list.sg <- c("0-5", "5-15", "15-30", "30-60", "60-100", "100-200")
 voi.depth <- paste0(voi.sg, "_", depth.list.sg[params$depth.n])
 
 
-## ----adjust.fig.path---------------------------------------------------------------------------------------------
+## ----adjust.fig.path----------------------------------------------------------------
 knitr::opts_chunk$set(fig.path = paste0(knitr::opts_chunk$get("fig.path"), 
                                         AOI.dir.prefix, "/",
                                         voi.depth, "_"))
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 (gnatsgo <- rast(paste0(base.dir, AOI.dir.prefix, "/gnatsgo_tile_250_", voi.depth, ".tif")))
 names(gnatsgo) <- "voi"
 (sg <- rast(paste0(base.dir, AOI.dir.prefix, "/sg_tile_250_", voi.depth, ".tif")))
@@ -108,11 +108,11 @@ if ("LandGIS" %in% products) {
 }
 
 
-## ----show.crs----------------------------------------------------------------------------------------------------
+## ----show.crs-----------------------------------------------------------------------
 rgdal::showP4(crs(sg))
 
 
-## ----crop.test.area----------------------------------------------------------------------------------------------
+## ----crop.test.area-----------------------------------------------------------------
 (tmp <- as.vector(ext(sg)))
 tmp["xmax"] <- tmp["xmax"] - test.tile.x.offset
 tmp["xmin"] <- tmp["xmax"] - test.tile.size
@@ -128,7 +128,7 @@ if (exists("polaris")) { polaris.crop <- crop(polaris, ext(tmp)) }
 if (exists("landgis")) { landgis.crop <- crop(landgis, ext(tmp)) }
 
 
-## ----get.utm-----------------------------------------------------------------------------------------------------
+## ----get.utm------------------------------------------------------------------------
 long2UTM <- function(long) { (floor((long + 180)/6) %% 60) + 1 }
 utm.zone <- long2UTM(params$lrc_long+0.5)
 epsg.db <- rgdal::make_EPSG()
@@ -137,7 +137,7 @@ epsg.db[ix,]
 epsg.code <- epsg.db[ix, "code"]
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 crs.utm <- paste0("+init=epsg:", epsg.code)
 gnatsgo.crop <- terra::project(gnatsgo.crop, crs.utm)
 sg.crop <- terra::project(sg.crop, crs.utm)
@@ -148,7 +148,7 @@ if (exists("polaris")) { polaris.crop <- terra::project(polaris.crop, crs.utm) }
 if (exists("landgis")) { landgis.crop <- terra::project(landgis.crop, crs.utm) }
 
 
-## ----zlim--------------------------------------------------------------------------------------------------------
+## ----zlim---------------------------------------------------------------------------
 values.all <- c(values(gnatsgo.crop),
                 values(sg.crop))
 if (exists("psu.crop")) values.all <- c(values.all, values(psu.crop))
@@ -164,7 +164,7 @@ if (exists("landgis.crop")) values.all <- c(values.all, values(landgis.crop))
                 max(values.all, na.rm=TRUE)))
 
 
-## ----side.by.side, fig.width=map.fig.width, fig.height=map.fig.height--------------------------------------------
+## ----side.by.side, fig.width=map.fig.width, fig.height=map.fig.height---------------
 par(mfrow=c(n.figs.row, n.figs.col))
 plot(gnatsgo.crop, main="gNATSGO", range=zlim)
 plot(sg.crop, main="SG2", range=zlim)
@@ -176,7 +176,7 @@ if (exists("issr8.crop")) plot(issr8.crop, main="ISSR-800", range=zlim)
 par(mfrow=c(1,1))
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 rmse <- function(v1, v2) {
   round(sqrt(mean((v1-v2)^2, na.rm=TRUE)),3)
 }
@@ -190,7 +190,7 @@ rmse.adj <- function(v1, v2) {   # RMSE adjusted for ME (bias)
 }
 
 
-## ----compare.stats-----------------------------------------------------------------------------------------------
+## ----compare.stats------------------------------------------------------------------
 stats.compare <- data.frame(DSM_product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
 stats.compare[1, ] <- c("SG2",
                         me(values(gnatsgo.crop),values(sg.crop)),
@@ -225,7 +225,7 @@ if (exists("issr8.crop")) stats.compare[5, ] <- c("ISSR8",
 print(stats.compare)
 
 
-## ----side.by.side.unbiased---------------------------------------------------------------------------------------
+## ----side.by.side.unbiased----------------------------------------------------------
 sg.adj <- sg.crop + me(values(gnatsgo.crop),values(sg.crop))
 if (exists("gsm.crop")) gsm.adj <- gsm.crop + me(values(gnatsgo.crop),values(gsm.crop))
 if (exists("psu.crop")) psu.adj <- psu.crop + me(values(gnatsgo.crop),values(psu.crop))
@@ -234,7 +234,7 @@ if (exists("landgis.crop")) landgis.adj <- landgis.crop + me(values(gnatsgo.crop
 if (exists("issr8.crop")) issr8.adj <- issr8.crop + me(values(gnatsgo.crop),values(issr8.crop))
 
 
-## ----zlim.adj----------------------------------------------------------------------------------------------------
+## ----zlim.adj-----------------------------------------------------------------------
 values.all.adj <- c(values(gnatsgo.crop),
                 values(sg.adj))
 if (exists("psu.adj")) values.all.adj <- c(values.all.adj, values(psu.adj))
@@ -250,7 +250,7 @@ if (exists("landgis.adj")) values.all.adj <- c(values.all.adj, values(landgis.ad
                 max(values.all.adj, na.rm=TRUE)))
 
 
-## ----compare.stats.adj-------------------------------------------------------------------------------------------
+## ----compare.stats.adj--------------------------------------------------------------
 stats.compare <- data.frame(DSM_product = "", MD = 0, RMSD = 0, RMSD.Adjusted = 0)
 stats.compare[1, ] <- c("SG2",
                         me(values(gnatsgo.crop),values(sg.adj)),
@@ -285,7 +285,7 @@ if (exists("issr8.adj")) stats.compare[5, ] <- c("ISSR8",
 print(stats.compare)
 
 
-## ----make.sp-----------------------------------------------------------------------------------------------------
+## ----make.sp------------------------------------------------------------------------
 gnatsgo.sp <- as(raster(gnatsgo.crop), "SpatialPointsDataFrame")
 sg.sp <- as(raster(sg.crop), "SpatialPointsDataFrame")
 if (exists("gsm.crop")) {
@@ -300,13 +300,13 @@ if (exists("landgis.crop")) {
   landgis.sp <- as(raster(landgis.crop), "SpatialPointsDataFrame") }
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 range.init <- 1000  # m 
 cutoff.init <- range.init*5  # m
 width.init <- 250
 
 
-## ----compute.variogram, fig.height=6, fig.width=8----------------------------------------------------------------
+## ----compute.variogram, fig.height=6, fig.width=8-----------------------------------
 system.time(
   v.gnatsgo <- gstat::variogram(voi ~ 1, loc = gnatsgo.sp, 
                                 cutoff=cutoff.init, width=width.init)
@@ -350,7 +350,7 @@ if (exists("landgis.sp")) {
 }
 
 
-## ----model.variogram, fig.height=6, fig.width=8------------------------------------------------------------------
+## ----model.variogram, fig.height=6, fig.width=8-------------------------------------
 vm.gnatsgo <- vgm(0.8*max(v.gnatsgo$gamma), "Exp", range.init, 0)
 vmf.gnatsgo <- fit.variogram(v.gnatsgo, model=vm.gnatsgo)
 # plot(v.gnatsgo, pl=T, model=vmf.gnatsgo)
@@ -386,7 +386,7 @@ if (exists("r.landgis")) {
 }
 
 
-## ----table.compare.variograms------------------------------------------------------------------------------------
+## ----table.compare.variograms-------------------------------------------------------
 vmeasure.compare <- data.frame(product = "", Range = 0, StructSill = 0, PropNugget = 0)
 vmeasure.compare[1,] <- c("gNATSGO", 
                        round(vmf.gnatsgo[2,"range"], 0),
@@ -435,7 +435,7 @@ vmeasure.compare[, "Range"] <- vmeasure.compare[, "Range"]*3
 print(vmeasure.compare)
 
 
-## ----write.table.compare.variograms------------------------------------------------------------------------------
+## ----write.table.compare.variograms-------------------------------------------------
 names(vmeasure.compare) <- c("Product", "Effective range", 
                              "Structural Sill", "Proportional Nugget")
 options(xtable.floating = FALSE)
@@ -447,14 +447,14 @@ capture.output(print(x, include.rownames=FALSE), file=
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
 
 
-## ----compute.position--------------------------------------------------------------------------------------------
+## ----compute.position---------------------------------------------------------------
 rc.pos <- function(r, c) {
   if (c == 0) { r <- r + 1; c <- 1} # go to the next row if this one is full
   return(c(r, c))
 }
 
 
-## ----plot.vgms, fig.width=map.fig.width, fig.height=map.fig.height-----------------------------------------------
+## ----plot.vgms, fig.width=map.fig.width, fig.height=map.fig.height------------------
 ylims <- c(0, max(v.gnatsgo$gamma, v.sg$gamma, 
                   ifelse(exists("v.gsm"), max(v.gsm$gamma), 0),
                   ifelse(exists("v.psu"), max(v.psu$gamma), 0),
@@ -494,7 +494,7 @@ if(exists("vmf.landgis")) {
 print(NULL, split=c(c, r, n.figs.col, n.figs.row), more=F) # force the end of the figure
 
 
-## ----hist.equal.cuts, fig.width=8, fig.height=4------------------------------------------------------------------
+## ----hist.equal.cuts, fig.width=8, fig.height=4-------------------------------------
 n.class <- 8
 #
 # values.all computed above
@@ -507,7 +507,7 @@ hist(values.all, breaks=36, main="Histogram equalization")
 abline(v=cuts, col="blue", lwd=2)
 
 
-## ----classify.setup----------------------------------------------------------------------------------------------
+## ----classify.setup-----------------------------------------------------------------
 (cut.names <- cut(zlim, breaks=c(zlim[1], cuts, zlim[2]),
                   ordered_result=TRUE, include.lowest = TRUE)) 
 # make sure lowest value is included
@@ -518,7 +518,7 @@ color.ramp <- bpy.colors(n.class)
 (class.limits <- c(zlim[1], cuts, zlim[2]))
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 x <- xtable(data.frame(quantiles=c("minimum", paste0("q", 1:3), 
@@ -532,7 +532,7 @@ capture.output(print(x, include.rownames=FALSE), file=
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
 
 
-## ----classify.raster---------------------------------------------------------------------------------------------
+## ----classify.raster----------------------------------------------------------------
 gnatsgo.class <- classify(gnatsgo.crop, rcl=class.limits)
 # gnatsgo.class <- as.factor(gnatsgo.class)
 table(values(gnatsgo.class))
@@ -609,7 +609,7 @@ if (exists("landgis.crop")) {
 }
 
 
-## ----show.classified, fig.width=map.fig.width, fig.height=map.fig.height-----------------------------------------
+## ----show.classified, fig.width=map.fig.width, fig.height=map.fig.height------------
 par(mfrow=c(n.figs.row, n.figs.col))
 .l <- range(values(gnatsgo.class), na.rm=TRUE)
 terra::plot(gnatsgo.class,
@@ -652,40 +652,40 @@ if (exists("issr8.class")) {
 par(mfrow=c(1,1))
 
 
-## ----xclass.1----------------------------------------------------------------------------------------------------
+## ----xclass.1-----------------------------------------------------------------------
 table(as.vector(gnatsgo.class), as.vector(sg.class),
       useNA = "ifany")
 
 
-## ----xclass.2----------------------------------------------------------------------------------------------------
+## ----xclass.2-----------------------------------------------------------------------
 if (exists("psu.class")) { 
   table(as.vector(gnatsgo.class), as.vector(psu.class),
       useNA = "ifany")
 }
 
 
-## ----xclass.2a---------------------------------------------------------------------------------------------------
+## ----xclass.2a----------------------------------------------------------------------
 if (exists("polaris.class")) {
   table(as.vector(gnatsgo.class), as.vector(polaris.class),
       useNA = "ifany")
 }
 
 
-## ----xclass.2b---------------------------------------------------------------------------------------------------
+## ----xclass.2b----------------------------------------------------------------------
 if (exists("landgis.class")) { 
   table(as.vector(gnatsgo.class), as.vector(landgis.class),
       useNA = "ifany")
 }
 
 
-## ----xclass.3----------------------------------------------------------------------------------------------------
+## ----xclass.3-----------------------------------------------------------------------
 if (exists("psu.class")) { 
   table(as.vector(sg.class), as.vector(psu.class),
       useNA = "ifany")
 }
 
 
-## ----polygonize--------------------------------------------------------------------------------------------------
+## ----polygonize---------------------------------------------------------------------
 gnatsgo.poly <- terra::as.polygons(gnatsgo.class,
                                    values = TRUE,
                                    dissolve = TRUE)
@@ -726,7 +726,7 @@ if (exists("polaris.class")) {
 }  
 
 
-## ----convert.polygons.sf-----------------------------------------------------------------------------------------
+## ----convert.polygons.sf------------------------------------------------------------
 #
 gnatsgo.sf <- st_as_sf(gnatsgo.poly)
 gnatsgo.sf <- st_cast(gnatsgo.sf, "MULTIPOLYGON")
@@ -760,7 +760,7 @@ if (exists("landgis.class")) {
 #
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 # st_is_valid(gnatsgo.sf, reason=TRUE)
 gnatsgo.sf.v <- sf::st_make_valid(gnatsgo.sf)
 # st_is_valid(gnatsgo.sf.v, reason=TRUE)
@@ -795,7 +795,7 @@ if (exists("landgis.sf")) {
 }
 
 
-## ----make_class_maps---------------------------------------------------------------------------------------------
+## ----make_class_maps----------------------------------------------------------------
 my.pal <- brewer.pal(n.class, "PuBu")  # safe for colour-blind viewers
 l.gnatsgo <- range(gnatsgo.sf.v$class, na.rm = TRUE)
 l.sg <- range(sg.sf.v$class, na.rm = TRUE)
@@ -860,7 +860,7 @@ if (exists("landgis.sf")) {
 }
 
 
-## ----class_maps, fig.width=map.fig.width, fig.height=map.fig.height----------------------------------------------
+## ----class_maps, fig.width=map.fig.width, fig.height=map.fig.height-----------------
 tmp <- "list(g0, g1"
 if (exists("g2")) { tmp <- paste0(tmp, ", g2") }
 if (exists("g3")) { tmp <- paste0(tmp, ", g3") }
@@ -871,7 +871,7 @@ tmp <- paste0(tmp, ")")
 grid.arrange(grobs = eval(parse(text=tmp)), nrow=n.figs.row, ncol=n.figs.col)
 
 
-## ----gNATSGO8.sg-------------------------------------------------------------------------------------------------
+## ----gNATSGO8.sg--------------------------------------------------------------------
 regions.gnatsgo.sg <- vmeasure_calc(x = gnatsgo.sf.v, 
                                  y = sg.sf.v, 
                                  x_name = class, y_name = class)
@@ -881,17 +881,17 @@ names(regions.gnatsgo.sg)
 names(regions.gnatsgo.sg$map1)
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 attr(regions.gnatsgo.sg, "precision")  # NULL, means a system default
 
 
-## ----vmaps.gnatsgo.sg, fig.width=4, fig.height=6-----------------------------------------------------------------
+## ----vmaps.gnatsgo.sg, fig.width=4, fig.height=6------------------------------------
 ## produced maps -- the homogeneity of the regions.gnatsgo.sg
 terra::plot(regions.gnatsgo.sg$map1["rih"], main = "Inhomogeneity -- SG2 vs. gNATSGO")
 terra::plot(regions.gnatsgo.sg$map2["rih"], main = "Incompleteness -- SG2 vs. gNATSGO")
 
 
-## ----vmaps.gnatsgo.psu, fig.width=4, fig.height=6----------------------------------------------------------------
+## ----vmaps.gnatsgo.psu, fig.width=4, fig.height=6-----------------------------------
 if (exists("psu.sf.v")) {
   regions.gnatsgo.psu <- vmeasure_calc(x = gnatsgo.sf.v, 
                                        y = psu.sf.v, 
@@ -906,7 +906,7 @@ if (exists("psu.sf.v")) {
 }
 
 
-## ----vmaps.gnatsgo.polaris, fig.width=4, fig.height=6------------------------------------------------------------
+## ----vmaps.gnatsgo.polaris, fig.width=4, fig.height=6-------------------------------
 par(mfrow=c(1, 2))
 regions.gnatsgo.polaris <- vmeasure_calc(x = gnatsgo.sf.v, 
                                       y = polaris.sf.v, 
@@ -919,7 +919,7 @@ terra::plot(regions.gnatsgo.psu$map1["rih"], main = "Inhomogeneity -- PSP vs. gN
 terra::plot(regions.gnatsgo.psu$map2["rih"], main = "Incompleteness -- PSP vs. gNATSGO")
 
 
-## ----vmaps.psu.sg, fig.width=4, fig.height=6---------------------------------------------------------------------
+## ----vmaps.psu.sg, fig.width=4, fig.height=6----------------------------------------
 if (exists("psu.sf.v")) {
   regions.psu.sg <- vmeasure_calc(x = psu.sf.v, 
                                   y = sg.sf.v, 
@@ -934,7 +934,7 @@ if (exists("psu.sf.v")) {
 }
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 str(regions.gnatsgo.sg, max.level = 1)
 vmeasure.compare <- data.frame(DSM_products = "", 
                                V_measure = 0, 
@@ -971,10 +971,10 @@ if (exists("regions.gnatsgo.psu")) {
 print(vmeasure.compare)
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
-names(vmeasure.compare)[1] <- "DSM\\hspace{1x}products"
+names(vmeasure.compare)[1] <- "DSM\_products"
 x <- xtable(vmeasure.compare, row.names=FALSE, digits=2)
 autoformat(x)
 capture.output(print(x, include.rownames=FALSE), file=
@@ -982,7 +982,7 @@ capture.output(print(x, include.rownames=FALSE), file=
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 r.gnatsgo <- raster(gnatsgo.class)
 r.sg <- raster(sg.class)
 if (exists("gsm.class")) r.gsm <- raster(gsm.class)
@@ -992,7 +992,7 @@ if (exists("polaris.class")) r.polaris <- raster(polaris.class)
 if (exists("landgis.class")) r.landgis <- raster(landgis.class)
 
 
-## ----check.landscape---------------------------------------------------------------------------------------------
+## ----check.landscape----------------------------------------------------------------
 check_landscape(r.gnatsgo)
 check_landscape(r.sg)
 if (exists("gsm.class")) check_landscape(r.gsm)
@@ -1002,7 +1002,7 @@ if (exists("polaris.class")) check_landscape(r.polaris)
 if (exists("landgis.class")) check_landscape(r.landgis)
 
 
-## ----show.landscape.function-------------------------------------------------------------------------------------
+## ----show.landscape.function--------------------------------------------------------
 (my.pal <- c(brewer.pal(n.class, "RdYlGn"), "#FFFFFF"))
 show.landscape <- function(r.map, r.title) {
   check_landscape(r.map)
@@ -1016,7 +1016,7 @@ show.landscape <- function(r.map, r.title) {
 }
 
 
-## ----show.landscape, fig.width=7, fig.height=5-------------------------------------------------------------------
+## ----show.landscape, fig.width=7, fig.height=5--------------------------------------
 (g <- show.landscape(r.gnatsgo, "gNATSGO"))
 (g <- show.landscape(r.sg, "SoilGrids250"))
 if (exists("r.psu")) (g <- show.landscape(r.psu, "SPCG"))
@@ -1026,26 +1026,26 @@ if (exists("r.gsm")) (g <- show.landscape(r.gsm, "GSM v0.5"))
 if (exists("r.issr8")) (g <- show.landscape(r.issr8, "ISSR-800"))
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 list_lsm(level="landscape") %>% print(n=Inf)
 ls.metrics <- calculate_lsm(r.sg, level = "landscape")
 (ls.metrics) %>% print(n=16)
 data.frame(ls.metrics)
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 list_lsm(level="class")  %>% print(n=Inf)
 class.metrics <- calculate_lsm(r.sg, level = "class")
 (class.metrics)
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 list_lsm(level="patch")  %>% print(n=Inf)
 patch.metrics <- calculate_lsm(r.sg, level = "patch")
 (patch.metrics)
 
 
-## ----show.core.areas, fig.width=12, fig.height=12----------------------------------------------------------------
+## ----show.core.areas, fig.width=12, fig.height=12-----------------------------------
 show_cores(r.gnatsgo)
 # show_cores(r.sg)
 # if (exists("r.gsm")) show_cores(r.gsm)
@@ -1055,7 +1055,7 @@ show_cores(r.gnatsgo)
 # if (exists("r.landgis")) show_cores(r.landgis)
 
 
-## ----show.patch.level.metrics, fig.width=4, fig.height=5---------------------------------------------------------
+## ----show.patch.level.metrics, fig.width=4, fig.height=5----------------------------
 show_lsm(r.gnatsgo, what="lsm_p_contig")
 # show_lsm(r.sg, what="lsm_p_contig")
 # if (exists("r.gsm")) show_lsm(r.gsm, what="lsm_p_contig")
@@ -1065,7 +1065,7 @@ show_lsm(r.gnatsgo, what="lsm_p_contig")
 # if (exists("r.landgis")) show_lsm(r.landgis, what="lsm_p_contig")
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 lst <- paste0("lsm_l_", c("shdi", "shei", "lsi", "ai",  "frac_mn"))
 ls.metrics.gnatsgo <- calculate_lsm(r.gnatsgo, what=lst)
 ls.metrics.sg <- calculate_lsm(r.sg, what=lst)
@@ -1076,7 +1076,7 @@ if(exists("r.issr8")) ls.metrics.issr8 <- calculate_lsm(r.issr8, what=lst)
 if(exists("r.landgis")) ls.metrics.landgis <- calculate_lsm(r.landgis, what=lst)
 
 
-## ----------------------------------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------
 metrics.table <- data.frame(product=c("gNATSGO", "SG2"),
                             rbind(round(ls.metrics.gnatsgo$value, 3),
                                   round(ls.metrics.sg$value, 3)))
@@ -1093,7 +1093,7 @@ if (exists("ls.metrics.landgis")) { metrics.table <- rbind(metrics.table,
 names(metrics.table)[2:6] <- ls.metrics.gnatsgo$metric
 
 
-## ----metrics.table-----------------------------------------------------------------------------------------------
+## ----metrics.table------------------------------------------------------------------
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 x <- xtable(metrics.table, row.names=FALSE, digits=3)
@@ -1103,7 +1103,7 @@ capture.output(print(x, include.rownames=FALSE), file=
                            AOI.dir.prefix, "_", voi.depth, ".tex"))
 
 
-## ----metrics.cove------------------------------------------------------------------------------------------------
+## ----metrics.cove-------------------------------------------------------------------
 library(motif) # `lsp_signature`
 library(stars) # `motif` functions require this format
 # normalized co-occurence vector 8 x 8
@@ -1119,7 +1119,7 @@ if (exists("r.issr8")) cove.issr8 <- lsp_signature(st_as_stars(r.issr8), type="c
 if (exists("r.landgis")) cove.landgis <- lsp_signature(st_as_stars(r.landgis), type="cove")
 
 
-## ----distance.cove-----------------------------------------------------------------------------------------------
+## ----distance.cove------------------------------------------------------------------
 # combine the vectors into a dataframe, one row per vector
 cove.df <- data.frame(cove.gnatsgo)$signature[[1]][1,]
 cove.df <- rbind(cove.df, cove.sg$signature[[1]][1,])
@@ -1157,7 +1157,7 @@ cove.dists <- round(
 print(cove.dists)
 
 
-## ----table.cove--------------------------------------------------------------------------------------------------
+## ----table.cove---------------------------------------------------------------------
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 x <- xtable(as.matrix(cove.dists), row.names=TRUE, digits=3)

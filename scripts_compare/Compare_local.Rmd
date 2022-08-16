@@ -645,7 +645,7 @@ Save this table for incorporation in a LaTeX document, with proper \LaTeX names:
 ```{r save.stats.compare.sg}
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
-names(stats.compare)[1] <- "DSM\\hspace{1x}product"
+names(stats.compare)[1] <- "DSM\_product"
 x <- xtable(stats.compare, row.names=FALSE, digits=3)
 autoformat(x)
 capture.output(print(x, include.rownames=FALSE), 

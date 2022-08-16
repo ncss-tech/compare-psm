@@ -1324,7 +1324,7 @@ Save for paper, with proper \LaTeX names:
 ```{r}
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
-names(vmeasure.compare)[1] <- "DSM\\hspace{1x}products"
+names(vmeasure.compare)[1] <- "DSM\_products"
 x <- xtable(vmeasure.compare, row.names=FALSE, digits=2)
 autoformat(x)
 capture.output(print(x, include.rownames=FALSE), file=
