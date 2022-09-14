@@ -4,6 +4,7 @@
 
 options(stringsAsFactors = FALSE)
 
+library(raster)
 library(rasterVis)
 library(sp)
 library(sf)
@@ -24,25 +25,28 @@ us_states <- spTransform(us_states, CRS(gNATSGO.crs))
 aoi <- readOGR(dsn = 'geom', layer = 'AOI_1_aea')
 sub_aoi <- readOGR(dsn = 'geom', layer = 'AOI_0.2_aea')
 
-## TODO: put this online
-# soil color background image
-# this is a 4-band RGBA image
-soilcolor <- brick('E:/gis_data/SSURGO-color/CONUS/CONUS_025cm.tif')
+# color index map
+soilcolor <- brick('E:/gis_data/soil-color/2022/final-025cm-gNATSGO.tif')
+# LUT
+soilcolor.lut <- read.csv('E:/gis_data/soil-color/2022/unique-moist-color-LUT.csv')
+soilcolor.lut$col <- rgb(soilcolor.lut$r, soilcolor.lut$g, soilcolor.lut$b, maxColorValue = 255)
+
 
 ## base graphics for context map
 
-agg_png(file = 'figures/context-map.png', width = 1200, height = 740, res = 90, scaling = 1.5)
+agg_png(file = 'figures/context-map.png', width = 2400, height = 1500, scaling = 2)
 
-plotRGB(
+par(mar = c(0, 0, 0, 0), bg = 'black')
+
+plot(
   soilcolor,
-  # smoother figure
-  # interpolate = TRUE,
+  interpolate = TRUE,
   # increase for final version
   maxpixels = 1e6,
-  scale = 255,
-  colNA = 'black'
-  # use ext argument to modify extent
-  
+  col = soilcolor.lut$col,
+  colNA = 'black',
+  legend = FALSE,
+  axes = FALSE
 )
 
 plot(us_states, border = 'white', lwd = 1, add = TRUE)
@@ -63,13 +67,14 @@ plotZoom <- function(i, b = 50000) {
     )
   )
   
-  plotRGB(
+  plot(
     soilcolor,
-    scale = 255,
-    # use ext argument to modify extent
+    interpolate = TRUE,
+    legend = FALSE,
+    axes = FALSE,
     ext = zoom.ext,
     colNA = 'black',
-    # maxpixels = 10000
+    col = soilcolor.lut$col
   )
   
   # state boundaries
@@ -82,14 +87,12 @@ plotZoom <- function(i, b = 50000) {
   ovr.res <- over(i, sub_aoi)
   ovr.res <- na.omit(ovr.res)
   if(nrow(ovr.res) > 0) {
-    
     plot(sub_aoi[sub_aoi$id == ovr.res$id, ], border = 'green', lwd = 1, add = TRUE, lend = 1)
   }
   
   
   # label AOI
   mtext(i[['name']], side = 1, line = -2, col = 'white', font = 2, cex = 1.5)
-  
 }
 
 
@@ -97,6 +100,8 @@ for(i in aoi$id){
   f <- sprintf('figures/aoi-%s.png', i)
   
   agg_png(file = f, width = 800, height = 900, res = 90, scaling = 1.5)
+  
+  par(mar = c(0, 0, 0, 0), bg = 'black')
   
   plotZoom(aoi[which(aoi$id == i), ])
   
