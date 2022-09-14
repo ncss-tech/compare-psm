@@ -25,12 +25,15 @@ us_states <- spTransform(us_states, CRS(gNATSGO.crs))
 aoi <- readOGR(dsn = 'geom', layer = 'AOI_1_aea')
 sub_aoi <- readOGR(dsn = 'geom', layer = 'AOI_0.2_aea')
 
-# color index map
+# 2022 soil color map, 270m resolution
+# pixel values are color codes
 soilcolor <- brick('E:/gis_data/soil-color/2022/final-025cm-gNATSGO.tif')
-# LUT
+
+# color LUT
 soilcolor.lut <- read.csv('E:/gis_data/soil-color/2022/unique-moist-color-LUT.csv')
 soilcolor.lut$col <- rgb(soilcolor.lut$r, soilcolor.lut$g, soilcolor.lut$b, maxColorValue = 255)
 
+# color LUT is in the same order as cell values, seems to work with plot method for raster objects
 
 ## base graphics for context map
 
